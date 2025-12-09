@@ -1,4 +1,5 @@
 # ✈️ DevOps Flight Telemetry Analyzer
+
 > **Event-Driven Data Processing** on AWS & Kubernetes.
 
 ![AWS](https://img.shields.io/badge/AWS-SAA--C03-232F3E?style=flat&logo=amazon-aws&logoColor=white)
@@ -7,64 +8,77 @@
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat&logo=github-actions&logoColor=white)
 
 ## 📋 Project Overview
-Ce projet est une démonstration technique d'une **architecture Cloud Native orientée événements (EDA)**.
-Il simule, ingère et analyse des données de télémétrie aérienne (ADS-B) en temps réel, mettant en œuvre les meilleures pratiques **DevOps** et **SRE**.
 
-**Objectifs pédagogiques :**
-* Implémenter une chaîne de traitement **Event-Driven** (Producer ➔ Broker ➔ Consumer).
-* Provisionner une infrastructure immuable sur **AWS** via **Terraform**.
-* Orchestrer les microservices sur **Kubernetes (EKS)**.
-* Appliquer les principes **GitOps** pour le déploiement continu.
+This project is a technical showcase of a **Cloud Native Event-Driven Architecture (EDA)**.
+It simulates, ingests, and analyzes real-time flight telemetry data (ADS-B), demonstrating **DevOps** best practices, **Infrastructure as Code**, and **GitOps** workflows.
+
+**Key Technical Objectives:**
+* **Event-Driven Design:** Implement a scalable processing chain (Producer ➔ Broker ➔ Consumer).
+* **Infrastructure as Code:** Provision immutable infrastructure on **AWS** using modular **Terraform**.
+* **Container Orchestration:** Manage microservices on **Kubernetes (EKS)** (KCNA aligned).
+* **Automation:** Establish a robust CI/CD pipeline using **GitHub Actions** and **GitOps** principles.
 
 ---
 
 ## 🏗 Architecture
 
-### Stack Technique
-| Domaine | Technologies | Usage |
-| :--- | :--- | :--- |
-| **Cloud** | AWS (VPC, EKS, MSK/Kinesis) | Infrastructure managée |
-| **IaC** | Terraform | Provisioning modulaire |
-| **Orchestration** | Kubernetes | Gestion des conteneurs (Prépa KCNA) |
-| **Messaging** | Kafka / RabbitMQ | Bus d'événements (Event-Driven) |
-| **Observabilité** | Prometheus & Grafana | Monitoring & Alerting |
+### Tech Stack
 
-### Structure du Repository
-L'organisation suit une séparation stricte des préoccupations (SoC) :
+| Domain | Technology | Usage |
+| :--- | :--- | :--- |
+| **Cloud Provider** | AWS (VPC, EKS, MSK/Kinesis) | Managed Infrastructure |
+| **IaC** | Terraform | Modular Provisioning & State Management |
+| **Orchestration** | Kubernetes | Container Management & Scheduling |
+| **Messaging** | Kafka / RabbitMQ | Event Bus (Decoupled Architecture) |
+| **Observability** | Prometheus & Grafana | Monitoring, Logging & Alerting (PLG) |
+| **CI/CD** | GitHub Actions | Automation & Workflows |
+
+### Repository Structure
+
+This repository follows a strict **Separation of Concerns (SoC)** between application code, infrastructure, and platform configuration:
 
 ```text
 /
-├── 📂 .github/workflows   # Pipelines CI/CD (Automation)
-├── 📂 docs/               # Architecture Decision Records (ADR) & Schémas d'événements
+├── 📂 .github/workflows   # CI/CD Pipelines (Automation)
+├── 📂 docs/               # Architecture Decision Records (ADR) & Event Schemas
 ├── 📂 infra/              # Infrastructure as Code (Terraform)
-│   ├── modules/           # Modules réutilisables (VPC, EKS, MSK...)
-│   └── live/              # Instanciation par environnement (Dev/Prod)
-├── 📂 k8s/                # Manifests Kubernetes & Configuration GitOps
-│   ├── platform/          # Outillage (Ingress, Monitoring)
-│   └── apps/              # Définitions des workloads métiers
-└── 📂 src/                # Code des Microservices (Ingester, Processor, Dashboard)
+│   ├── modules/           # Reusable Infrastructure Modules (VPC, EKS, MSK...)
+│   └── live/              # Environment Instantiation (Dev/Prod)
+├── 📂 k8s/                # Kubernetes Manifests & GitOps Config
+│   ├── platform/          # System Components (Ingress, Monitoring, Cert-Manager)
+│   └── apps/              # Business Workloads definitions
+└── 📂 src/                # Microservices Source Code (Ingester, Processor, Dashboard)
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### Pré-requis
-* AWS CLI configuré
-* Terraform >= 1.5
-* Kubectl & Docker
+### Prerequisites
 
-### Commandes Rapides (Makefile)
+* **AWS CLI** configured with appropriate IAM permissions.
+* **Terraform** (v1.5+).
+* **Kubectl** & **Docker** installed.
+
+### Quick Start (Makefile)
+
+This project uses a `Makefile` to standardize development and deployment commands.
+
 ```bash
-# Initialiser l'infra (Plan)
+# Initialize Terraform and check the plan
 make infra-plan
 
-# Déployer les manifests K8s locaux
+# Deploy local Kubernetes manifests (Dev overlay)
 make k8s-apply-dev
+
+# Build and run microservices locally
+make run-local
 ```
 
-## 📚 Documentation & ADR
-Les décisions architecturales (choix du broker, stratégie de branching, etc.) sont documentées dans le dossier [`docs/adr`](./docs/adr).
+## 📚 Documentation & ADRs
+
+All major architectural decisions (e.g., Message Broker selection, Branching strategy) are documented in the [`docs/adr`](./docs/adr) directory following the ADR standard.
 
 ---
-*Projet réalisé dans le cadre d'une montée en compétence DevOps & Cloud Architecture.*
+
+*Project created as part of a DevOps & Cloud Architecture upskilling path.*
