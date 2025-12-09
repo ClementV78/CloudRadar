@@ -1,0 +1,27 @@
+# OS & IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+.terraform.lock.hcl
+
+# Build & Dependencies
+target/
+build/
+node_modules/
+dist/
+venv/
+__pycache__/
+*.class
+
+# Secrets (Safety First!)
+*.pem
+*.key
+creds.json
+.env
