@@ -1,4 +1,4 @@
-# ✈️ DevOps Flight Telemetry Analyzer
+# DevOps Flight Telemetry Analyzer
 
 > **Event-Driven Data Processing** on AWS & Kubernetes.
 
@@ -7,7 +7,7 @@
 ![Terraform](https://img.shields.io/badge/Terraform-IaC-7B42BC?style=flat&logo=terraform&logoColor=white)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat&logo=github-actions&logoColor=white)
 
-## 📋 Project Overview
+## Project Overview
 
 This project is a technical showcase of a **Cloud Native Event-Driven Architecture (EDA)**.
 It simulates, ingests, and analyzes real-time flight telemetry data (ADS-B), demonstrating **DevOps** best practices, **Infrastructure as Code**, and **GitOps** workflows.
@@ -20,7 +20,7 @@ It simulates, ingests, and analyzes real-time flight telemetry data (ADS-B), dem
 
 ---
 
-## 🏗 Architecture
+## Architecture
 
 ### Tech Stack
 
@@ -75,7 +75,7 @@ make k8s-apply-dev
 make run-local
 ```
 
-## 📚 Documentation & ADRs
+## Documentation & ADRs
 
 All major architectural decisions (e.g., Message Broker selection, Branching strategy) are documented in the [`docs/adr`](./docs/adr) directory following the ADR standard.
 
