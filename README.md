@@ -1,84 +1,149 @@
-# DevOps Flight Telemetry Analyzer
+# CloudRadar — Flight Telemetry Analyzer (Budget MVP)
 
-> **Event-Driven Data Processing** on AWS & Kubernetes.
+> **Event-Driven Telemetry Processing** on AWS & Kubernetes (k3s).
 
-![AWS](https://img.shields.io/badge/AWS-SAA--C03-232F3E?style=flat&logo=amazon-aws&logoColor=white)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-KCNA-326CE5?style=flat&logo=kubernetes&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-eu--west--1-232F3E?style=flat&logo=amazon-aws&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-k3s-326CE5?style=flat&logo=kubernetes&logoColor=white)
 ![Terraform](https://img.shields.io/badge/Terraform-IaC-7B42BC?style=flat&logo=terraform&logoColor=white)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat&logo=github-actions&logoColor=white)
 
-## Project Overview
+---
 
-This project is a technical showcase of a **Cloud Native Event-Driven Architecture (EDA)**.
-It simulates, ingests, and analyzes real-time flight telemetry data (ADS-B), demonstrating **DevOps** best practices, **Infrastructure as Code**, and **GitOps** workflows.
+## 📌 Project Overview
 
-**Key Technical Objectives:**
-* **Event-Driven Design:** Implement a scalable processing chain (Producer ➔ Broker ➔ Consumer).
-* **Infrastructure as Code:** Provision immutable infrastructure on **AWS** using modular **Terraform**.
-* **Container Orchestration:** Manage microservices on **Kubernetes (EKS)** (KCNA aligned).
-* **Automation:** Establish a robust CI/CD pipeline using **GitHub Actions** and **GitOps** principles.
+**CloudRadar** is a **DevOps & Cloud Architecture showcase project** designed to demonstrate how to build an **event-driven data processing platform** on AWS with a strong focus on:
+
+- cost-efficient infrastructure,
+- Kubernetes fundamentals,
+- automation and CI/CD,
+- observability and operational concerns.
+
+The project simulates the ingestion and processing of **flight telemetry data (ADS-B-like events)** and exposes aggregated data through a simple dashboard.
+
+This repository represents **Version 1 (MVP)** of the platform.
 
 ---
 
-## Architecture
+## 🎯 Technical Objectives
 
-### Tech Stack
-
-| Domain | Technology | Usage |
-| :--- | :--- | :--- |
-| **Cloud Provider** | AWS (VPC, EKS, MSK/Kinesis) | Managed Infrastructure |
-| **IaC** | Terraform | Modular Provisioning & State Management |
-| **Orchestration** | Kubernetes | Container Management & Scheduling |
-| **Messaging** | Kafka / RabbitMQ | Event Bus (Decoupled Architecture) |
-| **Observability** | Prometheus & Grafana | Monitoring, Logging & Alerting (PLG) |
-| **CI/CD** | GitHub Actions | Automation & Workflows |
-
-### Repository Structure
-
-This repository follows a strict **Separation of Concerns (SoC)** between application code, infrastructure, and platform configuration:
-
-```text
-/
-├── 📂 .github/workflows   # CI/CD Pipelines (Automation)
-├── 📂 docs/               # Architecture Decision Records (ADR) & Event Schemas
-├── 📂 infra/              # Infrastructure as Code (Terraform)
-│   ├── modules/           # Reusable Infrastructure Modules (VPC, EKS, MSK...)
-│   └── live/              # Environment Instantiation (Dev/Prod)
-├── 📂 k8s/                # Kubernetes Manifests & GitOps Config
-│   ├── platform/          # System Components (Ingress, Monitoring, Cert-Manager)
-│   └── apps/              # Business Workloads definitions
-└── 📂 src/                # Microservices Source Code (Ingester, Processor, Dashboard)
-```
+- Design a **budget-aware cloud architecture** on AWS
+- Run Kubernetes **without managed control plane (EKS)** using **k3s on EC2**
+- Implement an **event-driven processing chain** (producer → queue → consumers)
+- Automate build & delivery with **GitHub Actions**
+- Provide **observability by design** (Prometheus & Grafana)
+- Ensure **data durability** with automated backups
 
 ---
 
-## 🚀 Getting Started
+## 🏗️ High-Level Architecture (v1)
 
-### Prerequisites
+![CloudRadar Architecture](./docs/architecture/cloudradar-v1-high-level.png)
 
-* **AWS CLI** configured with appropriate IAM permissions.
-* **Terraform** (v1.5+).
-* **Kubectl** & **Docker** installed.
-
-### Quick Start (Makefile)
-
-This project uses a `Makefile` to standardize development and deployment commands.
-
-```bash
-# Initialize Terraform and check the plan
-make infra-plan
-
-# Deploy local Kubernetes manifests (Dev overlay)
-make k8s-apply-dev
-
-# Build and run microservices locally
-make run-local
-```
-
-## Documentation & ADRs
-
-All major architectural decisions (e.g., Message Broker selection, Branching strategy) are documented in the [`docs/adr`](./docs/adr) directory following the ADR standard.
+**Key characteristics:**
+- AWS Region: **eu-west-1**
+- Public Edge: **Nginx reverse proxy (EC2)**
+- Private compute: **k3s cluster (2 EC2 nodes)**
+- Event buffering: **Redis**
+- MVP storage: **SQLite (PV / EBS)**
+- Observability: **Prometheus & Grafana**
+- Backups: **Amazon S3**
 
 ---
 
-*Project created as part of a DevOps & Cloud Architecture upskilling path.*
+## ☁️ AWS Infrastructure
+
+The platform runs entirely on AWS with a minimal footprint:
+
+- **EC2 (Public)**  
+  - Nginx reverse proxy  
+  - HTTPS + Basic Authentication  
+- **EC2 (Private)**  
+  - k3s Server (control plane)  
+  - k3s Agent (worker node)  
+- **Amazon S3**  
+  - Daily backups  
+  - Restore on environment rebuild  
+
+Infrastructure is provisioned using **Terraform**, including:
+- networking,
+- EC2 instances,
+- S3 buckets,
+- IAM roles and policies.
+
+---
+
+## ☸️ Kubernetes Architecture (k3s)
+
+The k3s cluster hosts all application workloads and platform components.
+
+### Namespaces
+
+**apps**
+- `ingester` — telemetry ingestion
+- `processor` — scalable event consumers
+- `dashboard` — API + UI
+
+**data**
+- `redis` — event queue / buffer
+- `sqlite` — MVP persistent storage
+
+**observability**
+- `prometheus`
+- `grafana`
+
+---
+
+## 📊 Observability
+
+Observability is implemented using CNCF-friendly tools:
+
+- **Prometheus** scrapes application and platform metrics
+- **Grafana** provides dashboards for:
+  - ingestion rate
+  - processing latency
+  - system health
+
+No managed monitoring services are used in v1.
+
+---
+
+## 🔁 Backup & Restore Strategy
+
+- SQLite data is backed up **daily** using a Kubernetes `CronJob`
+- Backups are stored in **Amazon S3**
+- A manual backup can be triggered before destroying the environment
+- Data is restored automatically on environment rebuild
+
+---
+
+## 🔄 CI/CD — GitHub Actions
+
+The delivery pipeline is fully automated:
+
+1. A DevOps engineer pushes code or opens a pull request
+2. **GitHub Actions (hosted runners)** build Docker images
+3. Images are published to **GitHub Container Registry (GHCR)**
+4. The k3s cluster pulls images and runs updated workloads
+
+No CI/CD components run inside AWS in v1.
+
+---
+
+## 🚧 Roadmap
+
+Planned future evolutions:
+
+- Migration from SQLite to **managed database (RDS)**
+- Advanced autoscaling scenarios (HPA, event-based scaling)
+- GitOps workflows (Argo CD / Flux)
+- Improved security (OIDC, secrets rotation)
+
+---
+
+## 📄 License
+
+MIT License
+
+---
+
+*Project built as part of a DevOps & Cloud Architecture upskilling path.*
