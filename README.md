@@ -37,7 +37,7 @@ This repository represents **Version 1 (MVP)** of the platform.
 
 ## 🏗️ High-Level Architecture (v1)
 
-![CloudRadar Architecture](./docs/architecture/cloudradar-v1-high-level.png)
+![CloudRadar Architecture](./docs/diagrams/cloudradar-v1-high-level.png)
 
 **Key characteristics:**
 - AWS Region: **eu-west-1**
