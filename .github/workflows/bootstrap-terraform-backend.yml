@@ -6,14 +6,14 @@ on:
       region:
         description: "AWS region for backend resources"
         required: true
-        default: ${{ vars.AWS_REGION || 'us-east-1' }}
+        default: "us-east-1"
       state_bucket_name:
         description: "S3 bucket name for Terraform state (must be globally unique)"
         required: true
       lock_table_name:
         description: "DynamoDB table name for Terraform locks"
         required: true
-        default: ${{ vars.TF_LOCK_TABLE_NAME || 'cloudradar-tf-lock' }}
+        default: "cloudradar-tf-lock"
       role_arn:
         description: "Optional role ARN to assume (defaults to AWS_TERRAFORM_ROLE_ARN variable)"
         required: false
@@ -36,14 +36,15 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ inputs.role_arn || vars.AWS_TERRAFORM_ROLE_ARN }}
-          aws-region: ${{ inputs.region }}
+          aws-region: ${{ inputs.region || vars.AWS_REGION }}
 
       - name: Terraform init (local backend)
         run: terraform -chdir=infra/aws/bootstrap init -backend=false
 
       - name: Terraform apply (create backend)
         run: |
+          # Use workflow inputs, with repo variables as fallback when supported.
           terraform -chdir=infra/aws/bootstrap apply -auto-approve \
-            -var="region=${{ inputs.region }}" \
+            -var="region=${{ inputs.region || vars.AWS_REGION }}" \
             -var="state_bucket_name=${{ inputs.state_bucket_name }}" \
-            -var="lock_table_name=${{ inputs.lock_table_name }}"
+            -var="lock_table_name=${{ inputs.lock_table_name || vars.TF_LOCK_TABLE_NAME }}"

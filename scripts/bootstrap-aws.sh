@@ -128,6 +128,7 @@ aws iam put-role-policy \
   --policy-name "CloudRadarTerraformBootstrap" \
   --policy-document "file://${inline_policy}"
 
+# Budget API can return null/None; handle gracefully to avoid jq length() errors.
 budget_count="0"
 if budget_count_raw="$(aws budgets describe-budgets --account-id "${account_id}" --query "Budgets[?BudgetName=='${BUDGET_NAME}'] | length(@)" --output text 2>/dev/null)"; then
   if [[ "${budget_count_raw}" != "None" && -n "${budget_count_raw}" ]]; then
