@@ -25,3 +25,6 @@ __pycache__/
 *.key
 creds.json
 .env
+
+# Codex
+.codex-context.md
