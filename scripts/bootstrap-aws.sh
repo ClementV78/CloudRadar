@@ -16,8 +16,10 @@ ALERT_EMAIL="${ALERT_EMAIL:-cloudradar-alert.txss3@aleeas.com}"
 STATE_BUCKET_PREFIX="${STATE_BUCKET_PREFIX:-cloudradar-tfstate-}"
 LOCK_TABLE_NAME="${LOCK_TABLE_NAME:-cloudradar-tf-lock}"
 
+# GitHub OIDC root CA thumbprint used by IAM to trust token.actions.githubusercontent.com.
 GITHUB_OIDC_THUMBPRINT="${GITHUB_OIDC_THUMBPRINT:-6938fd4d98bab03faadb97b34396831e3780aea1}"
 
+# Resolve the current AWS account for outputs and ARNs.
 account_id="$(aws sts get-caller-identity --query Account --output text)"
 
 echo "Account ID: ${account_id}"
@@ -50,6 +52,7 @@ else
   echo "OIDC provider exists: ${oidc_provider_arn}"
 fi
 
+# Trust policy limited to this repo and OIDC audience.
 trust_policy="$(mktemp)"
 cat > "${trust_policy}" <<EOF
 {
@@ -82,6 +85,7 @@ else
   aws iam create-role --role-name "${ROLE_NAME}" --assume-role-policy-document "file://${trust_policy}"
 fi
 
+# Minimal inline policy for backend bootstrap (S3 + DynamoDB).
 inline_policy="$(mktemp)"
 cat > "${inline_policy}" <<EOF
 {

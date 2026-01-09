@@ -149,3 +149,18 @@ scripts/bootstrap-aws.sh
 Notes:
 - Steps 1–2 remain manual (account creation + root MFA).
 - Billing console access and Cost Explorer are console toggles; the script does not modify them.
+
+### What the script does (manual mapping)
+- **Step 3 (Budgets)**: creates a monthly AWS Budget and email notification if it does not exist.
+- **Step 4 (OIDC provider)**: creates the IAM OIDC provider for `token.actions.githubusercontent.com` if missing.
+- **Step 5 (CI role)**: creates or updates the IAM role trust policy for GitHub Actions OIDC.
+- **Step 6 (policy)**: attaches a minimal inline policy for S3 state and DynamoDB lock creation.
+- **Step 7 (outputs)**: prints the account ID, OIDC provider ARN, and CI role ARN.
+
+### Script inputs
+- `AWS_REGION` (default `us-east-1`)
+- `ROLE_NAME` (default `CloudRadarTerraformRole`)
+- `OIDC_PROVIDER_TAG` (default `github-actions-oidc`)
+- `BUDGET_AMOUNT` (default `10`)
+- `ALERT_EMAIL` (default `cloudradar-alert.txss3@aleeas.com`)
+- `REPO_SLUG` (default `ClementV78/CloudRadar`)

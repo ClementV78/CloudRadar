@@ -23,6 +23,9 @@ Generated: YYYY-MM-DD hh:mm
 ## Files recently touched
 - 
 
+## Recent steps completed
+- 
+
 ## Open next steps
 - 
 
