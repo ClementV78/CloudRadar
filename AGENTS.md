@@ -32,6 +32,8 @@
 - Prefer free-tier usage for AWS and keep GitHub Actions within free minutes when possible.
 - Keep issue status in the GitHub Project updated as work progresses (Backlog → In progress → Done/Cancelled).
 - Close GitHub issues once DoD is verified and evidence is recorded.
+- In GitHub, always keep artifacts fully populated and well-maintained.
+- For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project, milestone, reviewers, and links) consistently.
 
 ## Tech Stack Overview
 - **Infrastructure as Code**: Terraform (modular, AWS-focused).
