@@ -40,8 +40,8 @@ This repository represents **Version 1 (MVP)** of the platform.
 ![CloudRadar Architecture](./docs/architecture/cloudradar-v1-high-level.png)
 
 **Key characteristics:**
-- AWS Region: **eu-west-1**
-- Public Edge: **Nginx reverse proxy (EC2)**
+- AWS Region: **us-east-1**
+- Public Edge: **CloudFront + Nginx reverse proxy (EC2)**
 - Private compute: **k3s cluster (2 EC2 nodes)**
 - Event buffering: **Redis**
 - MVP storage: **SQLite (PV / EBS)**
@@ -57,6 +57,8 @@ The platform runs entirely on AWS with a minimal footprint:
 - **EC2 (Public)**  
   - Nginx reverse proxy  
   - HTTPS + Basic Authentication  
+- **CloudFront**  
+  - Global edge caching for latency optimization  
 - **EC2 (Private)**  
   - k3s Server (control plane)  
   - k3s Agent (worker node)  
@@ -129,6 +131,20 @@ No CI/CD components run inside AWS in v1.
 
 ---
 
+## 🌿 Branching & Environments
+
+- `main` is the single source of truth (not tied to a specific environment).
+- Environment promotion uses IaC variables or `infra/live/*` layouts, not long-lived branches.
+
+---
+
+## ✅ Commit Conventions
+
+- Use `type(scope): message` (same as issues).
+- Link commits to issues with `Refs #<issue>` or `Fixes #<issue>`.
+
+---
+
 ## 🚧 Roadmap
 
 Planned future evolutions:
@@ -147,3 +163,7 @@ MIT License
 ---
 
 *Project built as part of a DevOps & Cloud Architecture upskilling path.*
+
+## 📚 Decision Records
+
+Architecture decisions are documented in `docs/architecture/decisions/`.
