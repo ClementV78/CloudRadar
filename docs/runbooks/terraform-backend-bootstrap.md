@@ -21,9 +21,23 @@ using a temporary local Terraform state.
 Example bucket name:
 - `cloudradar-tfstate-<account-id>`
 
+### CLI alternative
+```bash
+gh workflow run bootstrap-terraform-backend \
+  --ref infra/33-terraform-backend-bootstrap \
+  -f region=us-east-1 \
+  -f state_bucket_name=cloudradar-tfstate-<account-id> \
+  -f lock_table_name=cloudradar-tf-lock
+```
+
 ## Outputs
 - S3 state bucket created with versioning, encryption, public access blocked.
 - DynamoDB lock table created (PAY_PER_REQUEST).
+
+## Verification
+- Confirm S3 bucket exists and has versioning/encryption enabled.
+- Confirm DynamoDB table `cloudradar-tf-lock` exists in `us-east-1`.
+- Confirm workflow run succeeded in GitHub Actions.
 
 ## Notes
 - This workflow uses a local backend and does not depend on existing remote state.
