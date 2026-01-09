@@ -42,3 +42,6 @@ gh workflow run bootstrap-terraform-backend \
 ## Notes
 - This workflow uses a local backend and does not depend on existing remote state.
 - Backend usage is configured in #6 after this completes.
+
+## Related issues
+- #33
