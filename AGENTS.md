@@ -51,7 +51,7 @@
 
 ## Branching & Environments
 - `main` is the single source of truth (not tied to a specific environment).
-- Branch per issue: `feat/1-vpc`, `fix/12-...`, `chore/ci-...`.
+- Branch per issue: `feat/1-vpc`, `fix/12-...`, `infra/32-...`.
 - Promotion between environments uses IaC variables or `infra/live/*`, not long-lived branches.
 
 ## Quality & CI
