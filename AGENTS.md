@@ -29,6 +29,7 @@
 - Never share credentials (even temporary) in chat or documentation.
 - Prefer credential export without writing files to disk.
 - For bootstrap tasks, provide both a runbook and a script, and map steps between them.
+- Prefer free-tier usage for AWS and keep GitHub Actions within free minutes when possible.
 
 ## Tech Stack Overview
 - **Infrastructure as Code**: Terraform (modular, AWS-focused).
