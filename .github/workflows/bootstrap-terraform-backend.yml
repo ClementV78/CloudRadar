@@ -35,7 +35,9 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
+          # Prefer explicit input, fallback to repo variable.
           role-to-assume: ${{ inputs.role_arn || vars.AWS_TERRAFORM_ROLE_ARN }}
+          # Inputs are required, but keep fallback in case defaults change.
           aws-region: ${{ inputs.region || vars.AWS_REGION }}
 
       - name: Terraform init (local backend)
@@ -43,7 +45,7 @@ jobs:
 
       - name: Terraform apply (create backend)
         run: |
-          # Use workflow inputs, with repo variables as fallback when supported.
+          # Use local backend on runner to avoid a chicken-and-egg dependency.
           terraform -chdir=infra/aws/bootstrap apply -auto-approve \
             -var="region=${{ inputs.region || vars.AWS_REGION }}" \
             -var="state_bucket_name=${{ inputs.state_bucket_name }}" \
