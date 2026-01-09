@@ -24,6 +24,7 @@
 - If a diagram becomes too dense, split it into multiple diagrams instead of increasing visual complexity.
 - If splitting changes into multiple commits improves clarity, do so.
 - Every new issue must be added to the GitHub Project and placed either in a sprint/iteration or explicitly in Backlog.
+- Tech-decision issues must be placed in the Project "Decisions" column.
 
 ## Tech Stack Overview
 - **Infrastructure as Code**: Terraform (modular, AWS-focused).
