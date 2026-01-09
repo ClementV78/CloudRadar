@@ -6,7 +6,7 @@ using a temporary local Terraform state.
 
 ## Prerequisites
 - AWS account bootstrap completed (OIDC provider + CI role).
-- Repo variables set:
+- Repo variables set (GitHub → Settings → Secrets and variables → Actions → Variables):
   - `AWS_TERRAFORM_ROLE_ARN`
   - `AWS_REGION` (default for workflow)
   - `TF_LOCK_TABLE_NAME` (default for workflow)
