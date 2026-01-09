@@ -1,0 +1,49 @@
+name: bootstrap-terraform-backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      region:
+        description: "AWS region for backend resources"
+        required: true
+        default: "us-east-1"
+      state_bucket_name:
+        description: "S3 bucket name for Terraform state (must be globally unique)"
+        required: true
+      lock_table_name:
+        description: "DynamoDB table name for Terraform locks"
+        required: true
+        default: "cloudradar-tf-lock"
+      role_arn:
+        description: "Optional role ARN to assume (defaults to AWS_TERRAFORM_ROLE_ARN variable)"
+        required: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ inputs.role_arn || vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ inputs.region }}
+
+      - name: Terraform init (local backend)
+        run: terraform -chdir=infra/aws/bootstrap init -backend=false
+
+      - name: Terraform apply (create backend)
+        run: |
+          terraform -chdir=infra/aws/bootstrap apply -auto-approve \
+            -var="region=${{ inputs.region }}" \
+            -var="state_bucket_name=${{ inputs.state_bucket_name }}" \
+            -var="lock_table_name=${{ inputs.lock_table_name }}"
