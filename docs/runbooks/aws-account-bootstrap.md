@@ -118,6 +118,33 @@ Store these values in a secure place and in GitHub Actions variables if needed.
 - `OIDC_PROVIDER_ARN`
 - `TERRAFORM_CI_ROLE_ARN`
 
+## IAM Artifacts (document your final values)
+- Bootstrap IAM user: `CloudRadarBootstrapUser`
+- MFA device name: `<MFA_DEVICE_NAME>` (e.g., `bitwarden_<name>`)
+- Bootstrap role: `CloudRadarBootstrapRole`
+- CI role: `CloudRadarTerraformRole`
+- OIDC provider tag/name: `github-actions-oidc`
+
+### Bootstrap role permissions (simplified)
+If you had to broaden permissions during bootstrap, keep them scoped to the
+target bucket and table (not account-wide):
+
+```json
+{
+  "Effect": "Allow",
+  "Action": "s3:*",
+  "Resource": [
+    "arn:aws:s3:::cloudradar-tfstate-<account-id>",
+    "arn:aws:s3:::cloudradar-tfstate-<account-id>/*"
+  ]
+},
+{
+  "Effect": "Allow",
+  "Action": "dynamodb:*",
+  "Resource": "arn:aws:dynamodb:us-east-1:<account-id>:table/cloudradar-tf-lock"
+}
+```
+
 ## Verification
 - Confirm OIDC provider exists in IAM.
 - Confirm CI role trust policy matches repo.
@@ -134,6 +161,9 @@ Store these values in a secure place and in GitHub Actions variables if needed.
 ## Notes
 - The Terraform backend bootstrap workflow (#33) depends on this setup.
 - Keep real emails and account identifiers out of committed files; use placeholders in the repo.
+
+## Related issues
+- #32
 
 ## Automation (AWS CLI)
 Steps 3–7 can be automated with a lightweight script:

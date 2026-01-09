@@ -34,3 +34,8 @@ Bootstrap the backend via GitHub Actions using a temporary local Terraform state
 ## Implementation Notes
 - The bootstrap workflow should be idempotent and non-destructive (no deletes).
 - Backend identifiers (bucket name, table name, region) should be stored as repo variables or documented in a backend config file.
+
+## Related issues
+- #32
+- #33
+- #6
