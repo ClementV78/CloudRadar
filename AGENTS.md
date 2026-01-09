@@ -25,6 +25,10 @@
 - If splitting changes into multiple commits improves clarity, do so.
 - Every new issue must be added to the GitHub Project and placed either in a sprint/iteration or explicitly in Backlog.
 - Tech-decision issues must be placed in the Project "Decisions" column.
+- Do not commit real emails or account identifiers; use placeholders in the repo.
+- Never share credentials (even temporary) in chat or documentation.
+- Prefer credential export without writing files to disk.
+- For bootstrap tasks, provide both a runbook and a script, and map steps between them.
 
 ## Tech Stack Overview
 - **Infrastructure as Code**: Terraform (modular, AWS-focused).

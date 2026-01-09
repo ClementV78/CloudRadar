@@ -133,6 +133,7 @@ Store these values in a secure place and in GitHub Actions variables if needed.
 
 ## Notes
 - The Terraform backend bootstrap workflow (#33) depends on this setup.
+- Keep real emails and account identifiers out of committed files; use placeholders in the repo.
 
 ## Automation (AWS CLI)
 Steps 3–7 can be automated with a lightweight script:
@@ -142,7 +143,7 @@ AWS_REGION=us-east-1 \
 ROLE_NAME=CloudRadarTerraformRole \
 OIDC_PROVIDER_TAG=github-actions-oidc \
 BUDGET_AMOUNT=10 \
-ALERT_EMAIL=cloudradar-alert.txss3@aleeas.com \
+ALERT_EMAIL=alerts@example.com \
 scripts/bootstrap-aws.sh
 ```
 
@@ -162,5 +163,23 @@ Notes:
 - `ROLE_NAME` (default `CloudRadarTerraformRole`)
 - `OIDC_PROVIDER_TAG` (default `github-actions-oidc`)
 - `BUDGET_AMOUNT` (default `10`)
-- `ALERT_EMAIL` (default `cloudradar-alert.txss3@aleeas.com`)
+- `ALERT_EMAIL` (default `alerts@example.com`)
 - `REPO_SLUG` (default `ClementV78/CloudRadar`)
+
+### Assume the bootstrap role (no temp file)
+Use MFA and export credentials directly in your shell:
+
+```bash
+read -r AK SK ST <<< "$(aws sts assume-role \
+  --profile cloudradar-bootstrap \
+  --role-arn arn:aws:iam::<ACCOUNT_ID>:role/CloudRadarBootstrapRole \
+  --role-session-name cloudradar-bootstrap \
+  --serial-number arn:aws:iam::<ACCOUNT_ID>:mfa/<MFA_DEVICE_NAME> \
+  --token-code <CODE_MFA> \
+  --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
+  --output text)"
+
+export AWS_ACCESS_KEY_ID="$AK"
+export AWS_SECRET_ACCESS_KEY="$SK"
+export AWS_SESSION_TOKEN="$ST"
+```

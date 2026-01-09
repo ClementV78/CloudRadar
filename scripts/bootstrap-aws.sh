@@ -11,7 +11,7 @@ OIDC_PROVIDER_TAG="${OIDC_PROVIDER_TAG:-github-actions-oidc}"
 REPO_SLUG="${REPO_SLUG:-ClementV78/CloudRadar}"
 BUDGET_AMOUNT="${BUDGET_AMOUNT:-10}"
 BUDGET_NAME="${BUDGET_NAME:-cloudradar-monthly-budget}"
-ALERT_EMAIL="${ALERT_EMAIL:-cloudradar-alert.txss3@aleeas.com}"
+ALERT_EMAIL="${ALERT_EMAIL:-alerts@example.com}"
 
 STATE_BUCKET_PREFIX="${STATE_BUCKET_PREFIX:-cloudradar-tfstate-}"
 LOCK_TABLE_NAME="${LOCK_TABLE_NAME:-cloudradar-tf-lock}"
@@ -128,7 +128,16 @@ aws iam put-role-policy \
   --policy-name "CloudRadarTerraformBootstrap" \
   --policy-document "file://${inline_policy}"
 
-if aws budgets describe-budgets --account-id "${account_id}" --query "Budgets[?BudgetName=='${BUDGET_NAME}'] | length(@)" --output text | grep -q '^0$'; then
+budget_count="0"
+if budget_count_raw="$(aws budgets describe-budgets --account-id "${account_id}" --query "Budgets[?BudgetName=='${BUDGET_NAME}'] | length(@)" --output text 2>/dev/null)"; then
+  if [[ "${budget_count_raw}" != "None" && -n "${budget_count_raw}" ]]; then
+    budget_count="${budget_count_raw}"
+  fi
+else
+  echo "Budget check failed; attempting to create ${BUDGET_NAME}..."
+fi
+
+if [[ "${budget_count}" == "0" ]]; then
   echo "Creating budget ${BUDGET_NAME} (${BUDGET_AMOUNT} USD)..."
   budget_file="$(mktemp)"
   cat > "${budget_file}" <<EOF
