@@ -35,6 +35,7 @@
 - Close GitHub issues once DoD is verified and evidence is recorded.
 - Ensure runbooks and ADRs link to related issues, and issues link back to those docs.
 - Do not mix multiple issue scopes in a single branch; split work into separate branches if it happens.
+- Do not continue committing on a branch whose PR is already merged/closed; create a new branch and PR for additional changes.
 - Explicitly mark “planned” vs “implemented” in README status sections.
 - Prefer testing workflows via `gh workflow run` on a branch before merging to main.
 - After bootstrap, avoid leaving broad IAM user policies attached; prefer least-privilege roles via OIDC.
