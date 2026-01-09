@@ -6,14 +6,20 @@ using a temporary local Terraform state.
 
 ## Prerequisites
 - AWS account bootstrap completed (OIDC provider + CI role).
-- Repo variable set: `AWS_TERRAFORM_ROLE_ARN`.
+- Repo variables set:
+  - `AWS_TERRAFORM_ROLE_ARN`
+  - `AWS_REGION` (default for workflow)
+  - `TF_LOCK_TABLE_NAME` (default for workflow)
 
 ## Run
 1) In GitHub Actions, run **bootstrap-terraform-backend** workflow.
 2) Provide:
    - `state_bucket_name` (globally unique)
-   - `lock_table_name` (default `cloudradar-tf-lock`)
-   - `region` (default `us-east-1`)
+   - `lock_table_name` (prefilled from `TF_LOCK_TABLE_NAME`)
+   - `region` (prefilled from `AWS_REGION`)
+
+Example bucket name:
+- `cloudradar-tfstate-<account-id>`
 
 ## Outputs
 - S3 state bucket created with versioning, encryption, public access blocked.
