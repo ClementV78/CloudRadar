@@ -41,6 +41,10 @@
 - After bootstrap, avoid leaving broad IAM user policies attached; prefer least-privilege roles via OIDC.
 - In GitHub, always keep artifacts fully populated and well-maintained.
 - For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project, milestone, reviewers, and links) consistently.
+- At the start of each ticket, summarize expected outcomes and propose a plan before making changes.
+- When a clean separation is not too complex or costly, prefer the clean option and keep scopes separated.
+- PR merges are performed by the user, not by Codex.
+- Use closing keywords to link PRs to issues: prefer `Closes #ID` for features and `Fixes #ID` for bugs so the issue appears in Development.
 
 ## Tech Stack Overview
 - **Infrastructure as Code**: Terraform (modular, AWS-focused).
