@@ -20,6 +20,8 @@ Bootstrap the backend via GitHub Actions using a temporary local Terraform state
 - S3 bucket: `cloudradar-tfstate-<unique>` (versioned, encrypted, public access blocked).
 - DynamoDB lock table: `cloudradar-tf-lock` (on-demand).
 - OIDC provider: `token.actions.githubusercontent.com` with repo-restricted trust policy.
+- CI role name: `CloudRadarTerraformRole`.
+- OIDC provider tag/name: `github-actions-oidc`.
 - Backend bootstrap runs in CI with a local state file (ephemeral) to create S3/DynamoDB.
 - Bootstrap workflow runs `terraform init` with a **local** backend in a dedicated folder (or with `-backend=false`) to avoid dependency on the remote backend.
 - After bootstrap, standard Terraform workflows use the S3/DynamoDB backend exclusively.
