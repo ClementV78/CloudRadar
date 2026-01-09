@@ -1,0 +1,8 @@
+{
+  "trustedCommands": [
+    "gh issue view",
+    "gh issue list",
+    "terraform plan",
+    "python run_adrs.py"
+  ]
+}
