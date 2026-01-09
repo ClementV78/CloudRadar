@@ -34,6 +34,30 @@ gh workflow run bootstrap-terraform-backend \
 - S3 state bucket created with versioning, encryption, public access blocked.
 - DynamoDB lock table created (PAY_PER_REQUEST).
 
+## Remote backend configuration (post-bootstrap)
+After the backend exists, configure Terraform roots to use it.
+
+CI setup (recommended):
+- Store backend identifiers as GitHub Actions variables.
+- Initialize Terraform in CI with explicit backend config, for example:
+```bash
+terraform -chdir=infra/aws/live/dev init \
+  -backend-config="bucket=$TF_STATE_BUCKET" \
+  -backend-config="region=$AWS_REGION" \
+  -backend-config="dynamodb_table=$TF_LOCK_TABLE_NAME" \
+  -backend-config="key=cloudradar/dev/terraform.tfstate"
+```
+
+Local setup (optional):
+1) Copy the example backend file:
+   - `infra/aws/live/dev/backend.hcl.example` → `infra/aws/live/dev/backend.hcl`
+   - `infra/aws/live/prod/backend.hcl.example` → `infra/aws/live/prod/backend.hcl`
+2) Fill in your real bucket name and region (keep lock table name consistent).
+3) Initialize:
+```bash
+terraform -chdir=infra/aws/live/dev init -backend-config=backend.hcl
+```
+
 ## Verification
 - Confirm S3 bucket exists and has versioning/encryption enabled.
 - Confirm DynamoDB table `cloudradar-tf-lock` exists in `us-east-1`.
@@ -45,3 +69,4 @@ gh workflow run bootstrap-terraform-backend \
 
 ## Related issues
 - #33
+- #6

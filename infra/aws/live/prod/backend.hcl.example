@@ -1,0 +1,5 @@
+bucket         = "cloudradar-tfstate-<unique-suffix>"
+key            = "cloudradar/prod/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "cloudradar-tf-lock"
+encrypt        = true
