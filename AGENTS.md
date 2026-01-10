@@ -1,10 +1,11 @@
- # CloudRadar Agent Guide
+# CloudRadar Agent Guide
 
 ## Project Intent
 - Portfolio showcase focused on DevOps and cloud architecture, not application complexity.
 - Favor speed of delivery, clean structure, and minimal infrastructure cost.
 - Frontend should be simple but deliver a "wow" effect.
 
+## Stack Snapshot
 > 🛠️ **Stack**: Terraform · AWS · k3s · Prometheus/Grafana · React/Leaflet  
 > 🎯 **Focus**: DevOps, Cloud Architecture, Observability  
 > 💸 **Cloud Cost Awareness**: ✅  
@@ -15,34 +16,41 @@
 - Code, docs, comments, and commit/issue text: English.
 
 ## Work Style
+
+### Planning & Session Flow
 - Provide a plan for non-trivial tasks.
+- At the start of each ticket, summarize expected outcomes and propose a plan before making changes.
 - Keep changes small, incremental, and easy to review.
+- If splitting changes into multiple commits improves clarity, do so.
+- When a clean separation is not too complex or costly, prefer the clean option and keep scopes separated.
 - At session start, ask whether to load context from `.codex-context.md`.
+- Keep `.codex-context.md` updated regularly.
+- Explicitly mark “planned” vs “implemented” in README status sections.
+
+### Project & GitHub Management
 - When creating a new issue, note dependencies or relationships to other issues.
 - Codex may use `gh` to read issues and the GitHub Project: https://github.com/ClementV78/CloudRadar/issues and https://github.com/users/ClementV78/projects/1/
-- Keep `.codex-context.md` updated regularly.
-- If a diagram becomes too dense, split it into multiple diagrams instead of increasing visual complexity.
-- If splitting changes into multiple commits improves clarity, do so.
 - Every new issue must be added to the GitHub Project and placed either in a sprint/iteration or explicitly in Backlog.
 - Tech-decision issues must be placed in the Project "Decisions" column.
+- Keep issue status in the GitHub Project updated as work progresses (Backlog → In progress → Done/Cancelled).
+- Close GitHub issues once DoD is verified and evidence is recorded.
+- Ensure runbooks and ADRs link to related issues, and issues link back to those docs.
+- In GitHub, always keep artifacts fully populated and well-maintained.
+- For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project, milestone, reviewers, and links) consistently.
+- Prefer testing workflows via `gh workflow run` on a branch before merging to main.
+
+### Security, FinOps, and Access
 - Do not commit real emails or account identifiers; use placeholders in the repo.
 - Never share credentials (even temporary) in chat or documentation.
 - Prefer credential export without writing files to disk.
 - For bootstrap tasks, provide both a runbook and a script, and map steps between them.
 - Prefer free-tier usage for AWS and keep GitHub Actions within free minutes when possible.
 - Apply a FinOps mindset: default to free-tier or lowest-cost options, and justify any paid services or upgrades.
-- Keep issue status in the GitHub Project updated as work progresses (Backlog → In progress → Done/Cancelled).
-- Close GitHub issues once DoD is verified and evidence is recorded.
-- Ensure runbooks and ADRs link to related issues, and issues link back to those docs.
+- After bootstrap, avoid leaving broad IAM user policies attached; prefer least-privilege roles via OIDC.
+
+### Scope & Merge Hygiene
 - Do not mix multiple issue scopes in a single branch; split work into separate branches if it happens.
 - Do not continue committing on a branch whose PR is already merged/closed; create a new branch and PR for additional changes.
-- Explicitly mark “planned” vs “implemented” in README status sections.
-- Prefer testing workflows via `gh workflow run` on a branch before merging to main.
-- After bootstrap, avoid leaving broad IAM user policies attached; prefer least-privilege roles via OIDC.
-- In GitHub, always keep artifacts fully populated and well-maintained.
-- For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project, milestone, reviewers, and links) consistently.
-- At the start of each ticket, summarize expected outcomes and propose a plan before making changes.
-- When a clean separation is not too complex or costly, prefer the clean option and keep scopes separated.
 - PR merges are performed by the user, not by Codex.
 - Use closing keywords to link PRs to issues: prefer `Closes #ID` for features and `Fixes #ID` for bugs so the issue appears in Development.
 
@@ -92,6 +100,11 @@
 - Add minimal CI checks for infra and app when applicable.
 - Prefer lint/format + basic unit tests over heavy suites.
 
+## CI/CD Expectations
+- GitHub Actions for infra and app workflows.
+- Infra: `terraform fmt`, `validate`, and `plan` on PRs.
+- App: lint/format + minimal tests on PRs.
+
 ## Documentation Requirements
 - Keep `README.md`, GitHub issues, and `docs/architecture/` aligned with decisions.
 - Update docs when architecture or infrastructure choices change.
@@ -109,11 +122,6 @@
 - Add/update ADRs when a non-trivial technical choice is made.
 - Naming: `ADR-0001-YYYY-MM-DD-short-title.md` (incremental, zero-padded).
 - For each issue completed, check if new ADRs are needed and add them.
-
-## CI/CD Expectations
-- GitHub Actions for infra and app workflows.
-- Infra: `terraform fmt`, `validate`, and `plan` on PRs.
-- App: lint/format + minimal tests on PRs.
 
 ## Secrets Management
 - No plaintext secrets or credentials in code or state.
@@ -155,6 +163,7 @@ When generating or updating diagrams (Mermaid or equivalent):
 - Diagrams must be understandable directly in GitHub
 - Avoid visual clutter and overly dense diagrams
 - Prefer simple, explicit structures
+- If a diagram becomes too dense, split it into multiple diagrams instead of increasing visual complexity.
 
 ### Layout rules
 - Choose the diagram type that best matches the intent
