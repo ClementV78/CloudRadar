@@ -56,7 +56,7 @@
 
 ## Conventions
 - Issue/commit format: `type(scope): message`
-  - Types: `feat`, `fix`, `chore`, `docs`, `ci`, `refactor`, `test`
+  - Types: `feat`, `fix`, `docs`, `ci`, `refactor`, `test`
 - Keep scope short and meaningful (e.g., `infra`, `k8s`, `obs`, `edge`, `app`).
 - Use GitHub Project sprints for agile tracking (solo workflow).
 - Each issue should include a short DoD section.
