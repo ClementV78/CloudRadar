@@ -4,6 +4,7 @@
 - Portfolio showcase focused on DevOps and cloud architecture, not application complexity.
 - Favor speed of delivery, clean structure, and minimal infrastructure cost.
 - Frontend should be simple but deliver a "wow" effect.
+- This project supports a DevOps career transition and is used as an interview showcase; prioritize learning outcomes.
 
 ## 2. Stack Snapshot
 > 🛠️ **Stack**: Terraform · AWS · k3s · Prometheus/Grafana · React/Leaflet  
@@ -28,10 +29,15 @@
 - At session start, ask whether to load context from `.codex-context.md`.
 - Keep `.codex-context.md` updated regularly.
 - Explicitly mark “planned” vs “implemented” in README status sections.
+
+### 4.3 Command Transparency & Learning
+- Always show executed commands.
+- Explain commands that are new or complex.
+- When appropriate, offer to let the user run commands themselves.
 - Ensure runbooks and ADRs link to related issues, and issues link back to those docs.
 - If there is a conflict between speed of delivery and perfect structure, prefer a reasonable, explicit trade-off and document it briefly.
 
-### 4.3 Project & GitHub Management
+### 4.4 Project & GitHub Management
 - When creating a new issue, note dependencies or relationships to other issues.
 - Codex may use `gh` to read issues and the GitHub Project: https://github.com/ClementV78/CloudRadar/issues and https://github.com/users/ClementV78/projects/1/
 - Every new issue must be added to the GitHub Project and placed either in a sprint/iteration or explicitly in Backlog.
@@ -42,18 +48,18 @@
 - For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project, milestone, reviewers, and links) consistently.
 - Prefer testing workflows via `gh workflow run` on a branch before merging to main.
 
-### 4.4 Security & Access
+### 4.5 Security & Access
 - Do not commit real emails or account identifiers; use placeholders in the repo.
 - Never share credentials (even temporary) in chat or documentation.
 - Prefer credential export without writing files to disk.
 - For bootstrap tasks, provide both a runbook and a script, and map steps between them.
 - After bootstrap, avoid leaving broad IAM user policies attached; prefer least-privilege roles via OIDC.
 
-### 4.5 FinOps & Cost Awareness
+### 4.6 FinOps & Cost Awareness
 - Prefer free-tier usage for AWS and keep GitHub Actions within free minutes when possible.
 - Apply a FinOps mindset: default to free-tier or lowest-cost options, and justify any paid services or upgrades.
 
-### 4.6 Scope & Merge Hygiene
+### 4.7 Scope & Merge Hygiene
 - Do not mix multiple issue scopes in a single branch; split work into separate branches if it happens.
 - Do not continue committing on a branch whose PR is already merged/closed; create a new branch and PR for additional changes.
 - PR merges are performed by the user, not by Codex.
