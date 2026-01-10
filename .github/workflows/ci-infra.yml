@@ -1,0 +1,120 @@
+name: ci-infra
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/ci-infra.yml"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+  TF_LOCK_TABLE_NAME: ${{ vars.TF_LOCK_TABLE_NAME }}
+  TF_ROLE_ARN: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive infra/aws
+
+  validate-plan:
+    runs-on: ubuntu-latest
+    needs: fmt
+    strategy:
+      matrix:
+        include:
+          - name: bootstrap
+            dir: infra/aws/bootstrap
+            backend: false
+          - name: live-dev
+            dir: infra/aws/live/dev
+            backend: true
+            key: cloudradar/dev/terraform.tfstate
+          - name: live-prod
+            dir: infra/aws/live/prod
+            backend: true
+            key: cloudradar/prod/terraform.tfstate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init (local backend)
+        if: ${{ matrix.backend == false }}
+        run: terraform -chdir=${{ matrix.dir }} init -backend=false
+
+      - name: Terraform init (remote backend)
+        if: ${{ matrix.backend == true }}
+        run: |
+          terraform -chdir=${{ matrix.dir }} init \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=${TF_LOCK_TABLE_NAME}" \
+            -backend-config="key=${{ matrix.key }}"
+
+      - name: Terraform validate
+        run: terraform -chdir=${{ matrix.dir }} validate
+
+      - name: Terraform plan
+        if: ${{ matrix.name == 'bootstrap' }}
+        run: |
+          terraform -chdir=${{ matrix.dir }} plan -input=false -no-color \
+            -var="region=${AWS_REGION}" \
+            -var="state_bucket_name=${TF_STATE_BUCKET}" \
+            -var="lock_table_name=${TF_LOCK_TABLE_NAME}"
+
+      - name: Terraform plan
+        if: ${{ matrix.name != 'bootstrap' }}
+        run: terraform -chdir=${{ matrix.dir }} plan -input=false -no-color
+
+  validate-modules:
+    runs-on: ubuntu-latest
+    needs: fmt
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform validate modules
+        run: |
+          shopt -s nullglob
+          for module in infra/aws/modules/*; do
+            if ls "${module}"/*.tf >/dev/null 2>&1; then
+              terraform -chdir="${module}" init -backend=false
+              terraform -chdir="${module}" validate
+            fi
+          done
+
+  tfsec:
+    runs-on: ubuntu-latest
+    needs: fmt
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: tfsec scan
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: infra/aws
