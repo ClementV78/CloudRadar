@@ -86,6 +86,7 @@ aws_cmd=(
   --output text
 )
 
+# Capture output to preserve errors while avoiding partial exports.
 if ! creds="$("${aws_cmd[@]}")"; then
   echo ""
   echo "Debug command (replace <MFA_CODE>):"
@@ -93,6 +94,7 @@ if ! creds="$("${aws_cmd[@]}")"; then
   return 1
 fi
 
+# Expected output is: AccessKeyId SecretAccessKey SessionToken Expiration.
 read -r AK SK ST EXPIRATION <<< "${creds}"
 
 export AWS_ACCESS_KEY_ID="${AK}"
