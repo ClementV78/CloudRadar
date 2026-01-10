@@ -43,6 +43,8 @@
 - Every new issue must be added to the GitHub Project and placed either in a sprint/iteration or explicitly in Backlog.
 - Tech-decision issues must be placed in the Project "Decisions" column.
 - Keep issue status in the GitHub Project updated as work progresses (Backlog → In progress → Done/Cancelled).
+- Use the Project "Ready" column as the queue of next tickets: move one ticket to Ready, start it, move it to In progress, then refresh Ready.
+- Always keep the Project backlog board up to date.
 - Close GitHub issues once DoD is verified and evidence is recorded.
 - In GitHub, always keep artifacts fully populated and well-maintained.
 - For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project, milestone, reviewers, and links) consistently.
