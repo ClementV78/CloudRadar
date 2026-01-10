@@ -118,14 +118,16 @@ No managed monitoring services are used in v1.
 
 ---
 
-## 🔄 CI/CD — GitHub Actions (Planned)
+## 🔄 CI/CD — GitHub Actions
 
-The delivery pipeline is planned (app CI/CD is not live yet):
+Infra CI is live; app CI/CD is planned.
 
 1. A DevOps engineer pushes code or opens a pull request
-2. **GitHub Actions (hosted runners)** build Docker images
-3. Images are published to **GitHub Container Registry (GHCR)** (planned)
-4. The k3s cluster pulls images and runs updated workloads
+2. **GitHub Actions (hosted runners)** validate infra (fmt/validate/plan + tfsec)
+3. Infra changes are applied manually via workflow dispatch (controlled apply)
+4. Application pipeline builds Docker images (planned)
+5. Images are published to **GitHub Container Registry (GHCR)** (planned)
+6. The k3s cluster pulls images and runs updated workloads (planned)
 
 No CI/CD components run inside AWS in v1.
 
@@ -143,8 +145,10 @@ No CI/CD components run inside AWS in v1.
 
 **Automation**
 1. Backend bootstrap workflow in GitHub Actions (local state, idempotent)
-2. Runbooks available for bootstrap and verification
-3. Application CI/CD pipeline (build + GHCR publish) (planned)
+2. Infra CI workflow (fmt/validate/plan + tfsec) on PRs
+3. Manual infra apply workflow (workflow_dispatch)
+4. Runbooks available for bootstrap and verification
+5. Application CI/CD pipeline (build + GHCR publish) (planned)
 
 **References**
 - Runbook: `docs/runbooks/aws-account-bootstrap.md`
