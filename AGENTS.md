@@ -74,6 +74,19 @@
 - Branch per issue: `feat/1-vpc`, `fix/12-...`, `infra/32-...`.
 - Promotion between environments uses IaC variables or `infra/live/*`, not long-lived branches.
 
+## 6. Git & Contribution Workflow
+
+**Core Rule:** ⛔ **No direct push to `main`.** All changes require a Pull Request.
+
+* **🔗 Contextual Changes (`feat/...`):**
+    If an update is linked to a specific feature, modify `AGENTS.md` directly within that feature branch.
+* **🛠️ Isolated Updates (`docs/...`):**
+    Use a dedicated branch for general agent maintenance or global rule updates.
+* **🚀 Auto-Merge Policy:**
+    **Strictly reserved for `AGENTS.md` standalone updates.** Apply **Auto-Merge** right after AGENTS.md update to keep `main` synchronized.
+* **🧹 Branch Cleanup:**
+    When a PR only updates `AGENTS.md`, delete the head branch after merge.
+
 ## Quality & CI
 - Keep tests lightweight but present.
 - Add minimal CI checks for infra and app when applicable.
