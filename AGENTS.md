@@ -1,60 +1,65 @@
 # CloudRadar Agent Guide
 
-## Project Intent
+## 1. Project Intent
 - Portfolio showcase focused on DevOps and cloud architecture, not application complexity.
 - Favor speed of delivery, clean structure, and minimal infrastructure cost.
 - Frontend should be simple but deliver a "wow" effect.
 
-## Stack Snapshot
+## 2. Stack Snapshot
 > 🛠️ **Stack**: Terraform · AWS · k3s · Prometheus/Grafana · React/Leaflet  
 > 🎯 **Focus**: DevOps, Cloud Architecture, Observability  
 > 💸 **Cloud Cost Awareness**: ✅  
 > 📈 **CI/CD & GitHub Actions**: ✅
 
-## Language Policy
+## 3. Language Policy
 - Responses: French.
 - Code, docs, comments, and commit/issue text: English.
 
-## Work Style
+## 4. Work Style
 
-### Planning & Session Flow
+### 4.1 Planning & Scope
 - Provide a plan for non-trivial tasks.
 - At the start of each ticket, summarize expected outcomes and propose a plan before making changes.
 - Keep changes small, incremental, and easy to review.
 - If splitting changes into multiple commits improves clarity, do so.
 - When a clean separation is not too complex or costly, prefer the clean option and keep scopes separated.
+
+### 4.2 Context & Documentation Hygiene
 - At session start, ask whether to load context from `.codex-context.md`.
 - Keep `.codex-context.md` updated regularly.
 - Explicitly mark “planned” vs “implemented” in README status sections.
+- Ensure runbooks and ADRs link to related issues, and issues link back to those docs.
+- If there is a conflict between speed of delivery and perfect structure, prefer a reasonable, explicit trade-off and document it briefly.
 
-### Project & GitHub Management
+### 4.3 Project & GitHub Management
 - When creating a new issue, note dependencies or relationships to other issues.
 - Codex may use `gh` to read issues and the GitHub Project: https://github.com/ClementV78/CloudRadar/issues and https://github.com/users/ClementV78/projects/1/
 - Every new issue must be added to the GitHub Project and placed either in a sprint/iteration or explicitly in Backlog.
 - Tech-decision issues must be placed in the Project "Decisions" column.
 - Keep issue status in the GitHub Project updated as work progresses (Backlog → In progress → Done/Cancelled).
 - Close GitHub issues once DoD is verified and evidence is recorded.
-- Ensure runbooks and ADRs link to related issues, and issues link back to those docs.
 - In GitHub, always keep artifacts fully populated and well-maintained.
 - For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project, milestone, reviewers, and links) consistently.
 - Prefer testing workflows via `gh workflow run` on a branch before merging to main.
 
-### Security, FinOps, and Access
+### 4.4 Security & Access
 - Do not commit real emails or account identifiers; use placeholders in the repo.
 - Never share credentials (even temporary) in chat or documentation.
 - Prefer credential export without writing files to disk.
 - For bootstrap tasks, provide both a runbook and a script, and map steps between them.
-- Prefer free-tier usage for AWS and keep GitHub Actions within free minutes when possible.
-- Apply a FinOps mindset: default to free-tier or lowest-cost options, and justify any paid services or upgrades.
 - After bootstrap, avoid leaving broad IAM user policies attached; prefer least-privilege roles via OIDC.
 
-### Scope & Merge Hygiene
+### 4.5 FinOps & Cost Awareness
+- Prefer free-tier usage for AWS and keep GitHub Actions within free minutes when possible.
+- Apply a FinOps mindset: default to free-tier or lowest-cost options, and justify any paid services or upgrades.
+
+### 4.6 Scope & Merge Hygiene
 - Do not mix multiple issue scopes in a single branch; split work into separate branches if it happens.
 - Do not continue committing on a branch whose PR is already merged/closed; create a new branch and PR for additional changes.
 - PR merges are performed by the user, not by Codex.
 - Use closing keywords to link PRs to issues: prefer `Closes #ID` for features and `Fixes #ID` for bugs so the issue appears in Development.
 
-## Tech Stack Overview
+## 5. Tech Stack Overview
 - **Infrastructure as Code**: Terraform (modular, AWS-focused).
 - **Orchestration**: k3s (lightweight Kubernetes) on EC2.
 - **Cloud Provider**: AWS (cost-aware, IAM-first).
@@ -62,7 +67,7 @@
 - **Backend**: Python (for ingestion/processing services, only if needed).
 - **Frontend**: React + Vite + Leaflet (map-based telemetry dashboard).
 
-## Conventions
+## 6. Conventions
 - Issue/commit format: `type(scope): message`
   - Types: `feat`, `fix`, `docs`, `ci`, `refactor`, `test`
 - Keep scope short and meaningful (e.g., `infra`, `k8s`, `obs`, `edge`, `app`).
@@ -72,17 +77,17 @@
 - Sprint Goals live as draft items inside the GitHub Project.
 - Use DoR only for issues with external or cross-issue dependencies.
 
-## Commit Conventions
+## 7. Commit Conventions
 - Use the same `type(scope): message` format as issues.
 - Link commits to issues in the body with `Refs #<issue>` or `Fixes #<issue>`.
 - Prefer one commit per logical change.
 
-## Branching & Environments
+## 8. Branching & Environments
 - `main` is the single source of truth (not tied to a specific environment).
 - Branch per issue: `feat/1-vpc`, `fix/12-...`, `infra/32-...`.
 - Promotion between environments uses IaC variables or `infra/live/*`, not long-lived branches.
 
-## 6. Git & Contribution Workflow
+## 9. Git & Contribution Workflow
 
 **Core Rule:** ⛔ **No direct push to `main`.** All changes require a Pull Request.
 
@@ -95,96 +100,96 @@
 * **🧹 Branch Cleanup:**
     When a PR only updates `AGENTS.md`, delete the head branch after merge.
 
-## Quality & CI
+## 10. Quality & CI
 - Keep tests lightweight but present.
 - Add minimal CI checks for infra and app when applicable.
 - Prefer lint/format + basic unit tests over heavy suites.
 
-## CI/CD Expectations
+## 11. CI/CD Expectations
 - GitHub Actions for infra and app workflows.
 - Infra: `terraform fmt`, `validate`, and `plan` on PRs.
 - App: lint/format + minimal tests on PRs.
 
-## Documentation Requirements
+## 12. Documentation Requirements
 - Keep `README.md`, GitHub issues, and `docs/architecture/` aligned with decisions.
 - Update docs when architecture or infrastructure choices change.
 - Update `AGENTS.md` when new global rules or preferences are agreed.
 - When asked to export context, follow `docs/context-template.md` exactly and write to `.codex-context.md`.
 
-## Directory Structure
+## 13. Directory Structure
 - `infra/` Terraform IaC and modules.
 - `k8s/` Kubernetes manifests.
 - `src/` Application services (ingester/processor/dashboard).
 - `docs/` Architecture, ADRs, and runbooks.
 
-## Decision Records
+## 14. Decision Records
 - Store ADRs in `docs/architecture/decisions/`.
 - Add/update ADRs when a non-trivial technical choice is made.
 - Naming: `ADR-0001-YYYY-MM-DD-short-title.md` (incremental, zero-padded).
 - For each issue completed, check if new ADRs are needed and add them.
 
-## Secrets Management
+## 15. Secrets Management
 - No plaintext secrets or credentials in code or state.
 - Use AWS SSM Parameter Store or Secrets Manager for runtime secrets.
 - Use Terraform `sensitive` outputs and backend encryption.
 - Configure `.gitignore` and `.gitattributes` to avoid secrets leakage.
 
-## DevOps/Cloud Value Demonstrated
+## 16. DevOps/Cloud Value Demonstrated
 - IaC-first deployment (Terraform + GitHub Actions).
 - k3s on EC2 for lightweight Kubernetes orchestration.
 - Observability (Prometheus + Grafana) configured end-to-end.
 - Cost-aware choices for infra design.
 - Deployment pipeline with infra/app separation.
 
-## Security & Ops
+## 17. Security & Ops
 - No plaintext secrets; use least-privilege IAM.
 - Prefer secure defaults for networking, storage, and access.
 - Cost-awareness is a first-class requirement; justify any higher-cost choices.
 
-## UX Direction
+## 18. UX Direction
 - Frontend is minimal but should feel polished.
 - Prioritize clarity and visual impact over feature depth.
 
-## Out of Scope
+## 19. Out of Scope
 - No complex backend business logic; only MVP-level ingestion or alerts if needed.
 - No user authentication or role management unless required to demonstrate IAM setup.
 - No advanced frontend state management (e.g., Redux, Zustand).
 
-## Environment Setup (optional)
+## 20. Environment Setup (optional)
 - Provide a quick start for local dev when applicable.
 - Keep steps minimal and aligned with the current MVP scope.
 
-## Diagram generation (general rules)
+## 21. Diagram generation (general rules)
 
 When generating or updating diagrams (Mermaid or equivalent):
 
-### General principles
+### 21.1 General principles
 - Prioritize clarity and readability over completeness
 - Diagrams must be understandable directly in GitHub
 - Avoid visual clutter and overly dense diagrams
 - Prefer simple, explicit structures
 - If a diagram becomes too dense, split it into multiple diagrams instead of increasing visual complexity.
 
-### Layout rules
+### 21.2 Layout rules
 - Choose the diagram type that best matches the intent
   (flowchart for flows/dependencies, sequence for interactions, etc.)
 - Use a consistent direction (LR or TB) within a diagram
 - Group related elements logically (layers, domains, phases)
 - Keep groups visually compact
 
-### Styling rules
+### 21.3 Styling rules
 - Use minimal and sober styling
 - Prefer flat colors and thin borders
 - Use styles to convey meaning, not decoration
 - Avoid relying on advanced Mermaid features not supported by GitHub
 
-### Structural discipline
+### 21.4 Structural discipline
 - Do not invent entities or relationships without strong justification
 - Preserve existing semantics when refactoring a diagram
 - Reduce crossing edges whenever possible
 - If a diagram becomes too complex, split it into multiple diagrams
 
-### Maintenance rules
+### 21.5 Maintenance rules
 - When updating an existing diagram:
   - Modify only what is necessary
   - Preserve surrounding documentation
