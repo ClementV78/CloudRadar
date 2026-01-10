@@ -24,7 +24,7 @@ Example bucket name:
 ### CLI alternative
 ```bash
 gh workflow run bootstrap-terraform-backend \
-  --ref infra/33-terraform-backend-bootstrap \
+  --ref main \
   -f region=us-east-1 \
   -f state_bucket_name=cloudradar-tfstate-<account-id> \
   -f lock_table_name=cloudradar-tf-lock
