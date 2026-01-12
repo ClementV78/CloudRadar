@@ -28,7 +28,7 @@ This repository represents **Version 1 (MVP)** of the platform.
 
 Start here if you are setting up the project from scratch.
 
-1. Follow the runbook order in `docs/runbooks/README.md`.
+1. Follow the runbook order in [docs/runbooks/README.md](docs/runbooks/README.md).
 2. Complete each runbook step-by-step (bootstrap → backend → live env).
 
 ---
@@ -163,12 +163,12 @@ No CI/CD components run inside AWS in v1.
 5. Application CI/CD pipeline (build + GHCR publish) (planned)
 
 **References**
-- Runbook: `docs/runbooks/aws-account-bootstrap.md`
-- Runbook: `docs/runbooks/terraform-backend-bootstrap.md`
-- Runbooks index: `docs/runbooks/README.md`
-- Infra doc: `docs/architecture/infrastructure.md`
-- Diagram: `docs/architecture/cloudradar-v1-high-level.png`
-- Decision Records: `docs/architecture/decisions/`
+- Runbook: [docs/runbooks/aws-account-bootstrap.md](docs/runbooks/aws-account-bootstrap.md)
+- Runbook: [docs/runbooks/terraform-backend-bootstrap.md](docs/runbooks/terraform-backend-bootstrap.md)
+- Runbooks index: [docs/runbooks/README.md](docs/runbooks/README.md)
+- Infra doc: [docs/architecture/infrastructure.md](docs/architecture/infrastructure.md)
+- Diagram: [docs/architecture/cloudradar-v1-high-level.png](docs/architecture/cloudradar-v1-high-level.png)
+- Decision Records: [docs/architecture/decisions/](docs/architecture/decisions/)
 
 ---
 
@@ -204,7 +204,3 @@ MIT License
 ---
 
 *Project built as part of a DevOps & Cloud Architecture upskilling path.*
-
-## 📚 Decision Records
-
-Architecture decisions are documented in `docs/architecture/decisions/`.
