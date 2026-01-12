@@ -100,7 +100,7 @@ jobs:
 
       - name: Terraform plan
         if: ${{ matrix.name != 'bootstrap' }}
-        run: terraform -chdir=${{ matrix.dir }} plan -input=false -no-color
+        run: terraform -chdir=${{ matrix.dir }} plan -input=false -no-color -var-file=terraform.tfvars.example
 
   validate-modules:
     if: ${{ github.event_name == 'pull_request' }}
