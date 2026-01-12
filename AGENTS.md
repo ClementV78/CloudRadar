@@ -108,6 +108,9 @@
     If an update is linked to a specific feature, modify `AGENTS.md` directly within that feature branch.
 * **🛠️ Isolated Updates (`docs/...`):**
     Use a dedicated branch for general agent maintenance or global rule updates.
+* **🧭 Meta Issue for AGENTS.md:**
+    Track AGENTS-only changes in the meta issue https://github.com/ClementV78/CloudRadar/issues/55 (no separate issues).
+    Each AGENTS.md PR must reference the meta issue and add a short changelog entry to it.
 * **🚀 Auto-Merge Policy:**
     **Strictly reserved for `AGENTS.md` standalone updates.** Apply **Auto-Merge** right after AGENTS.md update to keep `main` synchronized.
 * **🧹 Branch Cleanup:**
