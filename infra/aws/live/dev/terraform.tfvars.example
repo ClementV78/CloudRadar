@@ -1,0 +1,10 @@
+region               = "us-east-1"
+project              = "cloudradar"
+environment          = "dev"
+vpc_cidr_block       = "10.0.0.0/16"
+azs                  = ["us-east-1a"]
+public_subnet_cidrs  = ["10.0.1.0/24"]
+private_subnet_cidrs = ["10.0.101.0/24"]
+
+# Optional: only needed when a NAT instance is created.
+# private_route_nat_instance_id = "i-0123456789abcdef0"
