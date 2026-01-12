@@ -35,6 +35,7 @@ The `apply` job runs only when triggered manually:
 - Select `environment` (`dev` or `prod`).
 - Set `auto_approve=true` to allow apply.
 - Uses the same S3/DynamoDB backend and the OIDC role.
+- Uses `terraform.tfvars.example` for required inputs (replace with real values when needed).
 
 ## Manual destroy (workflow_dispatch)
 

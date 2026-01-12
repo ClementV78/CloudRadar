@@ -135,6 +135,7 @@ jobs:
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: infra/aws
+          github_token: ${{ github.token }}
           additional_args: >-
             --exclude aws-s3-encryption-customer-key,aws-dynamodb-enable-at-rest-encryption,aws-dynamodb-enable-recovery,aws-s3-enable-bucket-logging,aws-dynamodb-table-customer-key
 
@@ -183,10 +184,10 @@ jobs:
             -backend-config="key=${TF_KEY}"
 
       - name: Terraform validate
-        run: terraform -chdir="${TF_DIR}" validate
+        run: terraform -chdir="${TF_DIR}" validate -var-file=terraform.tfvars.example
 
       - name: Terraform plan
-        run: terraform -chdir="${TF_DIR}" plan -input=false -no-color
+        run: terraform -chdir="${TF_DIR}" plan -input=false -no-color -var-file=terraform.tfvars.example
 
       - name: Terraform apply
-        run: terraform -chdir="${TF_DIR}" apply -input=false -auto-approve
+        run: terraform -chdir="${TF_DIR}" apply -input=false -auto-approve -var-file=terraform.tfvars.example
