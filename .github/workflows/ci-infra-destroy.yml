@@ -1,0 +1,80 @@
+name: ci-infra-destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment to destroy (dev or prod)"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      confirm_destroy:
+        description: "Type DESTROY to confirm"
+        required: true
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  # Repo variables provide the shared backend and role configuration.
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+  TF_LOCK_TABLE_NAME: ${{ vars.TF_LOCK_TABLE_NAME }}
+  TF_ROLE_ARN: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+
+jobs:
+  destroy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Select environment
+        run: |
+          # Set the Terraform root and state key for the selected env.
+          case "${{ inputs.environment }}" in
+            dev)
+              echo "TF_DIR=infra/aws/live/dev" >> "$GITHUB_ENV"
+              echo "TF_KEY=cloudradar/dev/terraform.tfstate" >> "$GITHUB_ENV"
+              ;;
+            prod)
+              echo "TF_DIR=infra/aws/live/prod" >> "$GITHUB_ENV"
+              echo "TF_KEY=cloudradar/prod/terraform.tfstate" >> "$GITHUB_ENV"
+              ;;
+          esac
+
+      - name: Guard destroy confirmation
+        if: ${{ inputs.confirm_destroy != 'DESTROY' }}
+        run: |
+          # Hard guard to avoid accidental destroys.
+          echo "Set confirm_destroy=DESTROY to proceed with destroy."
+          exit 1
+
+      - name: Terraform init (remote backend)
+        run: |
+          # Use the shared S3/DynamoDB backend for state + locking.
+          terraform -chdir="${TF_DIR}" init \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=${TF_LOCK_TABLE_NAME}" \
+            -backend-config="key=${TF_KEY}"
+
+      - name: Terraform validate
+        run: terraform -chdir="${TF_DIR}" validate
+
+      - name: Terraform destroy
+        run: terraform -chdir="${TF_DIR}" destroy -input=false -auto-approve
