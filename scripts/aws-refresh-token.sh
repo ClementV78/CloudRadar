@@ -38,10 +38,16 @@ fi
 
 PROFILE="${PROFILE:-${AWS_PROFILE:-cloudradar-bootstrap}}"
 ACCOUNT_ID="${ACCOUNT_ID:-}"
-ROLE_ARN="${ROLE_ARN:-}"
+ROLE_ARN="${ROLE_ARN:-${AWS_TERRAFORM_ROLE_ARN:-}}"
 MFA_DEVICE_NAME="${MFA_DEVICE_NAME:-}"
 MFA_ARN="${MFA_ARN:-}"
-SESSION_NAME="${SESSION_NAME:-cloudradar-bootstrap}"
+if [[ -z "${SESSION_NAME:-}" ]]; then
+  if [[ -n "${AWS_TERRAFORM_ROLE_ARN:-}" ]]; then
+    SESSION_NAME="cloudradar-terraform"
+  else
+    SESSION_NAME="cloudradar-bootstrap"
+  fi
+fi
 DURATION_SECONDS="${DURATION_SECONDS:-3600}"
 
 if [[ -n "${MFA_DEVICE_NAME}" ]]; then

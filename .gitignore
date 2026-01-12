@@ -9,7 +9,6 @@
 *.tfstate
 *.tfstate.backup
 *.tfvars
-.terraform.lock.hcl
 infra/aws/live/**/backend.hcl
 
 # Build & Dependencies

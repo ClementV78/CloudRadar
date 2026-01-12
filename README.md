@@ -24,6 +24,15 @@ This repository represents **Version 1 (MVP)** of the platform.
 
 ---
 
+## 🚀 Getting Started (Runbooks)
+
+Start here if you are setting up the project from scratch.
+
+1. Follow the runbook order in `docs/runbooks/README.md`.
+2. Complete each runbook step-by-step (bootstrap → backend → live env).
+
+---
+
 ## 🎯 Technical Objectives
 
 - Design a **budget-aware cloud architecture** on AWS
@@ -71,6 +80,8 @@ Infrastructure is provisioned using **Terraform**, including:
 - EC2 instances,
 - S3 buckets,
 - IAM roles and policies.
+
+VPC networking is managed per environment with a reusable module (implemented). See `docs/architecture/infrastructure.md`.
 
 ---
 
@@ -142,6 +153,7 @@ No CI/CD components run inside AWS in v1.
 4. Terraform backend ready (S3 state + DynamoDB lock)
 5. Cost guardrails enabled (budget alerts)
 6. Terraform bootstrap solved via a dedicated workflow using local state to create S3/DynamoDB, then remote state for all other stacks
+7. VPC module + per-environment live roots (dev/prod) (implemented)
 
 **Automation**
 1. Backend bootstrap workflow in GitHub Actions (local state, idempotent)
@@ -153,6 +165,8 @@ No CI/CD components run inside AWS in v1.
 **References**
 - Runbook: `docs/runbooks/aws-account-bootstrap.md`
 - Runbook: `docs/runbooks/terraform-backend-bootstrap.md`
+- Runbooks index: `docs/runbooks/README.md`
+- Infra doc: `docs/architecture/infrastructure.md`
 - Diagram: `docs/architecture/cloudradar-v1-high-level.png`
 - Decision Records: `docs/architecture/decisions/`
 
