@@ -136,7 +136,8 @@ jobs:
         with:
           working_directory: infra/aws
           additional_args: >-
-            --exclude aws-s3-encryption-customer-key,aws-dynamodb-enable-at-rest-encryption,aws-dynamodb-enable-recovery,aws-s3-enable-bucket-logging,aws-dynamodb-table-customer-key
+            --exclude aws-s3-encryption-customer-key,aws-dynamodb-enable-at-rest-encryption,aws-dynamodb-enable-recovery,
+            aws-s3-enable-bucket-logging,aws-dynamodb-table-customer-key
 
   apply:
     if: ${{ github.event_name == 'workflow_dispatch' }}
