@@ -111,6 +111,9 @@
 * **🧭 Meta Issue for AGENTS.md:**
     Track AGENTS-only changes in the meta issue https://github.com/ClementV78/CloudRadar/issues/55 (no separate issues).
     Each AGENTS.md PR must reference the meta issue and add a short changelog entry to it.
+* **🧭 Meta Issue for Docs:**
+    Track docs-only changes (README/runbooks/architecture) in https://github.com/ClementV78/CloudRadar/issues/57.
+    Each docs-only PR must reference the meta issue and add a short changelog entry to it.
 * **🚀 Auto-Merge Policy:**
     **Strictly reserved for `AGENTS.md` standalone updates.** Apply **Auto-Merge** right after AGENTS.md update to keep `main` synchronized.
 * **🧹 Branch Cleanup:**
