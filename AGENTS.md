@@ -24,6 +24,7 @@
 - Keep changes small, incremental, and easy to review.
 - If splitting changes into multiple commits improves clarity, do so.
 - When a clean separation is not too complex or costly, prefer the clean option and keep scopes separated.
+- When workflows are hard to test before merge, validate the key steps locally (e.g., Terraform validate/plan).
 
 ### 4.2 Context & Documentation Hygiene
 - At session start, load context from `.codex-context.md` without asking (if present), then confirm it was loaded and provide a brief recap (recent actions and next planned steps).
@@ -58,6 +59,7 @@
 ### 4.6 Security & Access
 - Do not commit real emails or account identifiers; use placeholders in the repo.
 - Never share credentials (even temporary) in chat or documentation.
+- Never commit sensitive data (non-exhaustive): credentials, tokens, API keys, passwords, real emails, or personal info.
 - Prefer credential export without writing files to disk.
 - For bootstrap tasks, provide both a runbook and a script, and map steps between them.
 - After bootstrap, avoid leaving broad IAM user policies attached; prefer least-privilege roles via OIDC.
@@ -117,8 +119,9 @@
 * **🚀 Auto-Merge Policy:**
     **Strictly reserved for `AGENTS.md` standalone updates.** Apply **Auto-Merge** right after AGENTS.md update to keep `main` synchronized.
 * **🧹 Branch Cleanup:**
-    When a PR only updates `AGENTS.md`, delete the head branch after merge.
-    Before deleting any branch, confirm the PR files are AGENTS-only.
+    Delete the head branch **only** if the PR modifies **AGENTS.md and nothing else**.
+    Before deleting, verify the PR file list contains only `AGENTS.md`.
+    For any other PR (docs, infra, ci, etc.), do not delete the branch unless explicitly asked.
 
 ## 10. Quality & CI
 - Keep tests lightweight but present.
