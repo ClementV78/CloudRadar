@@ -122,9 +122,7 @@
 * **🚀 Auto-Merge Policy:**
     **Strictly reserved for `AGENTS.md` standalone updates.** Apply **Auto-Merge** right after AGENTS.md update to keep `main` synchronized.
 * **🧹 Branch Cleanup:**
-    Delete the head branch **only** if the PR modifies **AGENTS.md and nothing else**.
-    Before deleting, verify the PR file list contains only `AGENTS.md`.
-    For any other PR (docs, infra, ci, etc.), do not delete the branch unless explicitly asked.
+    Never delete branches unless explicitly requested by the user.
 
 ## 10. Quality & CI
 - Keep tests lightweight but present.
