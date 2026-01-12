@@ -118,6 +118,7 @@
     **Strictly reserved for `AGENTS.md` standalone updates.** Apply **Auto-Merge** right after AGENTS.md update to keep `main` synchronized.
 * **🧹 Branch Cleanup:**
     When a PR only updates `AGENTS.md`, delete the head branch after merge.
+    Before deleting any branch, confirm the PR files are AGENTS-only.
 
 ## 10. Quality & CI
 - Keep tests lightweight but present.
