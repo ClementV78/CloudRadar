@@ -42,27 +42,31 @@
 - Codex may use `gh` to read issues and the GitHub Project: https://github.com/ClementV78/CloudRadar/issues and https://github.com/users/ClementV78/projects/1/
 - Every new issue must be added to the GitHub Project and placed either in a sprint/iteration or explicitly in Backlog.
 - Tech-decision issues must be placed in the Project "Decisions" column.
-- Keep issue status in the GitHub Project updated as work progresses (Backlog → In progress → Done/Cancelled).
+- Keep issue status in the GitHub Project updated as work progresses (Backlog → In progress → In review → Done/Cancelled).
 - Use the Project "Ready" column as the queue of next tickets: move one ticket to Ready, start it, move it to In progress, then refresh Ready.
 - Always keep the Project backlog board up to date.
 - In issues and PRs, include clickable links whenever referencing docs, ADRs, runbooks, or other resources.
 - Close GitHub issues once DoD is verified and evidence is recorded.
-- In GitHub, always keep artifacts fully populated and well-maintained.
+- Keep GitHub metadata complete: assignees, labels, milestone, project status, reviewers, and cross-links.
 - For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project, milestone, reviewers, and links) consistently.
-- Prefer testing workflows via `gh workflow run` on a branch before merging to main.
+- Prefer testing workflows on a branch before merging to main.
 
-### 4.5 Security & Access
+### 4.5 CI Reproducibility
+- CI checks should use example/non-sensitive inputs when a plan/validate requires variables.
+- Version lockfiles that pin tool/provider versions to keep CI and local runs consistent.
+
+### 4.6 Security & Access
 - Do not commit real emails or account identifiers; use placeholders in the repo.
 - Never share credentials (even temporary) in chat or documentation.
 - Prefer credential export without writing files to disk.
 - For bootstrap tasks, provide both a runbook and a script, and map steps between them.
 - After bootstrap, avoid leaving broad IAM user policies attached; prefer least-privilege roles via OIDC.
 
-### 4.6 FinOps & Cost Awareness
+### 4.7 FinOps & Cost Awareness
 - Prefer free-tier usage for AWS and keep GitHub Actions within free minutes when possible.
 - Apply a FinOps mindset: default to free-tier or lowest-cost options, and justify any paid services or upgrades.
 
-### 4.7 Scope & Merge Hygiene
+### 4.8 Scope & Merge Hygiene
 - Do not mix multiple issue scopes in a single branch; split work into separate branches if it happens.
 - Do not continue committing on a branch whose PR is already merged/closed; create a new branch and PR for additional changes.
 - PR merges are performed by the user, not by Codex.
@@ -124,6 +128,8 @@
 - Update docs when architecture or infrastructure choices change.
 - Update `AGENTS.md` when new global rules or preferences are agreed.
 - When asked to export context, follow `docs/context-template.md` exactly and write to `.codex-context.md`.
+- Maintain a single runbook entry point that defines execution order and links to specific runbooks.
+- Keep local-only configuration (real values) out of version control; commit example templates instead.
 
 ## 13. Directory Structure
 - `infra/` Terraform IaC and modules.
