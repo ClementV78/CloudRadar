@@ -36,6 +36,15 @@ The `apply` job runs only when triggered manually:
 - Set `auto_approve=true` to allow apply.
 - Uses the same S3/DynamoDB backend and the OIDC role.
 
+## Manual destroy (workflow_dispatch)
+
+Use the dedicated destroy workflow when you need to tear down an environment.
+
+- Select `environment` (`dev` or `prod`).
+- Set `confirm_destroy=DESTROY` to allow destruction.
+- Uses the same S3/DynamoDB backend and the OIDC role.
+- The workflow validates the selected root before destroying.
+
 ## Required repo variables
 
 - `AWS_TERRAFORM_ROLE_ARN`
@@ -46,4 +55,5 @@ The `apply` job runs only when triggered manually:
 ## Related files
 
 - Workflow: `.github/workflows/ci-infra.yml`
+- Workflow: `.github/workflows/ci-infra-destroy.yml`
 - Backend bootstrap runbook: `docs/runbooks/terraform-backend-bootstrap.md`
