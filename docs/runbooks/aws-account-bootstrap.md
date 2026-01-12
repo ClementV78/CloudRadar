@@ -106,7 +106,7 @@ Minimal policy example:
 }
 ```
 
-### 6.1) Infra MVP policy (VPC + EC2 + EBS + routes)
+### 6.1) Infra MVP policy (VPC + EC2 + EBS + routes + backend access)
 This policy enables MVP infrastructure provisioning (VPC + EC2 + EBS + SG + routes)
 without granting admin rights.
 
@@ -147,11 +147,46 @@ Save as `cloudradar-infra-baseline.json`:
         "ec2:DeleteVolume",
         "ec2:AttachVolume",
         "ec2:DetachVolume",
+        "ec2:AllocateAddress",
+        "ec2:ReleaseAddress",
+        "ec2:AssociateAddress",
+        "ec2:DisassociateAddress",
         "ec2:CreateTags",
         "ec2:DeleteTags",
         "ec2:Describe*"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "TerraformStateS3",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketLocation"
+      ],
+      "Resource": "arn:aws:s3:::cloudradar-tfstate-<account-id>"
+    },
+    {
+      "Sid": "TerraformStateObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::cloudradar-tfstate-<account-id>/*"
+    },
+    {
+      "Sid": "TerraformStateLock",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateItem"
+      ],
+      "Resource": "arn:aws:dynamodb:us-east-1:<account-id>:table/cloudradar-tf-lock"
     }
   ]
 }
@@ -171,7 +206,17 @@ aws iam put-role-policy \
 | Policy | Purpose | Services | Used by |
 | --- | --- | --- | --- |
 | Backend bootstrap policy | Create state/lock for Terraform | S3, DynamoDB | CloudRadarTerraformRole |
-| Infra MVP policy | Provision MVP infra | EC2/VPC, EBS, Security Groups, Routes | CloudRadarTerraformRole |
+| Infra MVP policy | Provision MVP infra + backend access | EC2/VPC, EBS, Security Groups, Routes, EIP, S3, DynamoDB | CloudRadarTerraformRole |
+
+### 6.3) MVP tickets mapped to permissions
+
+| Ticket | Area | Permissions needed |
+| --- | --- | --- |
+| #1 | VPC baseline | VPC, Subnets, IGW, Routes, SG, Tags, Describe |
+| #7 | k3s EC2 nodes | EC2, EBS, SG, Tags, Describe |
+| #8 | Edge Nginx EC2 | EC2, EIP, SG, Tags, Describe |
+| #11 | Backups to S3 | S3 (bucket + objects) |
+| Backend (state/lock) | Terraform | S3 (state), DynamoDB (lock) |
 
 ### 7) Record outputs for CI
 - AWS Account ID
