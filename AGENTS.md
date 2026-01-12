@@ -55,6 +55,8 @@
 ### 4.5 CI Reproducibility
 - CI checks should use example/non-sensitive inputs when a plan/validate requires variables.
 - Version lockfiles that pin tool/provider versions to keep CI and local runs consistent.
+- In Terraform workflows, use `-var-file` for plan/apply only (validate does not accept it).
+- For CI tools that call the GitHub API (e.g., security scanners), provide a GitHub token to avoid rate limits.
 
 ### 4.6 Security & Access
 - Do not commit real emails or account identifiers; use placeholders in the repo.
@@ -73,6 +75,7 @@
 - Do not continue committing on a branch whose PR is already merged/closed; create a new branch and PR for additional changes.
 - PR merges are performed by the user, not by Codex.
 - Use closing keywords to link PRs to issues: prefer `Closes #ID` for features and `Fixes #ID` for bugs so the issue appears in Development.
+- Keep destructive workflows (apply/destroy) manual-only with explicit confirmation inputs.
 
 ## 5. Tech Stack Overview
 - **Infrastructure as Code**: Terraform (modular, AWS-focused).
