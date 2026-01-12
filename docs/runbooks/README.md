@@ -14,6 +14,12 @@ Purpose: create the S3 bucket and DynamoDB table used by Terraform state and loc
 
 - Runbook: `docs/runbooks/terraform-backend-bootstrap.md`
 
+## 2.1) CI workflow reference (recommended)
+
+Purpose: understand what `ci-infra` validates on PRs and how manual apply works.
+
+- Runbook: `docs/runbooks/ci-infra.md`
+
 ## 3) Terraform live roots (per environment)
 
 Purpose: initialize and validate the Terraform roots for each environment.
