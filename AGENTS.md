@@ -26,7 +26,7 @@
 - When a clean separation is not too complex or costly, prefer the clean option and keep scopes separated.
 
 ### 4.2 Context & Documentation Hygiene
-- At session start, ask whether to load context from `.codex-context.md`.
+- At session start, load context from `.codex-context.md` without asking (if present), then confirm it was loaded and provide a brief recap (recent actions and next planned steps).
 - Keep `.codex-context.md` updated regularly.
 - Explicitly mark “planned” vs “implemented” in README status sections.
 
