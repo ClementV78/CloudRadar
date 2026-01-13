@@ -96,8 +96,9 @@
 ## 6. Conventions
 - Issue/commit format: `type(scope): message`
   - Types: `feat`, `fix`, `docs`, `ci`, `refactor`, `test`, `skill`
-- Keep scope short and meaningful (e.g., `infra`, `k8s`, `obs`, `edge`, `app`, `meta`, `adr`, `agents`).
+- Keep scope short and meaningful (e.g., `infra`, `k8s`, `obs`, `edge`, `app`, `meta`, `adr`, `agents`, `agent`).
 - Use `docs(meta)` for meta maintenance issues and `docs(adr)` for ADR/decision tracking.
+- Use `docs(agents)` for AGENTS.md updates (and `docs(agent)` for legacy items when needed).
 - Use GitHub Project sprints for agile tracking (solo workflow).
 - Each issue should include a short DoD section.
 - Use milestones `v1-mvp`, `v1.1`, and `v2` aligned with scope labels (`feat(v2)` -> `v2`).
