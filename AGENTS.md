@@ -48,12 +48,15 @@
 - Always keep the Project backlog board up to date.
 - In issues and PRs, include clickable links whenever referencing docs, ADRs, runbooks, or other resources.
 - When creating issues, PRs, or comments via `gh`, ensure newlines render correctly (use heredoc or `$'...'` instead of literal `\\n`).
-- When a change concerns skills, title issues/PRs with a clear `skill:` prefix at creation time (e.g., `skill: harden agents update auto-merge`).
+- When a change concerns skills, use the `skill` type in titles (e.g., `skill(agents): harden auto-merge`).
 - Do not add PRs to the GitHub Project; rely on issue links so Development stays clean.
 - Do not assume labels exist; verify or create them before applying.
 - Close GitHub issues once DoD is verified and evidence is recorded.
-- Keep GitHub metadata complete: assignees, labels, project status, milestone, reviewers, and cross-links.
-- For issues, ensure Assignees, Labels, Project, Project Status, and Milestone are set; PRs must use closing keywords so issues appear in Development.
+- Keep GitHub metadata complete: assignees, labels, project status (issues), milestone (except tooling), reviewers (skip in solo), and cross-links.
+- For issues, ensure Assignees, Labels, Project, Project Status, and Milestone are set; for PRs, ensure Assignees and Labels are set and use closing keywords so issues appear in Development.
+- PRs do not require Project/Status fields to avoid clutter.
+- For AGENTS-only PRs, add `Refs #55` (do not close the meta issue).
+- For docs-only PRs (README/runbooks/architecture), add `Refs #57` (do not close the meta issue).
 - For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project status, milestone, reviewers, and links) consistently.
 - Prefer testing workflows on a branch before merging to main.
 
@@ -92,11 +95,13 @@
 
 ## 6. Conventions
 - Issue/commit format: `type(scope): message`
-  - Types: `feat`, `fix`, `docs`, `ci`, `refactor`, `test`
-- Keep scope short and meaningful (e.g., `infra`, `k8s`, `obs`, `edge`, `app`).
+  - Types: `feat`, `fix`, `docs`, `ci`, `refactor`, `test`, `skill`
+- Keep scope short and meaningful (e.g., `infra`, `k8s`, `obs`, `edge`, `app`, `meta`, `adr`, `agents`).
+- Use `docs(meta)` for meta maintenance issues and `docs(adr)` for ADR/decision tracking.
 - Use GitHub Project sprints for agile tracking (solo workflow).
 - Each issue should include a short DoD section.
-- Use milestones `v1-mvp` and `v1.1` aligned with scope labels.
+- Use milestones `v1-mvp`, `v1.1`, and `v2` aligned with scope labels (`feat(v2)` -> `v2`).
+- Tooling issues do not require a milestone.
 - Sprint Goals live as draft items inside the GitHub Project.
 - Use DoR only for issues with external or cross-issue dependencies.
 
