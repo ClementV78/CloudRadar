@@ -72,6 +72,26 @@ def gh_json(cmd: List[str]) -> dict:
     return json.loads(output)
 
 
+def pr_status(pr_number: int) -> dict:
+    return gh_json(
+        [
+            "gh",
+            "pr",
+            "view",
+            str(pr_number),
+            "--json",
+            "autoMergeRequest,mergeStateStatus,reviewDecision,statusCheckRollup,url",
+        ]
+    )
+
+
+def log_pr_status(pr_number: int, prefix: str) -> None:
+    data = pr_status(pr_number)
+    print(f"{prefix} mergeStateStatus={data.get('mergeStateStatus')}")
+    print(f"{prefix} autoMergeRequest={data.get('autoMergeRequest')}")
+    print(f"{prefix} reviewDecision={data.get('reviewDecision')}")
+
+
 def wait_for_merge(pr_number: int, timeout_sec: int) -> dict:
     deadline = time.time() + timeout_sec
     while time.time() < deadline:
@@ -171,8 +191,30 @@ def main() -> int:
         ]
     )
 
-    # Enable auto-merge
-    run(["gh", "pr", "merge", "--auto", "--squash", branch_name])
+    pr_number = gh_json(["gh", "pr", "view", branch_name, "--json", "number"]).get(
+        "number"
+    )
+    if pr_number is None:
+        die("Unable to fetch PR number. Check PR creation.")
+
+    log_pr_status(pr_number, "Pre-merge:")
+    retry_unknown = 3
+    while retry_unknown > 0:
+        merge_state = pr_status(pr_number).get("mergeStateStatus")
+        if merge_state != "UNKNOWN":
+            break
+        retry_unknown -= 1
+        time.sleep(5)
+
+    log_pr_status(pr_number, "Post-wait:")
+    try:
+        run(["gh", "pr", "merge", "--auto", "--squash", str(pr_number)])
+    except subprocess.CalledProcessError:
+        print(
+            "WARN: auto-merge failed. Falling back to direct squash merge.",
+            file=sys.stderr,
+        )
+        run(["gh", "pr", "merge", "--squash", str(pr_number)])
 
     # Comment on meta issue with changelog entry
     date_str = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d")
@@ -180,12 +222,6 @@ def main() -> int:
     run(["gh", "issue", "comment", str(args.issue), "--body", changelog])
 
     # Wait for auto-merge to complete
-    pr_number = gh_json(["gh", "pr", "view", branch_name, "--json", "number"]).get(
-        "number"
-    )
-    if pr_number is None:
-        die("Unable to fetch PR number. Check PR creation.")
-
     merged_data = wait_for_merge(pr_number, args.timeout)
     merge_commit = merged_data.get("mergeCommit", {}).get("oid")
 
