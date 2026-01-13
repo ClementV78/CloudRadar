@@ -52,11 +52,12 @@
 - Do not add PRs to the GitHub Project; rely on issue links so Development stays clean.
 - Do not assume labels exist; verify or create them before applying.
 - Close GitHub issues once DoD is verified and evidence is recorded.
-- Keep GitHub metadata complete: assignees, labels, project status (issues), milestone (except tooling), reviewers (skip in solo), and cross-links.
-- For issues, ensure Assignees, Labels, Project, Project Status, and Milestone are set; for PRs, ensure Assignees and Labels are set and use closing keywords so issues appear in Development.
+- Keep GitHub metadata complete: assignees, labels, project status (issues), milestone (except tooling), and cross-links.
+- For issues, ensure Assignees, Labels, Project, Project Status, and Milestone are set; for PRs, ensure Assignees and Labels are set and use closing keywords so issues appear in Development, except for meta refs noted below.
 - PRs do not require Project/Status fields to avoid clutter.
-- For AGENTS-only PRs, add `Refs #55` (do not close the meta issue).
-- For docs-only PRs (README/runbooks/architecture), add `Refs #57` (do not close the meta issue).
+- PRs never require reviewers in this solo workflow.
+- For AGENTS-only PRs, add `Refs #55` (do not close the meta issue; no closing keywords).
+- For docs-only PRs (README/runbooks/architecture), add `Refs #57` (do not close the meta issue; no closing keywords).
 - For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project status, milestone, reviewers, and links) consistently.
 - Prefer testing workflows on a branch before merging to main.
 
@@ -104,7 +105,6 @@
 - Use milestones `v1-mvp`, `v1.1`, and `v2` aligned with scope labels (`feat(v2)` -> `v2`).
 - Tooling issues do not require a milestone.
 - Sprint Goals live as draft items inside the GitHub Project.
-- Use DoR only for issues with external or cross-issue dependencies.
 
 ## 7. Commit Conventions
 - Use the same `type(scope): message` format as issues.
