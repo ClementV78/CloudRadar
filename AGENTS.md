@@ -48,6 +48,7 @@
 - Always keep the Project backlog board up to date.
 - In issues and PRs, include clickable links whenever referencing docs, ADRs, runbooks, or other resources.
 - When creating issues, PRs, or comments via `gh`, ensure newlines render correctly (use heredoc or `$'...'` instead of literal `\\n`).
+- When a change concerns skills, title issues/PRs with a clear `skill:` prefix (e.g., `skill: harden agents update auto-merge`).
 - Close GitHub issues once DoD is verified and evidence is recorded.
 - Keep GitHub metadata complete: assignees, labels, milestone, project status, reviewers, and cross-links.
 - For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project, milestone, reviewers, and links) consistently.
