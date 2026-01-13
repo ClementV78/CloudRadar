@@ -184,7 +184,7 @@ jobs:
             -backend-config="key=${TF_KEY}"
 
       - name: Terraform validate
-        run: terraform -chdir="${TF_DIR}" validate -var-file=terraform.tfvars.example
+        run: terraform -chdir="${TF_DIR}" validate
 
       - name: Terraform plan
         run: terraform -chdir="${TF_DIR}" plan -input=false -no-color -var-file=terraform.tfvars.example
