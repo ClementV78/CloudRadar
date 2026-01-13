@@ -155,27 +155,11 @@ No CI/CD components run inside AWS in v1.
 
 ## 📈 Project Progress (Estimates)
 
-<div>
-  <div><strong>v1-mvp</strong></div>
-  <div style="background:#e5e5e5;border-radius:6px;height:10px;max-width:360px;">
-    <div style="background:#2ecc71;width:60%;height:10px;border-radius:6px;"></div>
-  </div>
-  <div style="font-size:12px;color:#666;">60%</div>
-</div>
-<div style="margin-top:8px;">
-  <div><strong>v1.1</strong></div>
-  <div style="background:#e5e5e5;border-radius:6px;height:10px;max-width:360px;">
-    <div style="background:#f1c40f;width:15%;height:10px;border-radius:6px;"></div>
-  </div>
-  <div style="font-size:12px;color:#666;">15%</div>
-</div>
-<div style="margin-top:8px;">
-  <div><strong>v2</strong></div>
-  <div style="background:#e5e5e5;border-radius:6px;height:10px;max-width:360px;">
-    <div style="background:#b0b0b0;width:5%;height:10px;border-radius:6px;"></div>
-  </div>
-  <div style="font-size:12px;color:#666;">5%</div>
-</div>
+| Release | Progress | Estimate |
+| --- | --- | --- |
+| v1-mvp | `############--------` | 60% |
+| v1.1 | `###-----------------` | 15% |
+| v2 | `#-------------------` | 5% |
 
 These are high-level estimates based on current scope.
 
