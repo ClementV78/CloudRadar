@@ -1,0 +1,74 @@
+name: Cleanup Stale Branches
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "List branches that would be deleted without deleting them"
+        required: true
+        default: "true"
+      days_old:
+        description: "Delete merged branches older than N days"
+        required: true
+        default: "14"
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cleanup merged branches
+        env:
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
+          DAYS_OLD: ${{ github.event.inputs.days_old || '14' }}
+        run: |
+          set -euo pipefail
+
+          git fetch --prune origin "+refs/heads/*:refs/remotes/origin/*"
+
+          base_ref="origin/${BASE_BRANCH}"
+          cutoff_days="${DAYS_OLD}"
+          cutoff_seconds=$((cutoff_days * 24 * 60 * 60))
+          now_epoch="$(date +%s)"
+
+          exclude_regex='^origin/(HEAD|main|master|develop|release/|hotfix/)'
+
+          echo "Base ref: ${base_ref}"
+          echo "Cutoff days: ${cutoff_days}"
+          echo "Dry run: ${DRY_RUN}"
+          echo "Exclude regex: ${exclude_regex}"
+
+          while IFS= read -r ref; do
+            if [[ "${ref}" =~ ${exclude_regex} ]]; then
+              continue
+            fi
+
+            if ! git merge-base --is-ancestor "${ref}" "${base_ref}"; then
+              continue
+            fi
+
+            commit_epoch="$(git log -1 --format=%ct "${ref}")"
+            age_seconds=$((now_epoch - commit_epoch))
+
+            if (( age_seconds < cutoff_seconds )); then
+              continue
+            fi
+
+            branch_name="${ref#origin/}"
+            if [[ "${DRY_RUN}" == "true" ]]; then
+              echo "DRY RUN: would delete ${branch_name}"
+            else
+              echo "Deleting ${branch_name}"
+              git push origin --delete "${branch_name}"
+            fi
+          done < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin/)
