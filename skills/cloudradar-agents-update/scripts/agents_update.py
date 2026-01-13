@@ -11,11 +11,16 @@ import time
 from typing import List, Optional
 
 
-def run(cmd: List[str], check: bool = True, capture: bool = True) -> str:
+def run(
+    cmd: List[str],
+    check: bool = True,
+    capture: bool = True,
+    strip_output: bool = True,
+) -> str:
     print("+ " + " ".join(cmd))
     result = subprocess.run(cmd, check=check, text=True, capture_output=capture)
     if capture:
-        return result.stdout.strip()
+        return result.stdout.strip() if strip_output else result.stdout
     return ""
 
 
@@ -25,8 +30,8 @@ def die(message: str, code: int = 1) -> None:
 
 
 def git_status_porcelain() -> List[str]:
-    output = run(["git", "status", "--porcelain"])
-    return [line for line in output.splitlines() if line.strip()]
+    output = run(["git", "status", "--porcelain"], strip_output=False)
+    return [line for line in output.splitlines() if line]
 
 
 def ensure_only_agents_modified() -> None:
@@ -119,7 +124,7 @@ def main() -> int:
 
     base_branch = args.base
     original_branch = current_branch()
-    short = args.short or dt.datetime.utcnow().strftime("%Y%m%d")
+    short = args.short or dt.datetime.now(dt.timezone.utc).strftime("%Y%m%d")
     branch_name = f"docs/agents-{args.issue}-{short}"
 
     # Refresh base branch
@@ -170,7 +175,7 @@ def main() -> int:
     run(["gh", "pr", "merge", "--auto", "--squash", branch_name])
 
     # Comment on meta issue with changelog entry
-    date_str = dt.datetime.utcnow().strftime("%Y-%m-%d")
+    date_str = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d")
     changelog = f"Changelog: {date_str} - {args.summary} ({pr_url})"
     run(["gh", "issue", "comment", str(args.issue), "--body", changelog])
 
