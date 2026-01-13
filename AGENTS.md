@@ -58,6 +58,7 @@
 - PRs never require reviewers in this solo workflow.
 - For AGENTS-only PRs, add `Refs #55` (do not close the meta issue; no closing keywords).
 - For docs-only PRs (README/runbooks/architecture), add `Refs #57` (do not close the meta issue; no closing keywords).
+- Do not modify Project Status options via API/CLI; changing options re-IDs statuses and will drop items into "No Status". If a Status change is needed, use the GitHub UI and re-map items immediately.
 - For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project status, milestone, reviewers, and links) consistently.
 - Prefer testing workflows on a branch before merging to main.
 
