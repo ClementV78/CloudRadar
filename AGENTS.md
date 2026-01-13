@@ -47,6 +47,7 @@
 - Use the Project "Ready" column as the queue of next tickets: move one ticket to Ready, start it, move it to In progress, then refresh Ready.
 - Always keep the Project backlog board up to date.
 - In issues and PRs, include clickable links whenever referencing docs, ADRs, runbooks, or other resources.
+- When creating issues via `gh`, ensure newlines render correctly (use heredoc or `$'...'` instead of literal `\\n`).
 - Close GitHub issues once DoD is verified and evidence is recorded.
 - Keep GitHub metadata complete: assignees, labels, milestone, project status, reviewers, and cross-links.
 - For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project, milestone, reviewers, and links) consistently.
