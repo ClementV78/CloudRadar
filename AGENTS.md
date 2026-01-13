@@ -121,6 +121,8 @@
     Each docs-only PR must reference the meta issue and add a short changelog entry to it.
 * **🚀 Auto-Merge Policy:**
     **Strictly reserved for `AGENTS.md` standalone updates.** Apply **Auto-Merge** right after AGENTS.md update to keep `main` synchronized.
+* **🧰 AGENTS Update Skill:**
+    Use the `cloudradar-agents-update` skill when asked to update `AGENTS.md`.
 * **🧹 Branch Cleanup:**
     Never delete branches unless explicitly requested by the user.
 
