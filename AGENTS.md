@@ -50,8 +50,9 @@
 - When creating issues, PRs, or comments via `gh`, ensure newlines render correctly (use heredoc or `$'...'` instead of literal `\\n`).
 - When a change concerns skills, title issues/PRs with a clear `skill:` prefix (e.g., `skill: harden agents update auto-merge`).
 - Close GitHub issues once DoD is verified and evidence is recorded.
-- Keep GitHub metadata complete: assignees, labels, milestone, project status, reviewers, and cross-links.
-- For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project, milestone, reviewers, and links) consistently.
+- Keep GitHub metadata complete: assignees, labels, project status, milestone, reviewers, and cross-links.
+- For issues and PRs, ensure Assignees, Labels, Project, Project Status, and Milestone are set, and PRs use closing keywords so issues appear in Development.
+- For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project status, milestone, reviewers, and links) consistently.
 - Prefer testing workflows on a branch before merging to main.
 
 ### 4.5 CI Reproducibility
