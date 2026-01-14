@@ -279,6 +279,21 @@ aws iam put-role-policy \
 | Backend bootstrap policy | Create state/lock for Terraform | S3, DynamoDB | CloudRadarTerraformRole |
 | Infra MVP policy | Provision MVP infra + backend access | EC2/VPC, EBS, SGs, Routes, EIP, Launch Templates, Auto Scaling, IAM, S3, DynamoDB, SSM | CloudRadarTerraformRole |
 
+### 6.4) Edge prerequisites (Basic Auth)
+
+The edge Nginx instance reads the Basic Auth password from SSM Parameter Store at boot.
+Create the parameter before applying the edge module.
+
+Example:
+
+```bash
+aws ssm put-parameter \
+  --name "/cloudradar/edge/basic-auth" \
+  --type "SecureString" \
+  --value "change-me" \
+  --overwrite
+```
+
 ### 6.3) MVP tickets mapped to permissions
 
 | Ticket | Area | Permissions needed |
