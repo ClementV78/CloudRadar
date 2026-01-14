@@ -47,3 +47,18 @@ output "k3s_worker_asg_name" {
   description = "Auto Scaling Group name for k3s workers."
   value       = module.k3s.k3s_worker_asg_name
 }
+
+output "edge_instance_id" {
+  description = "Edge EC2 instance ID."
+  value       = module.edge.edge_instance_id
+}
+
+output "edge_public_ip" {
+  description = "Edge EC2 public IP."
+  value       = module.edge.edge_public_ip
+}
+
+output "edge_security_group_id" {
+  description = "Security group ID for the edge instance."
+  value       = module.edge.edge_security_group_id
+}

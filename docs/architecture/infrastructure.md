@@ -96,12 +96,14 @@ flowchart TB
 
 ## Status
 
-- Implemented: VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes.
-- Planned: edge EC2, observability stack, additional network hardening.
+- Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2.
+- Planned: observability stack, additional network hardening.
 
 ## Notes
 
 - The VPC module is parameterized for multiple environments and can be destroyed cleanly because all core resources live in the module.
 - Private subnet egress is handled by the NAT instance module and the private route table default route.
 - The edge EC2 instance is the public entry point (Nginx reverse proxy) used for TLS termination and basic auth in front of k3s services.
+- Edge basic auth password is read from SSM Parameter Store at boot (see `docs/runbooks/aws-account-bootstrap.md` for IAM).
+- TODO: migrate edge TLS to ACM + Route53 (issue #14).
 - IAM permissions needed for these resources are documented in `docs/runbooks/aws-account-bootstrap.md`.
