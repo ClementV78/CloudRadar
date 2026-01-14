@@ -57,7 +57,7 @@ Start here if you are setting up the project from scratch.
 
 **Key characteristics:**
 - AWS Region: **us-east-1**
-- Public Edge: **CloudFront + Nginx reverse proxy (EC2)**
+- Public Edge: **CloudFront + Nginx reverse proxy (EC2)** (planned)
 - Private compute: **k3s cluster (2 EC2 nodes)**
 - Event buffering: **Redis**
 - MVP storage: **SQLite (PV / EBS)**
@@ -71,10 +71,10 @@ Start here if you are setting up the project from scratch.
 The platform runs entirely on AWS with a minimal footprint:
 
 - **EC2 (Public)**  
-  - Nginx reverse proxy  
-  - HTTPS + Basic Authentication  
+  - Nginx reverse proxy (planned)  
+  - HTTPS + Basic Authentication (planned)  
 - **CloudFront**  
-  - Global edge caching for latency optimization  
+  - Global edge caching for latency optimization (planned)  
 - **EC2 (Private)**  
   - k3s Server (control plane)  
   - k3s Agent (worker node)  
@@ -88,7 +88,7 @@ Infrastructure is provisioned using **Terraform**, including:
 - S3 buckets,
 - IAM roles and policies.
 
-VPC networking is managed per environment with a reusable module (implemented). See `docs/architecture/infrastructure.md`.
+VPC networking is managed per environment with a reusable module (implemented). See `docs/architecture/infrastructure.md` for the network inventory/table.
 
 ---
 
@@ -157,7 +157,7 @@ No CI/CD components run inside AWS in v1.
 
 | Release | Progress | Estimate |
 | --- | --- | --- |
-| v1-mvp | `############--------` | 60% |
+| v1-mvp | `##############------` | 70% |
 | v1.1 | `###-----------------` | 15% |
 | v2 | `#-------------------` | 5% |
 
@@ -173,7 +173,7 @@ These are high-level estimates based on current scope.
 - ✅ Cost guardrails enabled (budget alerts)
 - ✅ Terraform bootstrap solved via a dedicated workflow using local state to create S3/DynamoDB, then remote state for all other stacks
 - ✅ VPC module + per-environment live roots (dev/prod)
-- ⏳ Provision k3s nodes with cloud-init (server + agent)
+- ✅ Provision k3s nodes with cloud-init (server + agent) + SSM validation
 - 📝 Deploy edge Nginx with TLS + Basic Auth
 - 📝 Add SQLite persistence + daily S3 backups + restore workflow
 

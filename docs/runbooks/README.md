@@ -51,4 +51,4 @@ terraform plan -var-file=terraform.tfvars.example
 ## 4) Next steps (planned)
 
 - Apply on dev when ready; keep prod for later.
-- Add edge EC2, k3s, and observability stacks as separate Terraform roots.
+- Add edge EC2 and observability stacks once k3s baseline is stable.

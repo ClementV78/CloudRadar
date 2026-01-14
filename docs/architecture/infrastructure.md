@@ -13,10 +13,16 @@ flowchart TB
 
   subgraph Modules["infra/aws/modules"]
     vpc["vpc module"]
+    nat["nat-instance module"]
+    k3s["k3s module"]
   end
 
   dev --> vpc
+  dev --> nat
+  dev --> k3s
   prod --> vpc
+  prod --> nat
+  prod --> k3s
 ```
 
 ## VPC baseline (per environment)
@@ -30,11 +36,11 @@ flowchart TB
 
     subgraph Public["Public subnet"]
       edge["EC2 Nginx (edge) (planned)"]
-      nat["EC2 NAT instance (planned)"]
+      nat["EC2 NAT instance"]
     end
 
     subgraph Private["Private subnet"]
-      k3s["EC2 k3s nodes (planned)"]
+      k3s["EC2 k3s nodes"]
     end
 
     publicRT["Public route table"]
@@ -57,13 +63,45 @@ flowchart TB
   k3sSG -.-> k3s
 ```
 
+## Resource inventory (per environment)
+
+### Networking
+- VPC, Internet Gateway, public/private subnets, public/private route tables.
+- NAT instance (public subnet) with private route table default route.
+
+### Compute
+- k3s server EC2 instance (private subnet).
+- k3s worker Auto Scaling Group (private subnets) with launch template.
+- NAT EC2 instance (public subnet).
+
+### Security
+- Security group for k3s nodes (explicit ports).
+- Security group for NAT (allow from private CIDRs).
+- Default VPC network ACLs (no custom NACLs yet).
+
+### IAM
+- IAM role + instance profile for k3s nodes (SSM managed policy).
+
+## Network table (example: dev)
+
+| Component | CIDR / Range | AZ | Route table | Security group | SG name | NACL | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| VPC | 10.0.0.0/16 | us-east-1 | n/a | n/a | n/a | default | `infra/aws/live/dev/terraform.tfvars.example` |
+| Public subnet | 10.0.1.0/24 | us-east-1a | public RT | nat SG (NAT), edge SG (planned) | `cloudradar-dev-nat`, `cloudradar-dev-edge` (planned) | default | Public IPs on launch |
+| Private subnet | 10.0.101.0/24 | us-east-1a | private RT | k3s SG | `cloudradar-dev-k3s-nodes` | default | No public IPs |
+| Public RT | 0.0.0.0/0 -> IGW | us-east-1 | n/a | n/a | n/a | default | Egress for public subnet |
+| Private RT | 0.0.0.0/0 -> NAT | us-east-1 | n/a | n/a | n/a | default | Egress for private subnet |
+| k3s SG | 6443/TCP, 10250/TCP, 8472/UDP | us-east-1 | n/a | k3s SG | `cloudradar-dev-k3s-nodes` | default | Self-referenced rules |
+| NAT SG | All from private CIDRs | us-east-1 | n/a | nat SG | `cloudradar-dev-nat` | default | Egress to Internet |
+
 ## Status
 
-- Implemented: VPC, subnets, route tables, internet gateway.
-- Planned: NAT instance route, edge EC2, k3s nodes.
+- Implemented: VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes.
+- Planned: edge EC2, observability stack, additional network hardening.
 
 ## Notes
 
 - The VPC module is parameterized for multiple environments and can be destroyed cleanly because all core resources live in the module.
-- Private subnet egress is optional and only enabled when a NAT instance ID is provided.
+- Private subnet egress is handled by the NAT instance module and the private route table default route.
 - The edge EC2 instance is the public entry point (Nginx reverse proxy) used for TLS termination and basic auth in front of k3s services.
+- IAM permissions needed for these resources are documented in `docs/runbooks/aws-account-bootstrap.md`.
