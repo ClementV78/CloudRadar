@@ -185,6 +185,7 @@
 ## 17. Security & Ops
 - No plaintext secrets; use least-privilege IAM.
 - Prefer secure defaults for networking, storage, and access.
+- For sensitive permissions, always revalidate with the user before applying changes.
 - Cost-awareness is a first-class requirement; justify any higher-cost choices.
 
 ## 18. UX Direction
