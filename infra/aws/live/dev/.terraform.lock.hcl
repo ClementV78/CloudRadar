@@ -25,8 +25,7 @@ provider "registry.terraform.io/hashicorp/aws" {
 }
 
 provider "registry.terraform.io/hashicorp/cloudinit" {
-  version     = "2.3.7"
-  constraints = ">= 2.3.0"
+  version = "2.3.7"
   hashes = [
     "h1:iZ27qylcH/2bs685LJTKOKcQ+g7cF3VwN3kHMrzm4Ow=",
     "zh:06f1c54e919425c3139f8aeb8fcf9bceca7e560d48c9f0c1e3bb0a8ad9d9da1e",
@@ -45,8 +44,7 @@ provider "registry.terraform.io/hashicorp/cloudinit" {
 }
 
 provider "registry.terraform.io/hashicorp/random" {
-  version     = "3.8.0"
-  constraints = ">= 3.5.0"
+  version = "3.8.0"
   hashes = [
     "h1:SqwYP3u2T4rNxWvcrUc693VLY1V7DJPusZR9nn5NqSo=",
     "zh:0e71891d8f25564e8d0b61654ed2ca52101862b9a2a07d736395193ae07b134b",
