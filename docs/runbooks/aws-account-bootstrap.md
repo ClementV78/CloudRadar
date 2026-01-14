@@ -153,7 +153,32 @@ Save as `cloudradar-infra-baseline.json`:
         "ec2:DisassociateAddress",
         "ec2:CreateTags",
         "ec2:DeleteTags",
+        "ec2:ModifyInstanceAttribute",
         "ec2:Describe*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Ec2LaunchTemplates",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateLaunchTemplate",
+        "ec2:CreateLaunchTemplateVersion",
+        "ec2:DeleteLaunchTemplate",
+        "ec2:DescribeLaunchTemplates",
+        "ec2:DescribeLaunchTemplateVersions"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AutoScalingForK3s",
+      "Effect": "Allow",
+      "Action": [
+        "autoscaling:CreateAutoScalingGroup",
+        "autoscaling:UpdateAutoScalingGroup",
+        "autoscaling:DeleteAutoScalingGroup",
+        "autoscaling:CreateOrUpdateTags",
+        "autoscaling:Describe*"
       ],
       "Resource": "*"
     },
@@ -187,6 +212,52 @@ Save as `cloudradar-infra-baseline.json`:
         "dynamodb:UpdateItem"
       ],
       "Resource": "arn:aws:dynamodb:us-east-1:<account-id>:table/cloudradar-tf-lock"
+    },
+    {
+      "Sid": "IamForK3sRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:PutRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:CreateInstanceProfile",
+        "iam:DeleteInstanceProfile",
+        "iam:GetInstanceProfile",
+        "iam:AddRoleToInstanceProfile",
+        "iam:RemoveRoleFromInstanceProfile",
+        "iam:ListInstanceProfilesForRole",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "iam:PassRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::<account-id>:role/cloudradar-*",
+        "arn:aws:iam::<account-id>:instance-profile/cloudradar-*"
+      ]
+    },
+    {
+      "Sid": "SsmValidation",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:DescribeInstanceInformation",
+        "ssm:SendCommand",
+        "ssm:GetCommandInvocation",
+        "ssm:ListCommandInvocations"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "AllowAutoScalingServiceLinkedRole",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "arn:aws:iam::<account-id>:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
     }
   ]
 }
@@ -206,7 +277,7 @@ aws iam put-role-policy \
 | Policy | Purpose | Services | Used by |
 | --- | --- | --- | --- |
 | Backend bootstrap policy | Create state/lock for Terraform | S3, DynamoDB | CloudRadarTerraformRole |
-| Infra MVP policy | Provision MVP infra + backend access | EC2/VPC, EBS, Security Groups, Routes, EIP, S3, DynamoDB | CloudRadarTerraformRole |
+| Infra MVP policy | Provision MVP infra + backend access | EC2/VPC, EBS, SGs, Routes, EIP, Launch Templates, Auto Scaling, IAM, S3, DynamoDB, SSM | CloudRadarTerraformRole |
 
 ### 6.3) MVP tickets mapped to permissions
 
