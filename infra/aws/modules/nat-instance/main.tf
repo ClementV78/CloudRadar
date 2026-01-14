@@ -1,10 +1,10 @@
-data "aws_ami" "al2023" {
+data "aws_ami" "al2" {
   most_recent = true
   owners      = ["amazon"]
 
   filter {
     name   = "name"
-    values = ["al2023-ami-*-x86_64"]
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
   }
 }
 
@@ -36,7 +36,7 @@ resource "aws_security_group_rule" "nat_egress" {
 }
 
 resource "aws_instance" "nat" {
-  ami                         = data.aws_ami.al2023.id
+  ami                         = data.aws_ami.al2.id
   instance_type               = var.instance_type
   subnet_id                   = var.public_subnet_id
   vpc_security_group_ids      = [aws_security_group.nat.id]
