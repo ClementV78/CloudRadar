@@ -52,3 +52,4 @@ terraform plan -var-file=terraform.tfvars.example
 
 - Apply on dev when ready; keep prod for later.
 - Add edge EC2 and observability stacks once k3s baseline is stable.
+- Apply edge EC2 module for public entrypoint when ready (issue #8).
