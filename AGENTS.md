@@ -151,6 +151,7 @@
 
 ## 12. Documentation Requirements
 - Keep `README.md`, GitHub issues, and `docs/architecture/` aligned with decisions.
+- Always reference `docs/architecture/infrastructure.md` for infra changes and keep it updated as infra evolves.
 - Update docs when architecture or infrastructure choices change.
 - Update `AGENTS.md` when new global rules or preferences are agreed.
 - When asked to export context, follow `docs/context-template.md` exactly and write to `.codex-context.md`.
