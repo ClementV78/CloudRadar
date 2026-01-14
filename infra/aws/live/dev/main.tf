@@ -13,11 +13,41 @@ locals {
 module "vpc" {
   source = "../../modules/vpc"
 
-  name                          = "${var.project}-${var.environment}"
-  cidr_block                    = var.vpc_cidr_block
-  azs                           = var.azs
-  public_subnet_cidrs           = var.public_subnet_cidrs
-  private_subnet_cidrs          = var.private_subnet_cidrs
-  private_route_nat_instance_id = var.private_route_nat_instance_id
-  tags                          = local.tags
+  name                 = "${var.project}-${var.environment}"
+  cidr_block           = var.vpc_cidr_block
+  azs                  = var.azs
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  private_subnet_cidrs = var.private_subnet_cidrs
+  tags                 = local.tags
+}
+
+module "nat_instance" {
+  source = "../../modules/nat-instance"
+
+  name                   = "${var.project}-${var.environment}"
+  vpc_id                 = module.vpc.vpc_id
+  public_subnet_id       = module.vpc.public_subnet_ids[0]
+  private_subnet_ids     = module.vpc.private_subnet_ids
+  private_subnet_cidrs   = var.private_subnet_cidrs
+  private_route_table_id = module.vpc.private_route_table_id
+  instance_type          = var.nat_instance_type
+  root_volume_size       = var.nat_root_volume_size
+  tags                   = local.tags
+}
+
+module "k3s" {
+  source = "../../modules/k3s"
+
+  name                  = "${var.project}-${var.environment}"
+  vpc_id                = module.vpc.vpc_id
+  private_subnet_ids    = module.vpc.private_subnet_ids
+  server_instance_type  = var.k3s_server_instance_type
+  worker_instance_type  = var.k3s_worker_instance_type
+  worker_min_size       = var.k3s_worker_min_size
+  worker_desired        = var.k3s_worker_desired
+  worker_max_size       = var.k3s_worker_max_size
+  root_volume_size      = var.k3s_root_volume_size
+  k3s_server_extra_args = var.k3s_server_extra_args
+  k3s_agent_extra_args  = var.k3s_agent_extra_args
+  tags                  = local.tags
 }

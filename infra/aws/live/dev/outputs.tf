@@ -22,3 +22,28 @@ output "private_route_table_id" {
   description = "Private route table ID."
   value       = module.vpc.private_route_table_id
 }
+
+output "nat_instance_id" {
+  description = "NAT instance ID."
+  value       = module.nat_instance.nat_instance_id
+}
+
+output "nat_public_ip" {
+  description = "NAT instance public IP."
+  value       = module.nat_instance.nat_public_ip
+}
+
+output "k3s_server_private_ip" {
+  description = "Private IP of the k3s server."
+  value       = module.k3s.k3s_server_private_ip
+}
+
+output "k3s_security_group_id" {
+  description = "Security group ID for k3s nodes."
+  value       = module.k3s.k3s_security_group_id
+}
+
+output "k3s_worker_asg_name" {
+  description = "Auto Scaling Group name for k3s workers."
+  value       = module.k3s.k3s_worker_asg_name
+}

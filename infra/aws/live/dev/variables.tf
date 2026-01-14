@@ -33,14 +33,67 @@ variable "private_subnet_cidrs" {
   type        = list(string)
 }
 
-variable "private_route_nat_instance_id" {
-  description = "Optional NAT instance ID for private subnet egress."
-  type        = string
-  default     = null
-}
-
 variable "tags" {
   description = "Extra tags applied to all resources."
   type        = map(string)
   default     = {}
+}
+
+variable "nat_instance_type" {
+  description = "Instance type for the NAT instance."
+  type        = string
+  default     = "t3.nano"
+}
+
+variable "nat_root_volume_size" {
+  description = "Root volume size in GB for the NAT instance."
+  type        = number
+  default     = 8
+}
+
+variable "k3s_server_instance_type" {
+  description = "Instance type for the k3s server."
+  type        = string
+  default     = "t3.small"
+}
+
+variable "k3s_worker_instance_type" {
+  description = "Instance type for k3s workers."
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "k3s_worker_min_size" {
+  description = "Minimum number of k3s worker nodes."
+  type        = number
+  default     = 1
+}
+
+variable "k3s_worker_desired" {
+  description = "Desired number of k3s worker nodes."
+  type        = number
+}
+
+variable "k3s_worker_max_size" {
+  description = "Maximum number of k3s worker nodes."
+  type        = number
+  default     = 3
+}
+
+variable "k3s_root_volume_size" {
+  description = "Root volume size in GB for k3s nodes."
+  type        = number
+  default     = 20
+}
+
+variable "k3s_server_extra_args" {
+  description = "Extra CLI arguments for the k3s server."
+  type        = list(string)
+  default     = []
+}
+
+variable "k3s_agent_extra_args" {
+  description = "Extra CLI arguments for k3s agents."
+  type        = list(string)
+  default     = []
 }
