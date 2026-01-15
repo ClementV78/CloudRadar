@@ -38,10 +38,7 @@ flowchart TB
     igw["Internet Gateway"]
 
     subgraph Public["Public subnet"]
-<<<<<<< HEAD
       publicRT["Public route table"]
-=======
->>>>>>> 981b184 (docs(architecture): refine edge docs)
       edge["EC2 Nginx (edge)"]
       nat["EC2 NAT instance"]
     end
@@ -84,10 +81,7 @@ flowchart TB
 - k3s worker Auto Scaling Group (private subnets) with launch template.
 - NAT EC2 instance (public subnet).
 - Edge EC2 instance (public subnet).
-<<<<<<< HEAD
 - ArgoCD deployed on k3s (bootstrapped via SSM from CI).
-=======
->>>>>>> 981b184 (docs(architecture): refine edge docs)
 
 ### Security
 - Security group for k3s nodes (explicit ports).
