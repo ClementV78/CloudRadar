@@ -107,7 +107,7 @@ variable "edge_instance_type" {
 variable "edge_root_volume_size" {
   description = "Root volume size in GB for the edge instance."
   type        = number
-  default     = 20
+  default     = 40
 }
 
 variable "edge_allowed_cidrs" {

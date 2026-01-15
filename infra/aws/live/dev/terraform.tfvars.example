@@ -21,7 +21,7 @@ k3s_root_volume_size      = 40
 # k3s_agent_extra_args  = []
 
 edge_instance_type       = "t3.micro"
-edge_root_volume_size    = 20
+edge_root_volume_size    = 40
 edge_allowed_cidrs       = ["203.0.113.10/32"]
 edge_server_name         = "_"
 edge_basic_auth_user     = "cloudradar"
