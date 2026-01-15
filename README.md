@@ -174,7 +174,7 @@ These are high-level estimates based on current scope.
 - ✅ Terraform bootstrap solved via a dedicated workflow using local state to create S3/DynamoDB, then remote state for all other stacks
 - ✅ VPC module + per-environment live roots (dev/prod)
 - ✅ Provision k3s nodes with cloud-init (server + agent) + SSM validation
-- 📝 Deploy edge Nginx with TLS + Basic Auth
+- ✅ Deploy edge Nginx with TLS + Basic Auth (dev)
 - 📝 Add SQLite persistence + daily S3 backups + restore workflow
 
 **Automation**
