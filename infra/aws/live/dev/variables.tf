@@ -97,3 +97,52 @@ variable "k3s_agent_extra_args" {
   type        = list(string)
   default     = []
 }
+
+variable "edge_instance_type" {
+  description = "Instance type for the edge EC2 instance."
+  type        = string
+  default     = "t3.micro"
+}
+
+variable "edge_root_volume_size" {
+  description = "Root volume size in GB for the edge instance."
+  type        = number
+  default     = 40
+}
+
+variable "edge_allowed_cidrs" {
+  description = "CIDR blocks allowed to access the edge instance."
+  type        = list(string)
+}
+
+variable "edge_server_name" {
+  description = "Nginx server_name for TLS termination."
+  type        = string
+  default     = "_"
+}
+
+variable "edge_basic_auth_user" {
+  description = "Basic auth username for the edge Nginx."
+  type        = string
+}
+
+variable "edge_basic_auth_ssm_parameter_name" {
+  description = "SSM parameter name storing the basic auth password."
+  type        = string
+}
+
+variable "edge_dashboard_nodeport" {
+  description = "NodePort for the dashboard service."
+  type        = number
+}
+
+variable "edge_api_nodeport" {
+  description = "NodePort for the API service."
+  type        = number
+}
+
+variable "edge_enable_http_redirect" {
+  description = "Whether to redirect HTTP to HTTPS."
+  type        = bool
+  default     = true
+}

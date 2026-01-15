@@ -220,6 +220,7 @@ Save as `cloudradar-infra-baseline.json`:
         "iam:CreateRole",
         "iam:DeleteRole",
         "iam:GetRole",
+        "iam:GetRolePolicy",
         "iam:UpdateAssumeRolePolicy",
         "iam:PutRolePolicy",
         "iam:DeleteRolePolicy",
@@ -241,6 +242,14 @@ Save as `cloudradar-infra-baseline.json`:
         "arn:aws:iam::<account-id>:role/cloudradar-*",
         "arn:aws:iam::<account-id>:instance-profile/cloudradar-*"
       ]
+    },
+    {
+      "Sid": "SsmPutEdgeBasicAuth",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:PutParameter"
+      ],
+      "Resource": "arn:aws:ssm:us-east-1:<account-id>:parameter/cloudradar/edge/basic-auth"
     },
     {
       "Sid": "SsmValidation",
@@ -278,6 +287,23 @@ aws iam put-role-policy \
 | --- | --- | --- | --- |
 | Backend bootstrap policy | Create state/lock for Terraform | S3, DynamoDB | CloudRadarTerraformRole |
 | Infra MVP policy | Provision MVP infra + backend access | EC2/VPC, EBS, SGs, Routes, EIP, Launch Templates, Auto Scaling, IAM, S3, DynamoDB, SSM | CloudRadarTerraformRole |
+
+### 6.4) Edge prerequisites (Basic Auth)
+
+The edge Nginx instance reads the Basic Auth password from SSM Parameter Store at boot.
+Create the parameter before applying the edge module.
+Ensure the Terraform role can call `ssm:PutParameter` for `/cloudradar/edge/basic-auth`.
+Set `edge_root_volume_size` to at least 30 GB (40 GB recommended) for AL2023.
+
+Example:
+
+```bash
+aws ssm put-parameter \
+  --name "/cloudradar/edge/basic-auth" \
+  --type "SecureString" \
+  --value "change-me" \
+  --overwrite
+```
 
 ### 6.3) MVP tickets mapped to permissions
 

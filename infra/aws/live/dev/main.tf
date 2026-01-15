@@ -51,3 +51,24 @@ module "k3s" {
   k3s_agent_extra_args  = var.k3s_agent_extra_args
   tags                  = local.tags
 }
+
+module "edge" {
+  source = "../../modules/edge"
+
+  name                          = "${var.project}-${var.environment}"
+  vpc_id                        = module.vpc.vpc_id
+  public_subnet_id              = module.vpc.public_subnet_ids[0]
+  private_subnet_cidrs          = var.private_subnet_cidrs
+  allowed_cidrs                 = var.edge_allowed_cidrs
+  instance_type                 = var.edge_instance_type
+  root_volume_size              = var.edge_root_volume_size
+  server_name                   = var.edge_server_name
+  basic_auth_user               = var.edge_basic_auth_user
+  basic_auth_ssm_parameter_name = var.edge_basic_auth_ssm_parameter_name
+  region                        = var.region
+  upstream_host                 = module.k3s.k3s_server_private_ip
+  dashboard_upstream_port       = var.edge_dashboard_nodeport
+  api_upstream_port             = var.edge_api_nodeport
+  enable_http_redirect          = var.edge_enable_http_redirect
+  tags                          = local.tags
+}

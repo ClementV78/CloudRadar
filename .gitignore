@@ -29,3 +29,6 @@ creds.json
 # Codex
 .codex-context.md
 CloudRadar.code-workspace
+
+# Local infra outputs (generated)
+docs/runbooks/infra-outputs.md
