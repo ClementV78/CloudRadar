@@ -52,6 +52,7 @@ aws ssm send-command \
   --parameters commands='["sudo kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d; echo"]' \
   --output text
 ```
+The admin credential is stored in the `argocd-initial-admin-secret` Secret (namespace `argocd`).
 
 4) Check the ArgoCD Application status (optional):
 ```bash
