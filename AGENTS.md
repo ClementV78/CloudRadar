@@ -37,6 +37,7 @@
 - When appropriate, offer to let the user run commands themselves.
 - Ensure runbooks and ADRs link to related issues, and issues link back to those docs.
 - If there is a conflict between speed of delivery and perfect structure, prefer a reasonable, explicit trade-off and document it briefly.
+- Minimize manual changes in AWS Console/UI. Prefer IaC and pipelines: Terraform for AWS infra, ArgoCD for Kubernetes, and CI/CD to execute and audit changes. Any exception must be justified and documented.
 
 ### 4.4 Project & GitHub Management
 - When creating a new issue, note dependencies or relationships to other issues.
@@ -143,6 +144,7 @@
 - Keep tests lightweight but present.
 - Add minimal CI checks for infra and app when applicable.
 - Prefer lint/format + basic unit tests over heavy suites.
+- Continuously improve CI test coverage as the stack grows. When introducing new components or workflows, add or update minimal relevant checks to validate them.
 
 ## 11. CI/CD Expectations
 - GitHub Actions for infra and app workflows.
