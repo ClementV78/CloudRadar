@@ -8,6 +8,11 @@ upstream api_upstream {
   server ${upstream_host}:${api_upstream_port};
 }
 
+upstream health_upstream {
+  # Health service running behind the edge proxy.
+  server ${upstream_host}:${health_upstream_port};
+}
+
 server {
   listen 443 ssl;
   server_name ${server_name};
@@ -19,6 +24,16 @@ server {
   # Basic auth protects the public entrypoint.
   auth_basic "CloudRadar";
   auth_basic_user_file /etc/nginx/.htpasswd;
+
+  location = /healthz {
+    # Route health checks to the private backend.
+    proxy_pass http://health_upstream;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
 
   location /api/ {
     # Route API traffic to the private backend.

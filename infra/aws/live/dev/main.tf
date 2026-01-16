@@ -15,6 +15,17 @@ locals {
     "ssmmessages",
     "kms"
   ]
+
+  edge_health_nodeport = var.edge_health_nodeport != null ? var.edge_health_nodeport : var.edge_dashboard_nodeport
+  edge_nodeport_rules = {
+    dashboard = var.edge_dashboard_nodeport
+    api       = var.edge_api_nodeport
+    health    = local.edge_health_nodeport
+  }
+  edge_nodeport_rules_filtered = {
+    for key, port in local.edge_nodeport_rules : key => port
+    if key != "health" || (port != var.edge_dashboard_nodeport && port != var.edge_api_nodeport)
+  }
 }
 
 data "aws_prefix_list" "s3" {
@@ -80,6 +91,7 @@ module "edge" {
   upstream_host                 = module.k3s.k3s_server_private_ip
   dashboard_upstream_port       = var.edge_dashboard_nodeport
   api_upstream_port             = var.edge_api_nodeport
+  health_upstream_port          = local.edge_health_nodeport
   enable_http_redirect          = var.edge_enable_http_redirect
   tags                          = local.tags
 }
@@ -172,10 +184,7 @@ resource "aws_vpc_endpoint" "s3_gateway" {
 }
 
 resource "aws_security_group_rule" "k3s_nodeports_from_edge" {
-  for_each = {
-    dashboard = var.edge_dashboard_nodeport
-    api       = var.edge_api_nodeport
-  }
+  for_each = local.edge_nodeport_rules_filtered
 
   type                     = "ingress"
   security_group_id        = module.k3s.k3s_security_group_id
