@@ -28,10 +28,10 @@ flowchart TB
   prod --> edge
 ```
 
-## VPC baseline (per environment)
+## VPC diagram (SGs on network flows)
 
 ```mermaid
-flowchart TB
+flowchart LR
   internet((Internet))
 
   subgraph VPC["VPC"]
@@ -40,18 +40,16 @@ flowchart TB
     subgraph Public["Public subnet"]
       edge["EC2 Nginx (edge)"]
       nat["EC2 NAT instance"]
+      publicRT["Public route table"]
     end
 
     subgraph Private["Private subnet"]
+      direction LR
+      ssmEndpoints["VPC interface endpoints (SSM/KMS)"]
+      privateRT["Private route table"]
+      edgeToK3s[" "]
       k3s["EC2 k3s nodes"]
     end
-
-    publicRT["Public route table"]
-    privateRT["Private route table"]
-
-    edgeSG["SG: edge"]
-    natSG["SG: nat"]
-    k3sSG["SG: k3s"]
   end
 
   internet --> igw
@@ -61,9 +59,13 @@ flowchart TB
   privateRT --> k3s
   privateRT -.-> nat
 
-  edgeSG -.-> edge
-  natSG -.-> nat
-  k3sSG -.-> k3s
+  internet -- "SG edge: 443/80" --> edge
+  edge -- "SG edge (egress): private CIDRs" --> edgeToK3s
+  edgeToK3s -- "SG k3s (ingress): allow from edge SG" --> k3s
+  edge -- "SG edge: allow to endpoints" --> ssmEndpoints
+  nat -- "SG nat: allow from private CIDRs" --> privateRT
+
+  style edgeToK3s fill:transparent,stroke:transparent,stroke-width:0px;
 ```
 
 ## Resource inventory (per environment)
@@ -71,6 +73,7 @@ flowchart TB
 ### Networking
 - VPC, Internet Gateway, public/private subnets, public/private route tables.
 - NAT instance (public subnet) with private route table default route.
+- Interface VPC endpoints for SSM/KMS services.
 
 ### Compute
 - k3s server EC2 instance (private subnet).
@@ -100,10 +103,11 @@ flowchart TB
 | k3s SG | 6443/TCP, 10250/TCP, 8472/UDP | us-east-1 | n/a | k3s SG | `cloudradar-dev-k3s-nodes` | default | Self-referenced rules |
 | NAT SG | All from private CIDRs | us-east-1 | n/a | nat SG | `cloudradar-dev-nat` | default | Egress to Internet |
 | Edge SG | 443/TCP (and 80/TCP redirect) | us-east-1 | n/a | edge SG | `cloudradar-dev-edge` | default | Access limited by `edge_allowed_cidrs` |
+| SSM endpoints | 443/TCP from edge SG | us-east-1 | n/a | edge SSM endpoints SG | `cloudradar-dev-edge-ssm-endpoints` | default | Interface endpoints for SSM/KMS |
 
 ## Status
 
-- Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2.
+- Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, SSM/KMS endpoints.
 - Planned: observability stack, additional network hardening.
 
 ## Notes
@@ -112,6 +116,7 @@ flowchart TB
 - Private subnet egress is handled by the NAT instance module and the private route table default route.
 - The edge EC2 instance is the public entry point (Nginx reverse proxy) used for TLS termination and basic auth in front of k3s services.
 - Edge basic auth password is read from SSM Parameter Store at boot (see `docs/runbooks/aws-account-bootstrap.md` for IAM).
+- Edge SSM access is routed via VPC interface endpoints (SSM, EC2 messages, and KMS), keeping edge egress restricted to private subnets.
 - TODO: migrate edge TLS to ACM + Route53 (issue #14).
 - TODO: tighten edge egress to k3s SG (replace CIDR-based egress).
 - IAM permissions needed for these resources are documented in `docs/runbooks/aws-account-bootstrap.md`.
