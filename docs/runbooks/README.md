@@ -54,6 +54,8 @@ Purpose: generate a local Markdown snapshot of Terraform outputs for quick refer
 
 ```bash
 ./scripts/update-infra-outputs.sh dev
+# If the local backend is not initialized (or you want to reconfigure it), use:
+./scripts/update-infra-outputs.sh dev --init
 ```
 
 This writes `docs/runbooks/infra-outputs.md` locally. The file is intentionally not committed.
@@ -64,5 +66,6 @@ This writes `docs/runbooks/infra-outputs.md` locally. The file is intentionally 
 - Add edge EC2 and observability stacks once k3s baseline is stable.
 - Apply edge EC2 module for public entrypoint when ready (issue #8).
 - Before edge apply: ensure the Basic Auth SSM parameter exists and the Terraform role has `ssm:PutParameter`/`iam:GetRolePolicy` (see `docs/runbooks/aws-account-bootstrap.md`).
+- The Basic Auth username is set via `edge_basic_auth_user` in `infra/aws/live/<env>/terraform.tfvars`.
 - Ensure `edge_root_volume_size` is at least 30 GB (40 GB recommended) for AL2023.
 - TODO: Re-enable WebSocket headers in edge Nginx if the dashboard/API needs persistent connections.
