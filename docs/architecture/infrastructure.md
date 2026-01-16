@@ -31,7 +31,7 @@ flowchart TB
 ## VPC diagram (SGs on network flows)
 
 ```mermaid
-flowchart TB
+flowchart LR
   internet((Internet))
 
   subgraph VPC["VPC"]
