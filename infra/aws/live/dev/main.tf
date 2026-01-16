@@ -130,7 +130,6 @@ resource "aws_security_group_rule" "k3s_ssm_endpoints_ingress" {
   source_security_group_id = module.k3s.k3s_security_group_id
   description              = "Allow SSM endpoint access from k3s nodes"
 }
-
 resource "aws_security_group_rule" "edge_ssm_endpoints_egress" {
   count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
 
@@ -154,7 +153,6 @@ resource "aws_security_group_rule" "edge_egress_s3" {
   prefix_list_ids   = [data.aws_prefix_list.s3.id]
   description       = "Allow egress to S3 via gateway endpoint"
 }
-
 resource "aws_vpc_endpoint" "edge_ssm" {
   for_each = var.edge_ssm_vpc_endpoints_enabled ? toset(local.ssm_vpc_endpoint_services) : toset([])
 
