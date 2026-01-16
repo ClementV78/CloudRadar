@@ -175,7 +175,7 @@ These are high-level estimates based on current scope.
 - ✅ VPC module + per-environment live roots (dev/prod)
 - ✅ Provision k3s nodes with cloud-init (server + agent) + SSM validation
 - ✅ Deploy edge Nginx with TLS + Basic Auth (dev)
-- 📝 Expose `/healthz` through edge Nginx (planned)
+- ✅ Expose `/healthz` through edge Nginx
 - 📝 Add SQLite persistence + daily S3 backups + restore workflow
 
 **Automation**
@@ -183,6 +183,7 @@ These are high-level estimates based on current scope.
 - ✅ Infra CI workflow (fmt/validate/plan + tfsec) on PRs
 - ✅ Manual infra apply workflow (workflow_dispatch)
 - ✅ Runbooks available for bootstrap and verification
+- ✅ GitOps bootstrap with ArgoCD (k3s)
 - 📝 Application CI/CD pipeline (build + GHCR publish)
 
 **Application**
@@ -245,7 +246,7 @@ Planned future evolutions:
 
 - Migration from SQLite to **managed database (RDS)**
 - Advanced autoscaling scenarios (HPA, event-based scaling)
-- GitOps workflows (Argo CD / Flux)
+- GitOps workflows (Argo CD / Flux) — ArgoCD bootstrap implemented, Flux planned
 - Improved security (secrets rotation)
 
 ---
