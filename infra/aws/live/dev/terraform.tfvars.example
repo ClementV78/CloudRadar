@@ -28,4 +28,5 @@ edge_basic_auth_user     = "cloudradar"
 edge_basic_auth_ssm_parameter_name = "/cloudradar/edge/basic-auth"
 edge_dashboard_nodeport  = 30080
 edge_api_nodeport        = 30081
+edge_health_nodeport     = 32736
 edge_enable_http_redirect = true

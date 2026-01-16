@@ -4,6 +4,7 @@ locals {
     upstream_host           = var.upstream_host
     dashboard_upstream_port = var.dashboard_upstream_port
     api_upstream_port       = var.api_upstream_port
+    health_upstream_port    = var.health_upstream_port
     enable_http_redirect    = var.enable_http_redirect ? "1" : "0"
   })
 }

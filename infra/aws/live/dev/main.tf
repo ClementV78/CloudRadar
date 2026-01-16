@@ -8,6 +8,28 @@ locals {
     Environment = var.environment
     Project     = var.project
   })
+
+  ssm_vpc_endpoint_services = [
+    "ssm",
+    "ec2messages",
+    "ssmmessages",
+    "kms"
+  ]
+
+  edge_health_nodeport = var.edge_health_nodeport != null ? var.edge_health_nodeport : var.edge_dashboard_nodeport
+  edge_nodeport_rules = {
+    dashboard = var.edge_dashboard_nodeport
+    api       = var.edge_api_nodeport
+    health    = local.edge_health_nodeport
+  }
+  edge_nodeport_rules_filtered = {
+    for key, port in local.edge_nodeport_rules : key => port
+    if key != "health" || (port != var.edge_dashboard_nodeport && port != var.edge_api_nodeport)
+  }
+}
+
+data "aws_prefix_list" "s3" {
+  name = "com.amazonaws.${var.region}.s3"
 }
 
 module "vpc" {
@@ -69,6 +91,106 @@ module "edge" {
   upstream_host                 = module.k3s.k3s_server_private_ip
   dashboard_upstream_port       = var.edge_dashboard_nodeport
   api_upstream_port             = var.edge_api_nodeport
+  health_upstream_port          = local.edge_health_nodeport
   enable_http_redirect          = var.edge_enable_http_redirect
   tags                          = local.tags
+}
+
+resource "aws_security_group" "edge_ssm_endpoints" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  name_prefix = "${var.project}-${var.environment}-edge-ssm-"
+  vpc_id      = module.vpc.vpc_id
+
+  tags = merge(local.tags, {
+    Name = "${var.project}-${var.environment}-edge-ssm-endpoints"
+  })
+}
+
+resource "aws_security_group_rule" "edge_ssm_endpoints_ingress" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  type                     = "ingress"
+  security_group_id        = aws_security_group.edge_ssm_endpoints[0].id
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = module.edge.edge_security_group_id
+  description              = "Allow SSM endpoint access from edge"
+}
+
+resource "aws_security_group_rule" "k3s_ssm_endpoints_ingress" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  type                     = "ingress"
+  security_group_id        = aws_security_group.edge_ssm_endpoints[0].id
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = module.k3s.k3s_security_group_id
+  description              = "Allow SSM endpoint access from k3s nodes"
+}
+
+resource "aws_security_group_rule" "edge_ssm_endpoints_egress" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  type              = "egress"
+  security_group_id = aws_security_group.edge_ssm_endpoints[0].id
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "Allow endpoint egress"
+}
+
+resource "aws_security_group_rule" "edge_egress_s3" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  type              = "egress"
+  security_group_id = module.edge.edge_security_group_id
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  prefix_list_ids   = [data.aws_prefix_list.s3.id]
+  description       = "Allow egress to S3 via gateway endpoint"
+}
+
+resource "aws_vpc_endpoint" "edge_ssm" {
+  for_each = var.edge_ssm_vpc_endpoints_enabled ? toset(local.ssm_vpc_endpoint_services) : toset([])
+
+  vpc_id              = module.vpc.vpc_id
+  vpc_endpoint_type   = "Interface"
+  service_name        = "com.amazonaws.${var.region}.${each.value}"
+  subnet_ids          = module.vpc.private_subnet_ids
+  security_group_ids  = [aws_security_group.edge_ssm_endpoints[0].id]
+  private_dns_enabled = true
+
+  tags = merge(local.tags, {
+    Name = "${var.project}-${var.environment}-${each.value}-endpoint"
+  })
+}
+
+resource "aws_vpc_endpoint" "s3_gateway" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  vpc_id            = module.vpc.vpc_id
+  vpc_endpoint_type = "Gateway"
+  service_name      = "com.amazonaws.${var.region}.s3"
+  route_table_ids   = [module.vpc.public_route_table_id, module.vpc.private_route_table_id]
+
+  tags = merge(local.tags, {
+    Name = "${var.project}-${var.environment}-s3-endpoint"
+  })
+}
+
+resource "aws_security_group_rule" "k3s_nodeports_from_edge" {
+  for_each = local.edge_nodeport_rules_filtered
+
+  type                     = "ingress"
+  security_group_id        = module.k3s.k3s_security_group_id
+  from_port                = each.value
+  to_port                  = each.value
+  protocol                 = "tcp"
+  source_security_group_id = module.edge.edge_security_group_id
+  description              = "Allow edge access to k3s ${each.key} nodeport"
 }

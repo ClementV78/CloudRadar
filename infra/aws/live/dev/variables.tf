@@ -141,8 +141,20 @@ variable "edge_api_nodeport" {
   type        = number
 }
 
+variable "edge_health_nodeport" {
+  description = "NodePort for the health service. Defaults to the dashboard nodeport when null."
+  type        = number
+  default     = null
+}
+
 variable "edge_enable_http_redirect" {
   description = "Whether to redirect HTTP to HTTPS."
+  type        = bool
+  default     = true
+}
+
+variable "edge_ssm_vpc_endpoints_enabled" {
+  description = "Whether to create VPC interface endpoints for SSM, EC2 messages, and KMS."
   type        = bool
   default     = true
 }

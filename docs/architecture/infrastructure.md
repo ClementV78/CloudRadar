@@ -28,7 +28,7 @@ flowchart TB
   prod --> edge
 ```
 
-## VPC baseline (per environment)
+## VPC diagram (SGs on network flows)
 
 ```mermaid
 flowchart TB
@@ -38,20 +38,17 @@ flowchart TB
     igw["Internet Gateway"]
 
     subgraph Public["Public subnet"]
+      publicRT["Public route table"]
       edge["EC2 Nginx (edge)"]
       nat["EC2 NAT instance"]
     end
 
     subgraph Private["Private subnet"]
+      privateRT["Private route table"]
       k3s["EC2 k3s nodes"]
+      ssmEndpoints["VPC interface endpoints (SSM/KMS)"]
+      edgeToK3s[" "]
     end
-
-    publicRT["Public route table"]
-    privateRT["Private route table"]
-
-    edgeSG["SG: edge"]
-    natSG["SG: nat"]
-    k3sSG["SG: k3s"]
   end
 
   internet --> igw
@@ -61,9 +58,14 @@ flowchart TB
   privateRT --> k3s
   privateRT -.-> nat
 
-  edgeSG -.-> edge
-  natSG -.-> nat
-  k3sSG -.-> k3s
+  internet -- "SG edge: 443/80" --> edge
+  edge -- "SG edge (egress): private CIDRs" --> edgeToK3s
+  edgeToK3s -- "SG k3s (ingress): allow from edge SG" --> k3s
+  edge -- "SG endpoints: allow from edge" --> ssmEndpoints
+  k3s -- "SG endpoints: allow from k3s" --> ssmEndpoints
+  nat -- "SG nat: allow from private CIDRs" --> privateRT
+
+  style edgeToK3s fill:transparent,stroke:transparent,stroke-width:0px;
 ```
 
 ## Resource inventory (per environment)
@@ -71,6 +73,8 @@ flowchart TB
 ### Networking
 - VPC, Internet Gateway, public/private subnets, public/private route tables.
 - NAT instance (public subnet) with private route table default route.
+- Interface VPC endpoints for SSM/KMS services.
+- Gateway VPC endpoint for S3 (public + private route tables).
 
 ### Compute
 - k3s server EC2 instance (private subnet).
@@ -83,6 +87,9 @@ flowchart TB
 - Security group for NAT (allow from private CIDRs).
 - Security group for edge (HTTPS from allowed CIDRs).
 - Default VPC network ACLs (no custom NACLs yet).
+  - k3s node SG rules are self-referenced for 6443/10250/8472 (node-to-node only).
+  - Edge reaches k3s only through NodePorts (30080/30081) via SG edge -> SG k3s.
+  - SSM endpoints SG allows ingress from both edge and k3s SGs (port 443).
 
 ### IAM
 - IAM role + instance profile for k3s nodes (SSM managed policy).
@@ -100,10 +107,12 @@ flowchart TB
 | k3s SG | 6443/TCP, 10250/TCP, 8472/UDP | us-east-1 | n/a | k3s SG | `cloudradar-dev-k3s-nodes` | default | Self-referenced rules |
 | NAT SG | All from private CIDRs | us-east-1 | n/a | nat SG | `cloudradar-dev-nat` | default | Egress to Internet |
 | Edge SG | 443/TCP (and 80/TCP redirect) | us-east-1 | n/a | edge SG | `cloudradar-dev-edge` | default | Access limited by `edge_allowed_cidrs` |
+| SSM endpoints | 443/TCP from edge SG | us-east-1 | n/a | edge SSM endpoints SG | `cloudradar-dev-edge-ssm-endpoints` | default | Interface endpoints for SSM/KMS |
+| S3 endpoint | AWS prefix list | us-east-1 | public + private RT | edge SG (egress) | `cloudradar-dev-s3-endpoint` | default | Gateway endpoint for AL2023 repos |
 
 ## Status
 
-- Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2.
+- Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, SSM/KMS endpoints.
 - Planned: observability stack, additional network hardening.
 
 ## Notes
@@ -112,6 +121,10 @@ flowchart TB
 - Private subnet egress is handled by the NAT instance module and the private route table default route.
 - The edge EC2 instance is the public entry point (Nginx reverse proxy) used for TLS termination and basic auth in front of k3s services.
 - Edge basic auth password is read from SSM Parameter Store at boot (see `docs/runbooks/aws-account-bootstrap.md` for IAM).
+- Edge SSM access is routed via VPC interface endpoints (SSM, EC2 messages, and KMS), keeping edge egress restricted to private subnets.
+- Edge package installs use the S3 gateway endpoint plus SG egress to the S3 prefix list.
+- TODO: set edge `server_name` to the public DNS name once available (remove nginx warning).
+- TODO: improve edge HA by running nginx on public k3s nodes + ASG (min 1, ideally 2+) with vertical scaling as needed.
 - TODO: migrate edge TLS to ACM + Route53 (issue #14).
 - TODO: tighten edge egress to k3s SG (replace CIDR-based egress).
 - IAM permissions needed for these resources are documented in `docs/runbooks/aws-account-bootstrap.md`.

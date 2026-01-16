@@ -21,7 +21,7 @@ openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
   -subj "/CN=${server_name}"
 
 # Pull the Basic Auth password from SSM Parameter Store.
-basic_auth_password="$(aws ssm get-parameter --name \"${basic_auth_ssm_parameter_name}\" --with-decryption --region \"${aws_region}\" --query 'Parameter.Value' --output text)"
+basic_auth_password="$(aws ssm get-parameter --name "${basic_auth_ssm_parameter_name}" --with-decryption --region "${aws_region}" --query 'Parameter.Value' --output text)"
 htpasswd -bc /etc/nginx/.htpasswd "${basic_auth_user}" "$basic_auth_password"
 
 # Write the templated Nginx config.
@@ -31,5 +31,6 @@ NGINXCONF
 
 # Validate and launch Nginx.
 nginx -t
-systemctl enable nginx
-systemctl restart nginx
+systemctl enable --now nginx
+systemctl is-enabled --quiet nginx
+systemctl is-active --quiet nginx
