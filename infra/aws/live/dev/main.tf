@@ -17,6 +17,10 @@ locals {
   ]
 }
 
+data "aws_prefix_list" "s3" {
+  name = "com.amazonaws.${var.region}.s3"
+}
+
 module "vpc" {
   source = "../../modules/vpc"
 
@@ -115,6 +119,18 @@ resource "aws_security_group_rule" "edge_ssm_endpoints_egress" {
   description       = "Allow endpoint egress"
 }
 
+resource "aws_security_group_rule" "edge_egress_s3" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  type              = "egress"
+  security_group_id = module.edge.edge_security_group_id
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  prefix_list_ids   = [data.aws_prefix_list.s3.id]
+  description       = "Allow egress to S3 via gateway endpoint"
+}
+
 resource "aws_vpc_endpoint" "edge_ssm" {
   for_each = var.edge_ssm_vpc_endpoints_enabled ? toset(local.ssm_vpc_endpoint_services) : toset([])
 
@@ -127,5 +143,18 @@ resource "aws_vpc_endpoint" "edge_ssm" {
 
   tags = merge(local.tags, {
     Name = "${var.project}-${var.environment}-${each.value}-endpoint"
+  })
+}
+
+resource "aws_vpc_endpoint" "s3_gateway" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  vpc_id            = module.vpc.vpc_id
+  vpc_endpoint_type = "Gateway"
+  service_name      = "com.amazonaws.${var.region}.s3"
+  route_table_ids   = [module.vpc.public_route_table_id, module.vpc.private_route_table_id]
+
+  tags = merge(local.tags, {
+    Name = "${var.project}-${var.environment}-s3-endpoint"
   })
 }
