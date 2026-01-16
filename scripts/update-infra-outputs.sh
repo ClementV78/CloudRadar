@@ -72,7 +72,6 @@ if [[ "$needs_init" == "true" ]]; then
 
   terraform -chdir="$ENV_DIR" init -input=false -reconfigure -backend-config="$backend_config"
 fi
-
 tf_err="$(mktemp)"
 tf_out="$(mktemp)"
 terraform -chdir="$ENV_DIR" output -json >"$tf_out" 2>"$tf_err"

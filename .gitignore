@@ -19,12 +19,15 @@ dist/
 venv/
 __pycache__/
 *.class
+backups/
 
 # Secrets (Safety First!)
 *.pem
 *.key
 creds.json
 .env
+.DS_Store
+backups/*.bundle
 
 # Codex
 .codex-context.md
