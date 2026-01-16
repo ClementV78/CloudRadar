@@ -32,6 +32,10 @@ data "aws_prefix_list" "s3" {
   name = "com.amazonaws.${var.region}.s3"
 }
 
+data "aws_prefix_list" "s3" {
+  name = "com.amazonaws.${var.region}.s3"
+}
+
 module "vpc" {
   source = "../../modules/vpc"
 
