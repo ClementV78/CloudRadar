@@ -48,7 +48,7 @@ if [[ -z "${SESSION_NAME:-}" ]]; then
     SESSION_NAME="cloudradar-bootstrap"
   fi
 fi
-DURATION_SECONDS="${DURATION_SECONDS:-3600}"
+DURATION_SECONDS="${DURATION_SECONDS:-28800}"
 
 if [[ -n "${MFA_DEVICE_NAME}" ]]; then
   if [[ -z "${ACCOUNT_ID}" ]]; then
