@@ -107,6 +107,18 @@ resource "aws_security_group_rule" "edge_ssm_endpoints_ingress" {
   description              = "Allow SSM endpoint access from edge"
 }
 
+resource "aws_security_group_rule" "k3s_ssm_endpoints_ingress" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  type                     = "ingress"
+  security_group_id        = aws_security_group.edge_ssm_endpoints[0].id
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = module.k3s.k3s_security_group_id
+  description              = "Allow SSM endpoint access from k3s nodes"
+}
+
 resource "aws_security_group_rule" "edge_ssm_endpoints_egress" {
   count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
 
@@ -157,4 +169,19 @@ resource "aws_vpc_endpoint" "s3_gateway" {
   tags = merge(local.tags, {
     Name = "${var.project}-${var.environment}-s3-endpoint"
   })
+}
+
+resource "aws_security_group_rule" "k3s_nodeports_from_edge" {
+  for_each = {
+    dashboard = var.edge_dashboard_nodeport
+    api       = var.edge_api_nodeport
+  }
+
+  type                     = "ingress"
+  security_group_id        = module.k3s.k3s_security_group_id
+  from_port                = each.value
+  to_port                  = each.value
+  protocol                 = "tcp"
+  source_security_group_id = module.edge.edge_security_group_id
+  description              = "Allow edge access to k3s ${each.key} nodeport"
 }
