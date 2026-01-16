@@ -74,6 +74,7 @@ flowchart LR
 - VPC, Internet Gateway, public/private subnets, public/private route tables.
 - NAT instance (public subnet) with private route table default route.
 - Interface VPC endpoints for SSM/KMS services.
+- Gateway VPC endpoint for S3 (public + private route tables).
 
 ### Compute
 - k3s server EC2 instance (private subnet).
@@ -104,6 +105,7 @@ flowchart LR
 | NAT SG | All from private CIDRs | us-east-1 | n/a | nat SG | `cloudradar-dev-nat` | default | Egress to Internet |
 | Edge SG | 443/TCP (and 80/TCP redirect) | us-east-1 | n/a | edge SG | `cloudradar-dev-edge` | default | Access limited by `edge_allowed_cidrs` |
 | SSM endpoints | 443/TCP from edge SG | us-east-1 | n/a | edge SSM endpoints SG | `cloudradar-dev-edge-ssm-endpoints` | default | Interface endpoints for SSM/KMS |
+| S3 endpoint | AWS prefix list | us-east-1 | public + private RT | edge SG (egress) | `cloudradar-dev-s3-endpoint` | default | Gateway endpoint for AL2023 repos |
 
 ## Status
 
@@ -117,6 +119,7 @@ flowchart LR
 - The edge EC2 instance is the public entry point (Nginx reverse proxy) used for TLS termination and basic auth in front of k3s services.
 - Edge basic auth password is read from SSM Parameter Store at boot (see `docs/runbooks/aws-account-bootstrap.md` for IAM).
 - Edge SSM access is routed via VPC interface endpoints (SSM, EC2 messages, and KMS), keeping edge egress restricted to private subnets.
+- Edge package installs use the S3 gateway endpoint plus SG egress to the S3 prefix list.
 - TODO: migrate edge TLS to ACM + Route53 (issue #14).
 - TODO: tighten edge egress to k3s SG (replace CIDR-based egress).
 - IAM permissions needed for these resources are documented in `docs/runbooks/aws-account-bootstrap.md`.
