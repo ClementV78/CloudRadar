@@ -8,6 +8,13 @@ locals {
     Environment = var.environment
     Project     = var.project
   })
+
+  ssm_vpc_endpoint_services = [
+    "ssm",
+    "ec2messages",
+    "ssmmessages",
+    "kms"
+  ]
 }
 
 module "vpc" {
@@ -71,4 +78,54 @@ module "edge" {
   api_upstream_port             = var.edge_api_nodeport
   enable_http_redirect          = var.edge_enable_http_redirect
   tags                          = local.tags
+}
+
+resource "aws_security_group" "edge_ssm_endpoints" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  name_prefix = "${var.project}-${var.environment}-edge-ssm-"
+  vpc_id      = module.vpc.vpc_id
+
+  tags = merge(local.tags, {
+    Name = "${var.project}-${var.environment}-edge-ssm-endpoints"
+  })
+}
+
+resource "aws_security_group_rule" "edge_ssm_endpoints_ingress" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  type                     = "ingress"
+  security_group_id        = aws_security_group.edge_ssm_endpoints[0].id
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = module.edge.edge_security_group_id
+  description              = "Allow SSM endpoint access from edge"
+}
+
+resource "aws_security_group_rule" "edge_ssm_endpoints_egress" {
+  count = var.edge_ssm_vpc_endpoints_enabled ? 1 : 0
+
+  type              = "egress"
+  security_group_id = aws_security_group.edge_ssm_endpoints[0].id
+  from_port         = 0
+  to_port           = 0
+  protocol          = "-1"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "Allow endpoint egress"
+}
+
+resource "aws_vpc_endpoint" "edge_ssm" {
+  for_each = var.edge_ssm_vpc_endpoints_enabled ? toset(local.ssm_vpc_endpoint_services) : toset([])
+
+  vpc_id              = module.vpc.vpc_id
+  vpc_endpoint_type   = "Interface"
+  service_name        = "com.amazonaws.${var.region}.${each.value}"
+  subnet_ids          = module.vpc.private_subnet_ids
+  security_group_ids  = [aws_security_group.edge_ssm_endpoints[0].id]
+  private_dns_enabled = true
+
+  tags = merge(local.tags, {
+    Name = "${var.project}-${var.environment}-${each.value}-endpoint"
+  })
 }
