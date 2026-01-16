@@ -26,6 +26,8 @@ backups/
 *.key
 creds.json
 .env
+.DS_Store
+backups/*.bundle
 
 # Codex
 .codex-context.md
