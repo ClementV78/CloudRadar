@@ -60,6 +60,23 @@ Purpose: generate a local Markdown snapshot of Terraform outputs for quick refer
 
 This writes `docs/runbooks/infra-outputs.md` locally. The file is intentionally not committed.
 
+## 3.2) ArgoCD bootstrap (one-time)
+
+Purpose: deploy ArgoCD inside k3s to enable GitOps.
+
+- Runbook: `docs/runbooks/argocd-bootstrap.md`
+
+Post-bootstrap checks (optional):
+- Verify the ArgoCD Application status (Synced/Healthy).
+- Retrieve the initial admin password (if needed).
+
+## 3.3) Edge health endpoint (optional)
+
+Purpose: expose `/healthz` via the edge Nginx to validate end-to-end k3s connectivity.
+
+- Runbook: `docs/runbooks/health-endpoint.md`
+- TODO: configure a Docker credential helper to avoid GHCR login warnings.
+
 ## 4) Next steps (planned)
 
 - Apply on dev when ready; keep prod for later.

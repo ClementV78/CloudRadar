@@ -175,6 +175,7 @@ These are high-level estimates based on current scope.
 - ✅ VPC module + per-environment live roots (dev/prod)
 - ✅ Provision k3s nodes with cloud-init (server + agent) + SSM validation
 - ✅ Deploy edge Nginx with TLS + Basic Auth (dev)
+- 📝 Expose `/healthz` through edge Nginx (planned)
 - 📝 Add SQLite persistence + daily S3 backups + restore workflow
 
 **Automation**
