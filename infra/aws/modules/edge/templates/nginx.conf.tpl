@@ -47,7 +47,8 @@ server {
   listen 80;
   server_name ${server_name};
 
-  if (${enable_http_redirect}) {
+  set $http_redirect "${enable_http_redirect}";
+  if ($http_redirect = 1) {
     # Redirect cleartext HTTP to HTTPS when enabled.
     return 301 https://$host$request_uri;
   }
