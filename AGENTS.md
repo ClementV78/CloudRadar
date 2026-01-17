@@ -28,6 +28,7 @@
 
 ### 4.2 Context & Documentation Hygiene
 - At session start, load context from `.codex-context.md` without asking (if present), then confirm it was loaded and provide a brief recap (recent actions and next planned steps).
+- At session start, review the full ADR list in `docs/architecture/decisions/` and keep it in mind for decisions and updates.
 - Keep `.codex-context.md` updated regularly.
 - Explicitly mark “planned” vs “implemented” in README status sections.
 
