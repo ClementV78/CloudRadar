@@ -116,14 +116,15 @@ fi
 commands=(
   # Install ArgoCD via Helm and create the GitOps Application manifest.
   "set -euo pipefail"
+  "for i in {1..30}; do if [[ -x /usr/local/bin/kubectl ]]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; done; if [[ ! -x /usr/local/bin/kubectl ]]; then echo \"kubectl not found after 300s\"; exit 1; fi"
   "command -v helm >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash"
   "sudo helm repo add argo https://argoproj.github.io/argo-helm --force-update"
   "sudo helm repo update"
   "sudo helm upgrade --install argocd argo/argo-cd --namespace ${ARGOCD_NAMESPACE} --create-namespace ${HELM_VERSION_FLAG}"
-  "sudo kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=120s"
-  "sudo kubectl -n ${ARGOCD_NAMESPACE} wait --for=condition=Available deployment/argocd-server --timeout=300s"
-  "sudo kubectl -n ${ARGOCD_NAMESPACE} get pods -o wide"
-  "printf '%s\n' \"apiVersion: argoproj.io/v1alpha1\" \"kind: Application\" \"metadata:\" \"  name: ${ARGOCD_APP_NAME}\" \"  namespace: ${ARGOCD_NAMESPACE}\" \"spec:\" \"  project: default\" \"  source:\" \"    repoURL: ${ARGOCD_APP_REPO}\" \"    targetRevision: ${ARGOCD_APP_REVISION}\" \"    path: ${ARGOCD_APP_PATH}\" \"  destination:\" \"    server: https://kubernetes.default.svc\" \"    namespace: ${ARGOCD_APP_NAMESPACE}\" \"  syncPolicy:\" \"    automated:\" \"      prune: true\" \"      selfHeal: true\" \"    syncOptions:\" \"      - CreateNamespace=true\" | sudo kubectl apply -f -"
+  "sudo /usr/local/bin/kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=120s"
+  "sudo /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} wait --for=condition=Available deployment/argocd-server --timeout=300s"
+  "sudo /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} get pods -o wide"
+  "printf '%s\n' \"apiVersion: argoproj.io/v1alpha1\" \"kind: Application\" \"metadata:\" \"  name: ${ARGOCD_APP_NAME}\" \"  namespace: ${ARGOCD_NAMESPACE}\" \"spec:\" \"  project: default\" \"  source:\" \"    repoURL: ${ARGOCD_APP_REPO}\" \"    targetRevision: ${ARGOCD_APP_REVISION}\" \"    path: ${ARGOCD_APP_PATH}\" \"  destination:\" \"    server: https://kubernetes.default.svc\" \"    namespace: ${ARGOCD_APP_NAMESPACE}\" \"  syncPolicy:\" \"    automated:\" \"      prune: true\" \"      selfHeal: true\" \"    syncOptions:\" \"      - CreateNamespace=true\" | sudo /usr/local/bin/kubectl apply -f -"
 )
 
  # Encode commands for SSM RunShellScript.
