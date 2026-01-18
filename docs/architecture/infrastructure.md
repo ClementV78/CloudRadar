@@ -81,6 +81,7 @@ flowchart TB
 - k3s worker Auto Scaling Group (private subnets) with launch template.
 - NAT EC2 instance (public subnet).
 - Edge EC2 instance (public subnet).
+- ArgoCD deployed on k3s (bootstrapped via SSM from CI).
 
 ### Security
 - Security group for k3s nodes (explicit ports).
@@ -113,6 +114,7 @@ flowchart TB
 ## Status
 
 - Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, SSM/KMS endpoints.
+- Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery.
 - Planned: observability stack, additional network hardening.
 
 ## Notes
@@ -122,6 +124,7 @@ flowchart TB
 - The edge EC2 instance is the public entry point (Nginx reverse proxy) used for TLS termination and basic auth in front of k3s services.
 - Edge basic auth password is read from SSM Parameter Store at boot (see `docs/runbooks/aws-account-bootstrap.md` for IAM).
 - Edge SSM access is routed via VPC interface endpoints (SSM, EC2 messages, and KMS), keeping edge egress restricted to private subnets.
+- ArgoCD is bootstrapped via SSM from CI after infrastructure apply, then manages k8s apps via GitOps.
 - Edge package installs use the S3 gateway endpoint plus SG egress to the S3 prefix list.
 - TODO: set edge `server_name` to the public DNS name once available (remove nginx warning).
 - TODO: improve edge HA by running nginx on public k3s nodes + ASG (min 1, ideally 2+) with vertical scaling as needed.

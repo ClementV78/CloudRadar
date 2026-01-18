@@ -2,10 +2,12 @@
 
 > **Event-Driven Telemetry Processing** on AWS & Kubernetes (k3s).
 
-![AWS](https://img.shields.io/badge/AWS-us--east--1-232F3E?style=flat&logo=amazon-aws&logoColor=white)
+![AWS](https://img.shields.io/badge/Cloud-AWS-232F3E?style=flat&logo=amazon-aws&logoColor=white)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-k3s-326CE5?style=flat&logo=kubernetes&logoColor=white)
-![Terraform](https://img.shields.io/badge/Terraform-IaC-7B42BC?style=flat&logo=terraform&logoColor=white)
+![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?style=flat&logo=terraform&logoColor=white)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat&logo=github-actions&logoColor=white)
+![GitOps](https://img.shields.io/badge/GitOps-ArgoCD-FE6A16?style=flat&logo=argo&logoColor=white)
+![FinOps](https://img.shields.io/badge/Cost%20Aware-Low%20Budget-2E7D32?style=flat)
 
 ---
 
@@ -15,14 +17,14 @@
 
 - cost-efficient infrastructure,
 - Kubernetes fundamentals,
-- automation and CI/CD,
+- automation, GitOps, and CI/CD,
 - observability and operational concerns.
 
 **Functional Overview:**
 The project ingests real-world flight telemetry from OpenSky’s open data stream to power a dashboard that visualizes live aircraft positions and traffic details, lets users define exclusion zones, and triggers alerts on zone intrusions.
 
 **Technical Overview:**
-CloudRadar is a Terraform-driven AWS stack (k3s on EC2) with Prometheus/Grafana observability, a React + Leaflet UI, and a GitHub Actions CI/CD pipeline pushing containers to GHCR.
+CloudRadar is a Terraform-driven AWS stack (k3s on EC2) with Prometheus/Grafana observability, a React + Leaflet UI, and a GitHub Actions CI/CD pipeline pushing containers to GHCR. Application workloads on k3s are delivered via GitOps with ArgoCD.
 
 **Project Management:**
 All features and fixes are tracked as GitHub Issues, grouped by milestones, and delivered through an iterative, issue-driven workflow. Progress is managed using a GitHub Projects Kanban board, following lightweight agile-inspired practices adapted for a solo project.
@@ -57,8 +59,8 @@ Start here if you are setting up the project from scratch.
 
 **Key characteristics:**
 - AWS Region: **us-east-1**
-- Public Edge: **CloudFront + Nginx reverse proxy (EC2)** (planned)
-- Private compute: **k3s cluster (2 EC2 nodes)**
+- Public Edge: **Nginx reverse proxy (EC2)** (dev implemented), **CloudFront** (planned)
+- Private compute: **k3s cluster (2 EC2 nodes: 1 control plane + 1 worker)**
 - Event buffering: **Redis**
 - MVP storage: **SQLite (PV / EBS)**
 - Observability (planned): **Prometheus & Grafana**
@@ -71,16 +73,20 @@ Start here if you are setting up the project from scratch.
 The platform runs entirely on AWS with a minimal footprint:
 
 - **EC2 (Public)**  
-  - Nginx reverse proxy (planned)  
-  - HTTPS + Basic Authentication (planned)  
+  - Nginx reverse proxy (dev implemented)  
+  - HTTPS + Basic Authentication via SSM Parameter Store (dev implemented)  
 - **CloudFront**  
   - Global edge caching for latency optimization (planned)  
 - **EC2 (Private)**  
   - k3s Server (control plane)  
   - k3s Agent (worker node)  
+- **NAT Instance**  
+  - Egress for private subnets (cost-aware alternative to NAT Gateway)  
 - **Amazon S3**  
   - Daily backups (planned)  
   - Restore on environment rebuild  
+ - **VPC Endpoints (SSM + S3 gateway)**  
+  - Private access for SSM and S3 when enabled (dev implemented)
 
 Infrastructure is provisioned using **Terraform**, including:
 - networking,
@@ -138,16 +144,15 @@ No managed monitoring services are used in v1.
 
 ## 🔄 CI/CD — GitHub Actions
 
-Infra CI is live; app CI/CD is planned.
+Infra CI is live; app CI/CD is planned. Application workloads on k3s are reconciled by ArgoCD (GitOps) from `k8s/apps`.
 
 1. A DevOps engineer pushes code or opens a pull request
 2. **GitHub Actions (hosted runners)** validate infra (fmt/validate/plan + tfsec)
 3. Infra changes are applied manually via workflow dispatch (controlled apply)
 4. Application pipeline builds Docker images (planned)
 5. Images are published to **GitHub Container Registry (GHCR)** (planned)
-6. The k3s cluster pulls images and runs updated workloads (planned)
-
-No CI/CD components run inside AWS in v1.
+6. ArgoCD syncs `k8s/apps` manifests to the k3s cluster (implemented)
+7. The k3s cluster pulls images and runs updated workloads (planned)
 
 ---
 
@@ -246,7 +251,7 @@ Planned future evolutions:
 
 - Migration from SQLite to **managed database (RDS)**
 - Advanced autoscaling scenarios (HPA, event-based scaling)
-- GitOps workflows (Argo CD / Flux) — ArgoCD bootstrap implemented, Flux planned
+- GitOps evolution (ArgoCD app expansion, health sync) — Flux optional (planned)
 - Improved security (secrets rotation)
 
 ---

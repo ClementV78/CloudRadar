@@ -25,12 +25,12 @@ aws ec2 describe-instances \
 
 2) Run the bootstrap script (uses SSM):
 ```bash
-scripts/bootstrap-argocd.sh <instance-id> us-east-1 3.2.5
+scripts/bootstrap-argocd.sh <instance-id> us-east-1
 ```
 
 Optional: resolve the instance by tags instead of passing an ID:
 ```bash
-scripts/bootstrap-argocd.sh --env <env> --project cloudradar us-east-1 3.2.5
+scripts/bootstrap-argocd.sh --env <env> --project cloudradar us-east-1
 ```
 
 Optional overrides (all have defaults):
@@ -41,7 +41,8 @@ ARGOCD_APP_NAMESPACE=cloudradar \
 ARGOCD_APP_REPO=https://github.com/ClementV78/CloudRadar.git \
 ARGOCD_APP_PATH=k8s/apps \
 ARGOCD_APP_REVISION=main \
-scripts/bootstrap-argocd.sh <instance-id> us-east-1 3.2.5
+ARGOCD_CHART_VERSION=9.3.4 \
+scripts/bootstrap-argocd.sh <instance-id> us-east-1
 ```
 
 3) Fetch the ArgoCD admin password (optional):
@@ -49,7 +50,7 @@ scripts/bootstrap-argocd.sh <instance-id> us-east-1 3.2.5
 aws ssm send-command \
   --instance-ids <instance-id> \
   --document-name AWS-RunShellScript \
-  --parameters commands='["sudo kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d; echo"]' \
+  --parameters commands='["export KUBECONFIG=/etc/rancher/k3s/k3s.yaml","sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d; echo"]' \
   --output text
 ```
 The admin credential is stored in the `argocd-initial-admin-secret` Secret (namespace `argocd`).
@@ -59,18 +60,20 @@ The admin credential is stored in the `argocd-initial-admin-secret` Secret (name
 aws ssm send-command \
   --instance-ids <instance-id> \
   --document-name AWS-RunShellScript \
-  --parameters commands='["sudo kubectl -n argocd get applications"]' \
+  --parameters commands='["export KUBECONFIG=/etc/rancher/k3s/k3s.yaml","sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get applications"]' \
   --output text
 ```
 
 ## Script mapping
-- Step 2 runs the exact kubectl actions:
-  - create namespace `argocd`
-  - apply ArgoCD install manifest (pinned version)
+- Step 2 runs the Helm-based install:
+  - install Helm if missing
+  - `helm upgrade --install` ArgoCD (optionally pinned chart version)
   - wait for Application CRD to be established
   - wait for `argocd-server` deployment
   - list pods for quick verification
   - create ArgoCD Application `cloudradar` (repo `k8s/apps` -> namespace `cloudradar`)
+
+Note: the script exports `KUBECONFIG=/etc/rancher/k3s/k3s.yaml` and preserves it when running `sudo`.
 
 ## Notes
 - This is a one-time bootstrap. After that, ArgoCD manages k8s apps via GitOps.

@@ -18,6 +18,12 @@ Jobs run in CI to validate Terraform safely (no apply):
    - `live-dev` and `live-prod`: remote backend init (S3 + DynamoDB) + validate + plan.
 4. `tfsec`: static scan for common Terraform security issues (cost-aware exclusions).
 
+## Manual apply inputs (workflow_dispatch)
+
+- `environment`: target env (`dev` or `prod`).
+- `auto_approve`: must be `true` to run apply.
+- `run_smoke_tests`: when `true`, runs post-apply readiness and health checks (k3s, ArgoCD, healthz).
+
 ### Which environment is targeted in CI?
 
 - For `bootstrap`: no environment, local backend only.
@@ -30,12 +36,71 @@ These jobs do **not** apply changes. They only validate and plan.
 
 ## Manual apply (workflow_dispatch)
 
-The `apply` job runs only when triggered manually:
+The manual dispatch runs a chained set of jobs (visible in the Actions graph):
+
+1. `env-select`: select `dev` or `prod`, expose `TF_DIR`/`TF_KEY`.
+2. `tf-validate`: init + validate (remote backend).
+3. `tf-plan`: init + plan with example tfvars.
+4. `tf-apply`: guarded apply (requires `auto_approve=true`).
+5. `tf-outputs` (dev only): load Terraform outputs for SSM/edge checks.
+6. `k3s-ready-check` (dev + smoke): wait for k3s nodes via SSM.
+7. `argocd-bootstrap` (dev): bootstrap ArgoCD via SSM.
+8. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
+
+## Workflow diagram (Mermaid)
+
+```mermaid
+flowchart TB
+  subgraph PR["pull_request"]
+    fmt[fmt]
+    validate-modules[validate-modules]
+    validate-plan[validate-plan]
+    tfsec[tfsec]
+    fmt --> validate-modules
+    fmt --> validate-plan
+    fmt --> tfsec
+  end
+
+  subgraph Dispatch["workflow_dispatch"]
+    env-select[env-select]
+    tf-validate[tf-validate]
+    tf-plan[tf-plan]
+    tf-apply[tf-apply]
+    tf-outputs[tf-outputs]
+    k3s-ready-check[k3s-ready-check]
+    argocd-bootstrap[argocd-bootstrap]
+    smoke-tests[smoke-tests]
+
+    env-select --> tf-validate --> tf-plan --> tf-apply --> tf-outputs
+    tf-outputs --> argocd-bootstrap
+    tf-outputs --> k3s-ready-check
+    argocd-bootstrap --> smoke-tests
+    k3s-ready-check --> smoke-tests
+  end
+
+  PR --> Dispatch
+```
 
 - Select `environment` (`dev` or `prod`).
 - Set `auto_approve=true` to allow apply.
 - Uses the same S3/DynamoDB backend and the OIDC role.
 - Uses `terraform.tfvars.example` for required inputs (replace with real values when needed).
+- After apply (dev only), the workflow boots ArgoCD via SSM and applies the root GitOps Application.
+- The bootstrap uses the k3s server instance ID from Terraform outputs and requires SSM connectivity.
+- ArgoCD then syncs `k8s/apps` to the cluster automatically.
+- When `run_smoke_tests=true` (dev only), the workflow verifies k3s readiness, waits for the ArgoCD app to be Synced/Healthy, waits for the `healthz` deployment rollout, then curls `/healthz` from the Internet.
+
+## Post-apply smoke tests (optional)
+
+When `run_smoke_tests=true` (dev only), the workflow:
+- Waits for k3s nodes to be Ready via SSM (`kubectl wait` + `kubectl get nodes`).
+- Waits for the ArgoCD Application to be Synced/Healthy via SSM.
+- Waits for the `healthz` deployment rollout in the `cloudradar` namespace.
+- Fetches the edge public IP and Basic Auth settings from Terraform outputs.
+- Reads the Basic Auth password from SSM Parameter Store to curl `/healthz` externally.
+
+Prerequisite:
+- The CI role must allow `ssm:GetParameter` on the edge Basic Auth parameter.
 
 ## Manual destroy (workflow_dispatch)
 
