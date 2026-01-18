@@ -319,6 +319,7 @@ jobs:
         env:
           K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
         run: |
+          # AWS-RunShellScript executes with /bin/sh; keep SSM commands POSIX-only.
           params="$(jq -cn \
             --arg c0 "i=0; while [ \$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
             --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
@@ -377,7 +378,7 @@ jobs:
             --arg c0 "i=0; while [ \$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
             --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
             --arg c2 "set -eu" \
-            --arg c3 "i=0; while [ \$i -lt 30 ]; do sync=\\$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get application cloudradar -o jsonpath={.status.sync.status} 2>/dev/null || true); health=\\$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get application cloudradar -o jsonpath={.status.health.status} 2>/dev/null || true); if [ \\\"\\${sync}\\\" = \\\"Synced\\\" ] && [ \\\"\\${health}\\\" = \\\"Healthy\\\" ]; then echo \\\"ArgoCD app is synced and healthy\\\"; exit 0; fi; echo \\\"Waiting for ArgoCD app (sync=\\${sync} health=\\${health})\\\"; sleep 10; i=\$((i+1)); done; echo \\\"ArgoCD app not ready\\\"; exit 1" \
+            --arg c3 "i=0; while [ \$i -lt 30 ]; do sync=\$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get application cloudradar -o jsonpath={.status.sync.status} 2>/dev/null || true); health=\$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get application cloudradar -o jsonpath={.status.health.status} 2>/dev/null || true); if [ \"\$sync\" = \"Synced\" ] && [ \"\$health\" = \"Healthy\" ]; then echo \"ArgoCD app is synced and healthy\"; exit 0; fi; echo \"Waiting for ArgoCD app (sync=\$sync health=\$health)\"; sleep 10; i=\$((i+1)); done; echo \"ArgoCD app not ready\"; exit 1" \
             '{commands: [$c0, $c1, $c2, $c3]}')"
 
           command_id="$(aws ssm send-command \
