@@ -1,5 +1,9 @@
 name: ci-infra
 
+# Workflow overview:
+# - PR: fmt/validate/plan/module validation/security scan.
+# - Dispatch: select env -> validate -> plan -> apply -> load outputs -> k3s check -> ArgoCD bootstrap -> smoke tests.
+
 on:
   pull_request:
     paths:
@@ -143,7 +147,7 @@ jobs:
           additional_args: >-
             --exclude aws-s3-encryption-customer-key,aws-dynamodb-enable-at-rest-encryption,aws-dynamodb-enable-recovery,aws-s3-enable-bucket-logging,aws-dynamodb-table-customer-key
 
-  dispatch-env:
+  env-select:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     outputs:
@@ -164,10 +168,10 @@ jobs:
               ;;
           esac
 
-  dispatch-validate:
+  tf-validate:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
-    needs: dispatch-env
+    needs: env-select
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -183,21 +187,21 @@ jobs:
 
       - name: Terraform init (remote backend)
         run: |
-          terraform -chdir="${{ needs.dispatch-env.outputs.tf_dir }}" init \
+          terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" init \
             -backend-config="bucket=${TF_STATE_BUCKET}" \
             -backend-config="region=${AWS_REGION}" \
             -backend-config="dynamodb_table=${TF_LOCK_TABLE_NAME}" \
-            -backend-config="key=${{ needs.dispatch-env.outputs.tf_key }}"
+            -backend-config="key=${{ needs.env-select.outputs.tf_key }}"
 
       - name: Terraform validate
-        run: terraform -chdir="${{ needs.dispatch-env.outputs.tf_dir }}" validate
+        run: terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" validate
 
-  dispatch-plan:
+  tf-plan:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     needs:
-      - dispatch-env
-      - dispatch-validate
+      - env-select
+      - tf-validate
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -213,21 +217,21 @@ jobs:
 
       - name: Terraform init (remote backend)
         run: |
-          terraform -chdir="${{ needs.dispatch-env.outputs.tf_dir }}" init \
+          terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" init \
             -backend-config="bucket=${TF_STATE_BUCKET}" \
             -backend-config="region=${AWS_REGION}" \
             -backend-config="dynamodb_table=${TF_LOCK_TABLE_NAME}" \
-            -backend-config="key=${{ needs.dispatch-env.outputs.tf_key }}"
+            -backend-config="key=${{ needs.env-select.outputs.tf_key }}"
 
       - name: Terraform plan
-        run: terraform -chdir="${{ needs.dispatch-env.outputs.tf_dir }}" plan -input=false -no-color -var-file=terraform.tfvars.example
+        run: terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" plan -input=false -no-color -var-file=terraform.tfvars.example
 
-  dispatch-apply:
+  tf-apply:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     needs:
-      - dispatch-env
-      - dispatch-plan
+      - env-select
+      - tf-plan
     environment: ${{ inputs.environment }}
     steps:
       - name: Checkout
@@ -250,21 +254,21 @@ jobs:
 
       - name: Terraform init (remote backend)
         run: |
-          terraform -chdir="${{ needs.dispatch-env.outputs.tf_dir }}" init \
+          terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" init \
             -backend-config="bucket=${TF_STATE_BUCKET}" \
             -backend-config="region=${AWS_REGION}" \
             -backend-config="dynamodb_table=${TF_LOCK_TABLE_NAME}" \
-            -backend-config="key=${{ needs.dispatch-env.outputs.tf_key }}"
+            -backend-config="key=${{ needs.env-select.outputs.tf_key }}"
 
       - name: Terraform apply
-        run: terraform -chdir="${{ needs.dispatch-env.outputs.tf_dir }}" apply -input=false -auto-approve -var-file=terraform.tfvars.example
+        run: terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" apply -input=false -auto-approve -var-file=terraform.tfvars.example
 
-  dispatch-outputs:
+  tf-outputs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
     runs-on: ubuntu-latest
     needs:
-      - dispatch-env
-      - dispatch-apply
+      - env-select
+      - tf-apply
     outputs:
       k3s_server_instance_id: ${{ steps.outputs.outputs.k3s_server_instance_id }}
       edge_public_ip: ${{ steps.outputs.outputs.edge_public_ip }}
@@ -285,25 +289,25 @@ jobs:
 
       - name: Terraform init (remote backend)
         run: |
-          terraform -chdir="${{ needs.dispatch-env.outputs.tf_dir }}" init \
+          terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" init \
             -backend-config="bucket=${TF_STATE_BUCKET}" \
             -backend-config="region=${AWS_REGION}" \
             -backend-config="dynamodb_table=${TF_LOCK_TABLE_NAME}" \
-            -backend-config="key=${{ needs.dispatch-env.outputs.tf_key }}"
+            -backend-config="key=${{ needs.env-select.outputs.tf_key }}"
 
       - name: Load outputs for ArgoCD bootstrap
         id: outputs
         run: |
-          outputs_json="$(terraform -chdir="${{ needs.dispatch-env.outputs.tf_dir }}" output -json)"
+          outputs_json="$(terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" output -json)"
           echo "k3s_server_instance_id=$(jq -r '.k3s_server_instance_id.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "edge_public_ip=$(jq -r '.edge_public_ip.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "edge_basic_auth_user=$(jq -r '.edge_basic_auth_user.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "edge_basic_auth_ssm_parameter_name=$(jq -r '.edge_basic_auth_ssm_parameter_name.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
 
-  dispatch-k3s-check:
+  k3s-ready-check:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.run_smoke_tests == 'true' }}
     runs-on: ubuntu-latest
-    needs: dispatch-outputs
+    needs: tf-outputs
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -313,13 +317,13 @@ jobs:
 
       - name: Verify k3s readiness via SSM
         env:
-          K3S_SERVER_INSTANCE_ID: ${{ needs.dispatch-outputs.outputs.k3s_server_instance_id }}
+          K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
         run: |
           params="$(jq -cn \
             --arg c0 "for i in {1..30}; do if [[ -x /usr/local/bin/kubectl ]]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; done; if [[ ! -x /usr/local/bin/kubectl ]]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
             --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
-            --arg c2 "sudo /usr/local/bin/kubectl wait --for=condition=Ready node --all --timeout=300s" \
-            --arg c3 "sudo /usr/local/bin/kubectl get nodes -o wide" \
+            --arg c2 "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait --for=condition=Ready node --all --timeout=300s" \
+            --arg c3 "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get nodes -o wide" \
             '{commands: [$c0, $c1, $c2, $c3]}')"
 
           command_id="$(aws ssm send-command \
@@ -334,10 +338,10 @@ jobs:
           aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
           aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
 
-  dispatch-argocd:
+  argocd-bootstrap:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
     runs-on: ubuntu-latest
-    needs: dispatch-outputs
+    needs: tf-outputs
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -349,15 +353,15 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Bootstrap ArgoCD via SSM
-        run: scripts/bootstrap-argocd.sh "${{ needs.dispatch-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
+        run: scripts/bootstrap-argocd.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
 
-  dispatch-smoke:
+  smoke-tests:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.run_smoke_tests == 'true' }}
     runs-on: ubuntu-latest
     needs:
-      - dispatch-argocd
-      - dispatch-outputs
-      - dispatch-k3s-check
+      - argocd-bootstrap
+      - tf-outputs
+      - k3s-ready-check
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -367,13 +371,13 @@ jobs:
 
       - name: Wait for ArgoCD app sync
         env:
-          K3S_SERVER_INSTANCE_ID: ${{ needs.dispatch-outputs.outputs.k3s_server_instance_id }}
+          K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
         run: |
           params="$(jq -cn \
             --arg c0 "for i in {1..30}; do if [[ -x /usr/local/bin/kubectl ]]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; done; if [[ ! -x /usr/local/bin/kubectl ]]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
             --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
             --arg c2 "set -euo pipefail" \
-            --arg c3 "for i in {1..30}; do sync=\\$(sudo /usr/local/bin/kubectl -n argocd get application cloudradar -o jsonpath={.status.sync.status} 2>/dev/null || true); health=\\$(sudo /usr/local/bin/kubectl -n argocd get application cloudradar -o jsonpath={.status.health.status} 2>/dev/null || true); if [[ \\\"\\${sync}\\\" == \\\"Synced\\\" && \\\"\\${health}\\\" == \\\"Healthy\\\" ]]; then echo \\\"ArgoCD app is synced and healthy\\\"; exit 0; fi; echo \\\"Waiting for ArgoCD app (sync=\\${sync} health=\\${health})\\\"; sleep 10; done; echo \\\"ArgoCD app not ready\\\"; exit 1" \
+            --arg c3 "for i in {1..30}; do sync=\\$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get application cloudradar -o jsonpath={.status.sync.status} 2>/dev/null || true); health=\\$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get application cloudradar -o jsonpath={.status.health.status} 2>/dev/null || true); if [[ \\\"\\${sync}\\\" == \\\"Synced\\\" && \\\"\\${health}\\\" == \\\"Healthy\\\" ]]; then echo \\\"ArgoCD app is synced and healthy\\\"; exit 0; fi; echo \\\"Waiting for ArgoCD app (sync=\\${sync} health=\\${health})\\\"; sleep 10; done; echo \\\"ArgoCD app not ready\\\"; exit 1" \
             '{commands: [$c0, $c1, $c2, $c3]}')"
 
           command_id="$(aws ssm send-command \
@@ -390,16 +394,16 @@ jobs:
 
       - name: Wait for healthz deployment
         env:
-          K3S_SERVER_INSTANCE_ID: ${{ needs.dispatch-outputs.outputs.k3s_server_instance_id }}
-          EDGE_PUBLIC_IP: ${{ needs.dispatch-outputs.outputs.edge_public_ip }}
-          EDGE_BASIC_AUTH_USER: ${{ needs.dispatch-outputs.outputs.edge_basic_auth_user }}
-          EDGE_BASIC_AUTH_SSM_PARAMETER_NAME: ${{ needs.dispatch-outputs.outputs.edge_basic_auth_ssm_parameter_name }}
+          K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
+          EDGE_PUBLIC_IP: ${{ needs.tf-outputs.outputs.edge_public_ip }}
+          EDGE_BASIC_AUTH_USER: ${{ needs.tf-outputs.outputs.edge_basic_auth_user }}
+          EDGE_BASIC_AUTH_SSM_PARAMETER_NAME: ${{ needs.tf-outputs.outputs.edge_basic_auth_ssm_parameter_name }}
         run: |
           params="$(jq -cn \
             --arg c0 "for i in {1..30}; do if [[ -x /usr/local/bin/kubectl ]]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; done; if [[ ! -x /usr/local/bin/kubectl ]]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
             --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
-            --arg c2 "sudo /usr/local/bin/kubectl -n cloudradar rollout status deploy/healthz --timeout=300s" \
-            --arg c3 "sudo /usr/local/bin/kubectl -n cloudradar get deploy/healthz" \
+            --arg c2 "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n cloudradar rollout status deploy/healthz --timeout=300s" \
+            --arg c3 "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n cloudradar get deploy/healthz" \
             '{commands: [$c0, $c1, $c2, $c3]}')"
 
           command_id="$(aws ssm send-command \
@@ -416,9 +420,9 @@ jobs:
 
       - name: Verify /healthz from the Internet
         env:
-          EDGE_PUBLIC_IP: ${{ needs.dispatch-outputs.outputs.edge_public_ip }}
-          EDGE_BASIC_AUTH_USER: ${{ needs.dispatch-outputs.outputs.edge_basic_auth_user }}
-          EDGE_BASIC_AUTH_SSM_PARAMETER_NAME: ${{ needs.dispatch-outputs.outputs.edge_basic_auth_ssm_parameter_name }}
+          EDGE_PUBLIC_IP: ${{ needs.tf-outputs.outputs.edge_public_ip }}
+          EDGE_BASIC_AUTH_USER: ${{ needs.tf-outputs.outputs.edge_basic_auth_user }}
+          EDGE_BASIC_AUTH_SSM_PARAMETER_NAME: ${{ needs.tf-outputs.outputs.edge_basic_auth_ssm_parameter_name }}
         run: |
           edge_basic_auth_password="$(aws ssm get-parameter \
             --name "${EDGE_BASIC_AUTH_SSM_PARAMETER_NAME}" \

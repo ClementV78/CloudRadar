@@ -116,15 +116,23 @@ fi
 commands=(
   # Install ArgoCD via Helm and create the GitOps Application manifest.
   "set -euo pipefail"
+  # Wait for kubectl to be installed by k3s (SSM may run before cloud-init finishes).
   "for i in {1..30}; do if [[ -x /usr/local/bin/kubectl ]]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; done; if [[ ! -x /usr/local/bin/kubectl ]]; then echo \"kubectl not found after 300s\"; exit 1; fi"
+  # Point kubectl/helm to the k3s kubeconfig on the instance.
+  "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml"
+  # Install Helm if missing (k3s AMIs might not include it).
   "command -v helm >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash"
-  "sudo helm repo add argo https://argoproj.github.io/argo-helm --force-update"
-  "sudo helm repo update"
-  "sudo helm upgrade --install argocd argo/argo-cd --namespace ${ARGOCD_NAMESPACE} --create-namespace ${HELM_VERSION_FLAG}"
-  "sudo /usr/local/bin/kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=120s"
-  "sudo /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} wait --for=condition=Available deployment/argocd-server --timeout=300s"
-  "sudo /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} get pods -o wide"
-  "printf '%s\n' \"apiVersion: argoproj.io/v1alpha1\" \"kind: Application\" \"metadata:\" \"  name: ${ARGOCD_APP_NAME}\" \"  namespace: ${ARGOCD_NAMESPACE}\" \"spec:\" \"  project: default\" \"  source:\" \"    repoURL: ${ARGOCD_APP_REPO}\" \"    targetRevision: ${ARGOCD_APP_REVISION}\" \"    path: ${ARGOCD_APP_PATH}\" \"  destination:\" \"    server: https://kubernetes.default.svc\" \"    namespace: ${ARGOCD_APP_NAMESPACE}\" \"  syncPolicy:\" \"    automated:\" \"      prune: true\" \"      selfHeal: true\" \"    syncOptions:\" \"      - CreateNamespace=true\" | sudo /usr/local/bin/kubectl apply -f -"
+  # Add/update Argo Helm repo so the chart is available.
+  "sudo --preserve-env=KUBECONFIG helm repo add argo https://argoproj.github.io/argo-helm --force-update"
+  "sudo --preserve-env=KUBECONFIG helm repo update"
+  # Install or upgrade ArgoCD into its namespace.
+  "sudo --preserve-env=KUBECONFIG helm upgrade --install argocd argo/argo-cd --namespace ${ARGOCD_NAMESPACE} --create-namespace ${HELM_VERSION_FLAG}"
+  # Wait for CRDs and ArgoCD server to be ready before creating the Application.
+  "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=120s"
+  "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} wait --for=condition=Available deployment/argocd-server --timeout=300s"
+  "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} get pods -o wide"
+  # Apply the root Application for GitOps sync (auto-sync enabled).
+  "printf '%s\n' \"apiVersion: argoproj.io/v1alpha1\" \"kind: Application\" \"metadata:\" \"  name: ${ARGOCD_APP_NAME}\" \"  namespace: ${ARGOCD_NAMESPACE}\" \"spec:\" \"  project: default\" \"  source:\" \"    repoURL: ${ARGOCD_APP_REPO}\" \"    targetRevision: ${ARGOCD_APP_REVISION}\" \"    path: ${ARGOCD_APP_PATH}\" \"  destination:\" \"    server: https://kubernetes.default.svc\" \"    namespace: ${ARGOCD_APP_NAMESPACE}\" \"  syncPolicy:\" \"    automated:\" \"      prune: true\" \"      selfHeal: true\" \"    syncOptions:\" \"      - CreateNamespace=true\" | sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl apply -f -"
 )
 
  # Encode commands for SSM RunShellScript.

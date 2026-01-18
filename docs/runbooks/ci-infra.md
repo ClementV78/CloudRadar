@@ -36,7 +36,50 @@ These jobs do **not** apply changes. They only validate and plan.
 
 ## Manual apply (workflow_dispatch)
 
-The `apply` job runs only when triggered manually:
+The manual dispatch runs a chained set of jobs (visible in the Actions graph):
+
+1. `env-select`: select `dev` or `prod`, expose `TF_DIR`/`TF_KEY`.
+2. `tf-validate`: init + validate (remote backend).
+3. `tf-plan`: init + plan with example tfvars.
+4. `tf-apply`: guarded apply (requires `auto_approve=true`).
+5. `tf-outputs` (dev only): load Terraform outputs for SSM/edge checks.
+6. `k3s-ready-check` (dev + smoke): wait for k3s nodes via SSM.
+7. `argocd-bootstrap` (dev): bootstrap ArgoCD via SSM.
+8. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
+
+## Workflow diagram (Mermaid)
+
+```mermaid
+flowchart TB
+  subgraph PR["pull_request"]
+    fmt[fmt]
+    validate-modules[validate-modules]
+    validate-plan[validate-plan]
+    tfsec[tfsec]
+    fmt --> validate-modules
+    fmt --> validate-plan
+    fmt --> tfsec
+  end
+
+  subgraph Dispatch["workflow_dispatch"]
+    env-select[env-select]
+    tf-validate[tf-validate]
+    tf-plan[tf-plan]
+    tf-apply[tf-apply]
+    tf-outputs[tf-outputs]
+    k3s-ready-check[k3s-ready-check]
+    argocd-bootstrap[argocd-bootstrap]
+    smoke-tests[smoke-tests]
+
+    env-select --> tf-validate --> tf-plan --> tf-apply --> tf-outputs
+    tf-outputs --> argocd-bootstrap
+    tf-outputs --> k3s-ready-check
+    argocd-bootstrap --> smoke-tests
+    k3s-ready-check --> smoke-tests
+  end
+
+  PR --> Dispatch
+```
 
 - Select `environment` (`dev` or `prod`).
 - Set `auto_approve=true` to allow apply.

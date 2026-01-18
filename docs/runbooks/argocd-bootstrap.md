@@ -50,7 +50,7 @@ scripts/bootstrap-argocd.sh <instance-id> us-east-1
 aws ssm send-command \
   --instance-ids <instance-id> \
   --document-name AWS-RunShellScript \
-  --parameters commands='["sudo kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d; echo"]' \
+  --parameters commands='["export KUBECONFIG=/etc/rancher/k3s/k3s.yaml","sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath=\"{.data.password}\" | base64 -d; echo"]' \
   --output text
 ```
 The admin credential is stored in the `argocd-initial-admin-secret` Secret (namespace `argocd`).
@@ -60,7 +60,7 @@ The admin credential is stored in the `argocd-initial-admin-secret` Secret (name
 aws ssm send-command \
   --instance-ids <instance-id> \
   --document-name AWS-RunShellScript \
-  --parameters commands='["sudo kubectl -n argocd get applications"]' \
+  --parameters commands='["export KUBECONFIG=/etc/rancher/k3s/k3s.yaml","sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get applications"]' \
   --output text
 ```
 
@@ -72,6 +72,8 @@ aws ssm send-command \
   - wait for `argocd-server` deployment
   - list pods for quick verification
   - create ArgoCD Application `cloudradar` (repo `k8s/apps` -> namespace `cloudradar`)
+
+Note: the script exports `KUBECONFIG=/etc/rancher/k3s/k3s.yaml` and preserves it when running `sudo`.
 
 ## Notes
 - This is a one-time bootstrap. After that, ArgoCD manages k8s apps via GitOps.
