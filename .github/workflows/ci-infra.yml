@@ -434,6 +434,11 @@ jobs:
           echo "::add-mask::${edge_basic_auth_password}"
 
           status_code="$(curl -k -s -o /dev/null -w '%{http_code}' \
+            --connect-timeout 5 \
+            --max-time 10 \
+            --retry 2 \
+            --retry-delay 2 \
+            --retry-all-errors \
             -u "${EDGE_BASIC_AUTH_USER}:${edge_basic_auth_password}" \
             "https://${EDGE_PUBLIC_IP}/healthz")"
 
