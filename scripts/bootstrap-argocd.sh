@@ -137,6 +137,8 @@ command_id="$(aws ssm send-command \
   --query "Command.CommandId" \
   --output text)"
 
+echo "::notice title=SSM::argocd bootstrap command_id=${command_id}"
+
 aws ssm wait command-executed \
   --region "${REGION}" \
   --command-id "${command_id}" \

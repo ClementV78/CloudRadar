@@ -218,6 +218,8 @@ jobs:
             --query "Command.CommandId" \
             --output text)"
 
+          echo "::notice title=SSM::k3s readiness command_id=${command_id}"
+
           aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
           aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
 
@@ -241,6 +243,8 @@ jobs:
             --query "Command.CommandId" \
             --output text)"
 
+          echo "::notice title=SSM::argocd app sync command_id=${command_id}"
+
           aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
           aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
 
@@ -263,6 +267,8 @@ jobs:
             --parameters "${params}" \
             --query "Command.CommandId" \
             --output text)"
+
+          echo "::notice title=SSM::healthz rollout command_id=${command_id}"
 
           aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
           aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
