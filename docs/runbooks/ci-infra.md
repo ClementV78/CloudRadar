@@ -89,6 +89,7 @@ flowchart TB
 - The bootstrap uses the k3s server instance ID from Terraform outputs and requires SSM connectivity.
 - ArgoCD then syncs `k8s/apps` to the cluster automatically.
 - When `run_smoke_tests=true` (dev only), the workflow verifies k3s readiness, waits for the ArgoCD app to be Synced/Healthy, waits for the `healthz` deployment rollout, then curls `/healthz` from the Internet.
+- The smoke test verifies edge Nginx via SSM (3 retries with 10s delay) before running the external `/healthz` curl.
 
 ## Post-apply smoke tests (optional)
 

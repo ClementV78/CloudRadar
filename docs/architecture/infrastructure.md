@@ -124,6 +124,7 @@ flowchart TB
 - The edge EC2 instance is the public entry point (Nginx reverse proxy) used for TLS termination and basic auth in front of k3s services.
 - Edge basic auth password is read from SSM Parameter Store at boot (see `docs/runbooks/aws-account-bootstrap.md` for IAM).
 - Edge SSM access is routed via VPC interface endpoints (SSM, EC2 messages, and KMS), keeping edge egress restricted to private subnets.
+- Edge depends on the SSM/S3 endpoints being created first to avoid cloud-init timeouts during bootstrap.
 - ArgoCD is bootstrapped via SSM from CI after infrastructure apply, then manages k8s apps via GitOps.
 - Edge package installs use the S3 gateway endpoint plus SG egress to the S3 prefix list.
 - TODO: set edge `server_name` to the public DNS name once available (remove nginx warning).

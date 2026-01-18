@@ -94,6 +94,11 @@ module "edge" {
   health_upstream_port          = local.edge_health_nodeport
   enable_http_redirect          = var.edge_enable_http_redirect
   tags                          = local.tags
+
+  depends_on = [
+    aws_vpc_endpoint.edge_ssm,
+    aws_vpc_endpoint.s3_gateway
+  ]
 }
 
 resource "aws_security_group" "edge_ssm_endpoints" {
