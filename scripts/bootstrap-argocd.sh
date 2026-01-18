@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Bootstrap ArgoCD on the k3s server via SSM, then create the root GitOps Application.
+# Steps: resolve target instance, install Helm + ArgoCD, wait for readiness, apply the Application manifest.
+
 usage() {
   cat <<'USAGE'
-Usage: bootstrap-argocd.sh [--env <env>] [--project <project>] <instance-id> [region] [argocd-version]
+Usage: bootstrap-argocd.sh [--env <env>] [--project <project>] <instance-id> [region] [argocd-chart-version]
 
 Example:
-  scripts/bootstrap-argocd.sh i-0123456789abcdef us-east-1 3.2.5
-  scripts/bootstrap-argocd.sh --env dev --project cloudradar us-east-1 3.2.5
+  scripts/bootstrap-argocd.sh i-0123456789abcdef us-east-1
+  scripts/bootstrap-argocd.sh --env dev --project cloudradar us-east-1
 
 Environment overrides:
   ARGOCD_NAMESPACE=argocd
@@ -16,6 +19,7 @@ Environment overrides:
   ARGOCD_APP_REPO=https://github.com/ClementV78/CloudRadar.git
   ARGOCD_APP_PATH=k8s/apps
   ARGOCD_APP_REVISION=main
+  ARGOCD_CHART_VERSION=9.3.4
 USAGE
 }
 
@@ -63,25 +67,31 @@ if [[ -z "${INSTANCE_ID}" && -z "${ENVIRONMENT}" ]]; then
 fi
 
 REGION="${1:-${AWS_REGION:-us-east-1}}"
-ARGOCD_VERSION="${2:-3.2.5}"
+ARGOCD_CHART_VERSION="${2:-${ARGOCD_CHART_VERSION:-9.3.4}}"
 ARGOCD_NAMESPACE="${ARGOCD_NAMESPACE:-argocd}"
 ARGOCD_APP_NAME="${ARGOCD_APP_NAME:-cloudradar}"
 ARGOCD_APP_NAMESPACE="${ARGOCD_APP_NAMESPACE:-cloudradar}"
 ARGOCD_APP_REPO="${ARGOCD_APP_REPO:-https://github.com/ClementV78/CloudRadar.git}"
 ARGOCD_APP_PATH="${ARGOCD_APP_PATH:-k8s/apps}"
 ARGOCD_APP_REVISION="${ARGOCD_APP_REVISION:-main}"
+HELM_VERSION_FLAG=""
+
+if [[ -n "${ARGOCD_CHART_VERSION}" ]]; then
+  HELM_VERSION_FLAG="--version ${ARGOCD_CHART_VERSION}"
+fi
 
 if ! command -v aws >/dev/null 2>&1; then
   echo "aws CLI is required." >&2
   exit 1
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 is required to build SSM parameters." >&2
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq is required to build SSM parameters." >&2
   exit 1
 fi
 
 if [[ -z "${INSTANCE_ID}" ]]; then
+  # Resolve the k3s server instance via tags when an explicit ID is not provided.
   filters=(
     "Name=tag:Role,Values=k3s-server"
     "Name=tag:Environment,Values=${ENVIRONMENT}"
@@ -104,25 +114,20 @@ if [[ -z "${INSTANCE_ID}" ]]; then
 fi
 
 commands=(
+  # Install ArgoCD via Helm and create the GitOps Application manifest.
   "set -euo pipefail"
-  "sudo kubectl get namespace ${ARGOCD_NAMESPACE} >/dev/null 2>&1 || sudo kubectl create namespace ${ARGOCD_NAMESPACE}"
-  "sudo kubectl -n ${ARGOCD_NAMESPACE} apply -f https://raw.githubusercontent.com/argoproj/argo-cd/v${ARGOCD_VERSION}/manifests/install.yaml"
+  "command -v helm >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | sudo bash"
+  "sudo helm repo add argo https://argoproj.github.io/argo-helm --force-update"
+  "sudo helm repo update"
+  "sudo helm upgrade --install argocd argo/argo-cd --namespace ${ARGOCD_NAMESPACE} --create-namespace ${HELM_VERSION_FLAG}"
   "sudo kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=120s"
   "sudo kubectl -n ${ARGOCD_NAMESPACE} wait --for=condition=Available deployment/argocd-server --timeout=300s"
   "sudo kubectl -n ${ARGOCD_NAMESPACE} get pods -o wide"
-  "printf '%s\n' \"apiVersion: argoproj.io/v1alpha1\" \"kind: Application\" \"metadata:\" \"  name: ${ARGOCD_APP_NAME}\" \"  namespace: ${ARGOCD_NAMESPACE}\" \"spec:\" \"  project: default\" \"  source:\" \"    repoURL: ${ARGOCD_APP_REPO}\" \"    targetRevision: ${ARGOCD_APP_REVISION}\" \"    path: ${ARGOCD_APP_PATH}\" \"  destination:\" \"    server: https://kubernetes.default.svc\" \"    namespace: ${ARGOCD_APP_NAMESPACE}\" \"  syncPolicy:\" \"    syncOptions:\" \"      - CreateNamespace=true\" | sudo kubectl apply -f -"
+  "printf '%s\n' \"apiVersion: argoproj.io/v1alpha1\" \"kind: Application\" \"metadata:\" \"  name: ${ARGOCD_APP_NAME}\" \"  namespace: ${ARGOCD_NAMESPACE}\" \"spec:\" \"  project: default\" \"  source:\" \"    repoURL: ${ARGOCD_APP_REPO}\" \"    targetRevision: ${ARGOCD_APP_REVISION}\" \"    path: ${ARGOCD_APP_PATH}\" \"  destination:\" \"    server: https://kubernetes.default.svc\" \"    namespace: ${ARGOCD_APP_NAMESPACE}\" \"  syncPolicy:\" \"    automated:\" \"      prune: true\" \"      selfHeal: true\" \"    syncOptions:\" \"      - CreateNamespace=true\" | sudo kubectl apply -f -"
 )
 
-ARGOCD_COMMANDS="$(printf "%s\n" "${commands[@]}")"
-export ARGOCD_COMMANDS
-params_json="$(python3 - <<'PY'
-import json
-import os
-
-commands = os.environ["ARGOCD_COMMANDS"].splitlines()
-print(json.dumps({"commands": commands}))
-PY
-)"
+ # Encode commands for SSM RunShellScript.
+params_json="$(printf "%s\n" "${commands[@]}" | jq -Rn '{commands: [inputs]}')"
 
 command_id="$(aws ssm send-command \
   --region "${REGION}" \

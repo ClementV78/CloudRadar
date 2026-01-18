@@ -196,39 +196,97 @@ jobs:
       - name: Terraform apply
         run: terraform -chdir="${TF_DIR}" apply -input=false -auto-approve -var-file=terraform.tfvars.example
 
-      - name: Load outputs for smoke tests
-        if: ${{ inputs.run_smoke_tests == 'true' }}
+      - name: Load outputs for ArgoCD bootstrap
+        if: ${{ inputs.environment == 'dev' }}
         run: |
           outputs_json="$(terraform -chdir="${TF_DIR}" output -json)"
-          edge_instance_id="$(jq -r '.edge_instance_id.value' <<< "${outputs_json}")"
-          k3s_private_ip="$(jq -r '.k3s_server_private_ip.value' <<< "${outputs_json}")"
-          dashboard_nodeport="$(jq -r '.edge_dashboard_nodeport.value' <<< "${outputs_json}")"
-          api_nodeport="$(jq -r '.edge_api_nodeport.value' <<< "${outputs_json}")"
+          k3s_server_instance_id="$(jq -r '.k3s_server_instance_id.value' <<< "${outputs_json}")"
+          echo "K3S_SERVER_INSTANCE_ID=${k3s_server_instance_id}" >> "$GITHUB_ENV"
 
-          echo "EDGE_INSTANCE_ID=${edge_instance_id}" >> "$GITHUB_ENV"
-          echo "K3S_PRIVATE_IP=${k3s_private_ip}" >> "$GITHUB_ENV"
-          echo "EDGE_DASHBOARD_NODEPORT=${dashboard_nodeport}" >> "$GITHUB_ENV"
-          echo "EDGE_API_NODEPORT=${api_nodeport}" >> "$GITHUB_ENV"
-
-      - name: Smoke test SSM and edge -> k3s
-        if: ${{ inputs.run_smoke_tests == 'true' }}
+      - name: Verify k3s readiness via SSM
+        if: ${{ inputs.environment == 'dev' && inputs.run_smoke_tests == 'true' }}
         run: |
-          aws ssm describe-instance-information \
-            --filters "Key=InstanceIds,Values=${EDGE_INSTANCE_ID}" \
-            --query "InstanceInformationList[0].PingStatus" \
-            --output text
-
           params="$(jq -cn \
-            --arg c1 "curl -s -o /dev/null -w '%{http_code}\n' http://${K3S_PRIVATE_IP}:${EDGE_DASHBOARD_NODEPORT}/ || true" \
-            --arg c2 "curl -s -o /dev/null -w '%{http_code}\n' http://${K3S_PRIVATE_IP}:${EDGE_API_NODEPORT}/ || true" \
+            --arg c1 "sudo kubectl wait --for=condition=Ready node --all --timeout=300s" \
+            --arg c2 "sudo kubectl get nodes -o wide" \
             '{commands: [$c1, $c2]}')"
 
           command_id="$(aws ssm send-command \
-            --instance-ids "${EDGE_INSTANCE_ID}" \
+            --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
             --document-name "AWS-RunShellScript" \
             --parameters "${params}" \
             --query "Command.CommandId" \
             --output text)"
 
-          aws ssm wait command-executed --command-id "${command_id}" --instance-id "${EDGE_INSTANCE_ID}"
-          aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${EDGE_INSTANCE_ID}"
+          aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
+          aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
+
+      - name: Bootstrap ArgoCD via SSM
+        if: ${{ inputs.environment == 'dev' }}
+        run: |
+          scripts/bootstrap-argocd.sh "${K3S_SERVER_INSTANCE_ID}" "${AWS_REGION}"
+
+      - name: Wait for ArgoCD app sync
+        if: ${{ inputs.environment == 'dev' && inputs.run_smoke_tests == 'true' }}
+        run: |
+          params="$(jq -cn \
+            --arg c1 "set -euo pipefail" \
+            --arg c2 "for i in {1..30}; do sync=\\$(sudo kubectl -n argocd get application cloudradar -o jsonpath={.status.sync.status} 2>/dev/null || true); health=\\$(sudo kubectl -n argocd get application cloudradar -o jsonpath={.status.health.status} 2>/dev/null || true); if [[ \\\"\\${sync}\\\" == \\\"Synced\\\" && \\\"\\${health}\\\" == \\\"Healthy\\\" ]]; then echo \\\"ArgoCD app is synced and healthy\\\"; exit 0; fi; echo \\\"Waiting for ArgoCD app (sync=\\${sync} health=\\${health})\\\"; sleep 10; done; echo \\\"ArgoCD app not ready\\\"; exit 1" \
+            '{commands: [$c1, $c2]}')"
+
+          command_id="$(aws ssm send-command \
+            --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "${params}" \
+            --query "Command.CommandId" \
+            --output text)"
+
+          aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
+          aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
+
+      - name: Wait for healthz deployment
+        if: ${{ inputs.environment == 'dev' && inputs.run_smoke_tests == 'true' }}
+        run: |
+          outputs_json="$(terraform -chdir="${TF_DIR}" output -json)"
+          edge_public_ip="$(jq -r '.edge_public_ip.value' <<< "${outputs_json}")"
+          edge_basic_auth_user="$(jq -r '.edge_basic_auth_user.value' <<< "${outputs_json}")"
+          edge_basic_auth_ssm_parameter_name="$(jq -r '.edge_basic_auth_ssm_parameter_name.value' <<< "${outputs_json}")"
+
+          params="$(jq -cn \
+            --arg c1 "sudo kubectl -n cloudradar rollout status deploy/healthz --timeout=300s" \
+            --arg c2 "sudo kubectl -n cloudradar get deploy/healthz" \
+            '{commands: [$c1, $c2]}')"
+
+          command_id="$(aws ssm send-command \
+            --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "${params}" \
+            --query "Command.CommandId" \
+            --output text)"
+
+          aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
+          aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
+
+          echo "EDGE_PUBLIC_IP=${edge_public_ip}" >> "$GITHUB_ENV"
+          echo "EDGE_BASIC_AUTH_USER=${edge_basic_auth_user}" >> "$GITHUB_ENV"
+          echo "EDGE_BASIC_AUTH_SSM_PARAMETER_NAME=${edge_basic_auth_ssm_parameter_name}" >> "$GITHUB_ENV"
+
+      - name: Verify /healthz from the Internet
+        if: ${{ inputs.environment == 'dev' && inputs.run_smoke_tests == 'true' }}
+        run: |
+          edge_basic_auth_password="$(aws ssm get-parameter \
+            --name "${EDGE_BASIC_AUTH_SSM_PARAMETER_NAME}" \
+            --with-decryption \
+            --query "Parameter.Value" \
+            --output text)"
+
+          echo "::add-mask::${edge_basic_auth_password}"
+
+          status_code="$(curl -k -s -o /dev/null -w '%{http_code}' \
+            -u "${EDGE_BASIC_AUTH_USER}:${edge_basic_auth_password}" \
+            "https://${EDGE_PUBLIC_IP}/healthz")"
+
+          if [[ "${status_code}" != "200" ]]; then
+            echo "Expected 200 from /healthz, got ${status_code}."
+            exit 1
+          fi

@@ -25,12 +25,12 @@ aws ec2 describe-instances \
 
 2) Run the bootstrap script (uses SSM):
 ```bash
-scripts/bootstrap-argocd.sh <instance-id> us-east-1 3.2.5
+scripts/bootstrap-argocd.sh <instance-id> us-east-1
 ```
 
 Optional: resolve the instance by tags instead of passing an ID:
 ```bash
-scripts/bootstrap-argocd.sh --env <env> --project cloudradar us-east-1 3.2.5
+scripts/bootstrap-argocd.sh --env <env> --project cloudradar us-east-1
 ```
 
 Optional overrides (all have defaults):
@@ -41,7 +41,8 @@ ARGOCD_APP_NAMESPACE=cloudradar \
 ARGOCD_APP_REPO=https://github.com/ClementV78/CloudRadar.git \
 ARGOCD_APP_PATH=k8s/apps \
 ARGOCD_APP_REVISION=main \
-scripts/bootstrap-argocd.sh <instance-id> us-east-1 3.2.5
+ARGOCD_CHART_VERSION=9.3.4 \
+scripts/bootstrap-argocd.sh <instance-id> us-east-1
 ```
 
 3) Fetch the ArgoCD admin password (optional):
@@ -64,9 +65,9 @@ aws ssm send-command \
 ```
 
 ## Script mapping
-- Step 2 runs the exact kubectl actions:
-  - create namespace `argocd`
-  - apply ArgoCD install manifest (pinned version)
+- Step 2 runs the Helm-based install:
+  - install Helm if missing
+  - `helm upgrade --install` ArgoCD (optionally pinned chart version)
   - wait for Application CRD to be established
   - wait for `argocd-server` deployment
   - list pods for quick verification

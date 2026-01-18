@@ -18,7 +18,7 @@ Generated: YYYY-MM-DD hh:mm
 - 
 
 ## ADRs
-- 
+- Keep the full ADR list here and keep it up to date (do not remove past ADRs).
 
 ## Files recently touched
 - 

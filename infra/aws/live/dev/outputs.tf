@@ -38,6 +38,11 @@ output "k3s_server_private_ip" {
   value       = module.k3s.k3s_server_private_ip
 }
 
+output "k3s_server_instance_id" {
+  description = "Instance ID of the k3s server."
+  value       = module.k3s.k3s_server_instance_id
+}
+
 output "k3s_security_group_id" {
   description = "Security group ID for k3s nodes."
   value       = module.k3s.k3s_security_group_id
@@ -56,6 +61,16 @@ output "edge_instance_id" {
 output "edge_public_ip" {
   description = "Edge EC2 public IP."
   value       = module.edge.edge_public_ip
+}
+
+output "edge_basic_auth_user" {
+  description = "Basic auth username for the edge Nginx."
+  value       = var.edge_basic_auth_user
+}
+
+output "edge_basic_auth_ssm_parameter_name" {
+  description = "SSM parameter name for the edge basic auth password."
+  value       = var.edge_basic_auth_ssm_parameter_name
 }
 
 output "edge_security_group_id" {
