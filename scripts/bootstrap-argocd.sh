@@ -114,10 +114,11 @@ if [[ -z "${INSTANCE_ID}" ]]; then
 fi
 
 commands=(
-  # Install ArgoCD via Helm and create the GitOps Application manifest.
-  "set -euo pipefail"
+  # Summary: Install ArgoCD via Helm and create the GitOps Application manifest.
+  # SSM runs commands via /bin/sh; keep syntax POSIX-compatible.
+  "set -eu"
   # Wait for kubectl to be installed by k3s (SSM may run before cloud-init finishes).
-  "for i in {1..30}; do if [[ -x /usr/local/bin/kubectl ]]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; done; if [[ ! -x /usr/local/bin/kubectl ]]; then echo \"kubectl not found after 300s\"; exit 1; fi"
+  "i=0; while [ \\$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi"
   # Point kubectl/helm to the k3s kubeconfig on the instance.
   "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml"
   # Install Helm if missing (k3s AMIs might not include it).
