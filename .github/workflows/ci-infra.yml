@@ -271,6 +271,7 @@ jobs:
       - tf-apply
     outputs:
       k3s_server_instance_id: ${{ steps.outputs.outputs.k3s_server_instance_id }}
+      edge_instance_id: ${{ steps.outputs.outputs.edge_instance_id }}
       edge_public_ip: ${{ steps.outputs.outputs.edge_public_ip }}
       edge_basic_auth_user: ${{ steps.outputs.outputs.edge_basic_auth_user }}
       edge_basic_auth_ssm_parameter_name: ${{ steps.outputs.outputs.edge_basic_auth_ssm_parameter_name }}
@@ -300,6 +301,7 @@ jobs:
         run: |
           outputs_json="$(terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" output -json)"
           echo "k3s_server_instance_id=$(jq -r '.k3s_server_instance_id.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
+          echo "edge_instance_id=$(jq -r '.edge_instance_id.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "edge_public_ip=$(jq -r '.edge_public_ip.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "edge_basic_auth_user=$(jq -r '.edge_basic_auth_user.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "edge_basic_auth_ssm_parameter_name=$(jq -r '.edge_basic_auth_ssm_parameter_name.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
@@ -421,10 +423,44 @@ jobs:
 
       - name: Verify /healthz from the Internet
         env:
+          EDGE_INSTANCE_ID: ${{ needs.tf-outputs.outputs.edge_instance_id }}
           EDGE_PUBLIC_IP: ${{ needs.tf-outputs.outputs.edge_public_ip }}
           EDGE_BASIC_AUTH_USER: ${{ needs.tf-outputs.outputs.edge_basic_auth_user }}
           EDGE_BASIC_AUTH_SSM_PARAMETER_NAME: ${{ needs.tf-outputs.outputs.edge_basic_auth_ssm_parameter_name }}
         run: |
+          params="$(jq -cn \
+            --arg c0 "set -e" \
+            --arg c1 "systemctl is-active nginx" \
+            --arg c2 "ss -ltnp | grep -E ':443'" \
+            '{commands: [$c0, $c1, $c2]}')"
+
+          i=0
+          while [ $i -lt 3 ]; do
+            command_id="$(aws ssm send-command \
+              --instance-ids "${EDGE_INSTANCE_ID}" \
+              --document-name "AWS-RunShellScript" \
+              --parameters "${params}" \
+              --query "Command.CommandId" \
+              --output text)"
+
+            echo "::notice title=SSM::edge nginx check attempt=$((i+1)) command_id=${command_id}"
+
+            if aws ssm wait command-executed --command-id "${command_id}" --instance-id "${EDGE_INSTANCE_ID}"; then
+              aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${EDGE_INSTANCE_ID}"
+              break
+            fi
+
+            aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${EDGE_INSTANCE_ID}" || true
+            i=$((i+1))
+            if [ $i -lt 3 ]; then
+              echo "Edge nginx not ready, retrying in 10s..."
+              sleep 10
+            else
+              echo "Edge nginx not ready after 3 attempts."
+              exit 1
+            fi
+          done
+
           edge_basic_auth_password="$(aws ssm get-parameter \
             --name "${EDGE_BASIC_AUTH_SSM_PARAMETER_NAME}" \
             --with-decryption \

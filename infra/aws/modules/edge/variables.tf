@@ -75,7 +75,6 @@ variable "health_upstream_port" {
   description = "NodePort for the health service."
   type        = number
 }
-
 variable "enable_http_redirect" {
   description = "Whether to redirect HTTP to HTTPS."
   type        = bool
