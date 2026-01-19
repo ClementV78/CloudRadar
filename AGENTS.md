@@ -85,6 +85,7 @@
 ### 4.8 Scope & Merge Hygiene
 - Do not mix multiple issue scopes in a single branch; split work into separate branches if it happens.
 - Do not continue committing on a branch whose PR is already merged/closed; create a new branch and PR for additional changes.
+- Keep branches short-lived: sync with `main` at least daily and before opening a PR; if a branch is stale (e.g., >7 days old or far behind `main`), stop and rebase/merge or create a fresh branch and cherry-pick to avoid drift.
 - PR merges are performed by the user, not by Codex.
 - Use closing keywords to link PRs to issues: prefer `Closes #ID` for features and `Fixes #ID` for bugs so the issue appears in Development.
 - Keep destructive workflows (apply/destroy) manual-only with explicit confirmation inputs.
