@@ -310,6 +310,88 @@ aws ssm put-parameter \
   --overwrite
 ```
 
+### 6.5) Session Manager plugin (local)
+
+SSM port forwarding requires the Session Manager plugin installed locally.
+
+Required IAM permissions for the role/user running the tunnel:
+
+```json
+{
+  "Sid": "SsmStartSession",
+  "Effect": "Allow",
+  "Action": [
+    "ssm:StartSession",
+    "ssm:TerminateSession",
+    "ssm:DescribeSessions",
+    "ssm:GetConnectionStatus",
+    "ssm:DescribeInstanceInformation"
+  ],
+  "Resource": [
+    "arn:aws:ec2:us-east-1:<account-id>:instance/*",
+    "arn:aws:ssm:*::document/AWS-StartPortForwardingSessionToRemoteHost",
+    "arn:aws:ssm:*::document/AWS-StartPortForwardingSession"
+  ]
+}
+```
+
+Note: if you assume a role with `aws-refresh-token.sh`, unset `AWS_PROFILE` so the CLI uses the exported STS credentials.
+
+Install (Ubuntu):
+
+```bash
+curl -sSLo /tmp/session-manager-plugin.deb \
+  https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb
+
+sudo dpkg -i /tmp/session-manager-plugin.deb
+session-manager-plugin --version
+```
+
+Example tunnel (background, close with PID):
+
+```bash
+aws ssm start-session \
+  --target <instance-id> \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters '{"host":["127.0.0.1"],"portNumber":["6443"],"localPortNumber":["6443"]}' \
+  > /tmp/ssm-k3s-tunnel.log 2>&1 &
+
+echo $! > /tmp/ssm-k3s-tunnel.pid
+```
+
+Fetch kubeconfig from k3s (via SSM) and use the tunnel:
+
+```bash
+command_id="$(aws ssm send-command \
+  --instance-ids <instance-id> \
+  --document-name AWS-RunShellScript \
+  --parameters commands='["sudo cat /etc/rancher/k3s/k3s.yaml"]' \
+  --query "Command.CommandId" \
+  --output text)"
+
+aws ssm get-command-invocation \
+  --command-id "${command_id}" \
+  --instance-id <instance-id> \
+  --query "StandardOutputContent" \
+  --output text > /tmp/k3s-aws.yaml
+
+sed -i 's#https://127.0.0.1:6443#https://127.0.0.1:16443#' /tmp/k3s-aws.yaml
+export KUBECONFIG=/tmp/k3s-aws.yaml
+kubectl get nodes
+```
+
+Close the tunnel:
+
+```bash
+kill "$(cat /tmp/ssm-k3s-tunnel.pid)"
+```
+
+Reset kubeconfig when done:
+
+```bash
+unset KUBECONFIG
+```
+
 ### 6.3) MVP tickets mapped to permissions
 
 | Ticket | Area | Permissions needed |

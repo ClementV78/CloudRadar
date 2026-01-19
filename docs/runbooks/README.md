@@ -77,6 +77,12 @@ Purpose: expose `/healthz` via the edge Nginx to validate end-to-end k3s connect
 - Runbook: `docs/runbooks/health-endpoint.md`
 - TODO: configure a Docker credential helper to avoid GHCR login warnings.
 
+## 3.4) Redis buffer (data namespace)
+
+Purpose: deploy the Redis buffer used by ingester/processor.
+
+- Runbook: `docs/runbooks/redis.md`
+
 ## 4) Next steps (planned)
 
 - Apply on dev when ready; keep prod for later.
