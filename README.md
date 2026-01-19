@@ -117,6 +117,16 @@ The k3s cluster hosts all application workloads and platform components.
 - `prometheus`
 - `grafana`
 
+### GitOps apps (`k8s/apps`)
+
+ArgoCD syncs everything under `k8s/apps` automatically.
+
+- ✅ `health` — minimal `/healthz` endpoint
+- ✅ `redis` — event buffer in `data` namespace
+- 📝 `ingester` — OpenSky ingestion (planned)
+- 📝 `processor` — Java processor (planned)
+- 📝 `dashboard` — API + UI (planned)
+
 ---
 
 ## 📊 Observability (Planned)
@@ -195,7 +205,7 @@ These are high-level estimates based on current scope.
 - 📝 Integrate OpenSky ingestion source (or equivalent public feed)
 - 📝 Wire ingestion -> Redis -> processor -> SQLite
 - 📝 Implement minimal API for dashboard queries
-- 📝 Deploy Redis buffer in the data namespace
+- ✅ Deploy Redis buffer in the data namespace
 - 📝 End-to-end demo with sample telemetry data
 
 **Monitoring**
