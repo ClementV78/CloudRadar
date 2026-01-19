@@ -68,6 +68,41 @@ flowchart TB
   style edgeToK3s fill:transparent,stroke:transparent,stroke-width:0px;
 ```
 
+## Kubernetes workloads (namespaces + data flow)
+
+```mermaid
+flowchart LR
+  subgraph Data["data namespace"]
+    direction TB
+    redis["Redis (buffer)"]
+    sqlite["SQLite (PVC)"]
+  end
+
+  subgraph Apps["apps namespace"]
+    direction TB
+    ingester["Ingester"]
+    processor["Processor"]
+    dashboard["Dashboard"]
+  end
+
+  subgraph Obs["observability namespace"]
+    direction TB
+    prom["Prometheus"]
+    graf["Grafana"]
+  end
+
+  opensky["OpenSky API"]
+
+  ingester -- "0. fetch" --> opensky
+  ingester -- "1. ingest" --> redis
+  processor -- "2. consume" --> redis
+  processor -- "3. persist" --> sqlite
+
+  prom -. "4. scrape" .-> ingester
+  prom -. "5. scrape" .-> processor
+  graf -- "6. query" --> prom
+```
+
 ## Resource inventory (per environment)
 
 ### Networking
@@ -114,7 +149,7 @@ flowchart TB
 ## Status
 
 - Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, SSM/KMS endpoints.
-- Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery.
+- Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery, Redis buffer in the data namespace.
 - Planned: observability stack, additional network hardening.
 
 ## Notes
