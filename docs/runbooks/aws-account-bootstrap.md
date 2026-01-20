@@ -402,6 +402,58 @@ unset KUBECONFIG
 | #11 | Backups to S3 | S3 (bucket + objects) |
 | Backend (state/lock) | Terraform | S3 (state), DynamoDB (lock) |
 
+### 6.4) S3 backup bucket permissions (#11)
+
+Minimum permissions for Terraform to manage the SQLite backup bucket (bucket-level):
+
+```json
+{
+  "Sid": "SqliteBackupBucketManage",
+  "Effect": "Allow",
+  "Action": [
+    "s3:CreateBucket",
+    "s3:DeleteBucket",
+    "s3:ListBucket",
+    "s3:GetBucketLocation",
+    "s3:GetBucketTagging",
+    "s3:PutBucketTagging",
+    "s3:GetBucketVersioning",
+    "s3:PutBucketVersioning",
+    "s3:GetEncryptionConfiguration",
+    "s3:PutEncryptionConfiguration",
+    "s3:GetBucketPublicAccessBlock",
+    "s3:PutBucketPublicAccessBlock",
+    "s3:GetReplicationConfiguration",
+    "s3:GetBucketObjectLockConfiguration",
+    "s3:GetBucketOwnershipControls",
+    "s3:GetMetricsConfiguration",
+    "s3:GetBucketNotification",
+    "s3:GetBucketPolicyStatus"
+  ],
+  "Resource": "arn:aws:s3:::cloudradar-dev-<account-id>-sqlite-backups"
+}
+```
+
+If `force_destroy = true`, add object-level permissions for cleanup:
+
+```json
+{
+  "Sid": "SqliteBackupBucketObjects",
+  "Effect": "Allow",
+  "Action": [
+    "s3:ListBucketVersions",
+    "s3:ListBucketMultipartUploads",
+    "s3:AbortMultipartUpload",
+    "s3:DeleteObject",
+    "s3:DeleteObjectVersion"
+  ],
+  "Resource": [
+    "arn:aws:s3:::cloudradar-dev-<account-id>-sqlite-backups",
+    "arn:aws:s3:::cloudradar-dev-<account-id>-sqlite-backups/*"
+  ]
+}
+```
+
 ### 7) Record outputs for CI
 - AWS Account ID
 - OIDC Provider ARN
