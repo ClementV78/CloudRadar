@@ -26,6 +26,9 @@ on:
         description: "Set to true to run post-apply network smoke tests"
         required: true
         default: "false"
+      backup_bucket_name:
+        description: "Optional S3 bucket name for SQLite backups (dev only)"
+        required: false
 
 permissions:
   id-token: write
@@ -35,7 +38,7 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
   TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
   TF_LOCK_TABLE_NAME: ${{ vars.TF_LOCK_TABLE_NAME }}
-  TF_SQLITE_BACKUP_BUCKET: ${{ vars.TF_SQLITE_BACKUP_BUCKET }}
+  TF_BACKUP_BUCKET_NAME: ${{ vars.TF_BACKUP_BUCKET_NAME }}
   TF_ROLE_ARN: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
 
 jobs:
@@ -102,15 +105,33 @@ jobs:
       - name: Terraform plan
         if: ${{ matrix.name == 'bootstrap' }}
         run: |
+          set -euo pipefail
+          BACKUP_BUCKET_NAME="${TF_BACKUP_BUCKET_NAME:-}"
+          EXTRA_VARS=()
+
+          if [[ -n "${BACKUP_BUCKET_NAME}" ]]; then
+            EXTRA_VARS+=("-var=backup_bucket_name=${BACKUP_BUCKET_NAME}")
+          fi
+
           terraform -chdir=${{ matrix.dir }} plan -input=false -no-color \
             -var="region=${AWS_REGION}" \
             -var="state_bucket_name=${TF_STATE_BUCKET}" \
             -var="lock_table_name=${TF_LOCK_TABLE_NAME}" \
-            -var="backup_bucket_name=${TF_SQLITE_BACKUP_BUCKET}"
+            "${EXTRA_VARS[@]}"
 
       - name: Terraform plan
         if: ${{ matrix.name != 'bootstrap' }}
-        run: terraform -chdir=${{ matrix.dir }} plan -input=false -no-color -var-file=terraform.tfvars.example
+        run: |
+          set -euo pipefail
+          BACKUP_BUCKET_NAME="${TF_BACKUP_BUCKET_NAME:-}"
+          EXTRA_VARS=()
+
+          if [[ "${{ matrix.name }}" == "live-dev" && -n "${BACKUP_BUCKET_NAME}" ]]; then
+            EXTRA_VARS+=("-var=sqlite_backup_bucket_name=${BACKUP_BUCKET_NAME}")
+          fi
+
+          terraform -chdir=${{ matrix.dir }} plan -input=false -no-color -var-file=terraform.tfvars.example \
+            "${EXTRA_VARS[@]}"
 
   validate-modules:
     if: ${{ github.event_name == 'pull_request' }}
@@ -226,7 +247,17 @@ jobs:
             -backend-config="key=${{ needs.env-select.outputs.tf_key }}"
 
       - name: Terraform plan
-        run: terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" plan -input=false -no-color -var-file=terraform.tfvars.example
+        run: |
+          set -euo pipefail
+          BACKUP_BUCKET_NAME="${{ inputs.backup_bucket_name || env.TF_BACKUP_BUCKET_NAME }}"
+          EXTRA_VARS=()
+
+          if [[ "${{ inputs.environment }}" == "dev" && -n "${BACKUP_BUCKET_NAME}" ]]; then
+            EXTRA_VARS+=("-var=sqlite_backup_bucket_name=${BACKUP_BUCKET_NAME}")
+          fi
+
+          terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" plan -input=false -no-color -var-file=terraform.tfvars.example \
+            "${EXTRA_VARS[@]}"
 
   tf-apply:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -263,7 +294,17 @@ jobs:
             -backend-config="key=${{ needs.env-select.outputs.tf_key }}"
 
       - name: Terraform apply
-        run: terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" apply -input=false -auto-approve -var-file=terraform.tfvars.example
+        run: |
+          set -euo pipefail
+          BACKUP_BUCKET_NAME="${{ inputs.backup_bucket_name || env.TF_BACKUP_BUCKET_NAME }}"
+          EXTRA_VARS=()
+
+          if [[ "${{ inputs.environment }}" == "dev" && -n "${BACKUP_BUCKET_NAME}" ]]; then
+            EXTRA_VARS+=("-var=sqlite_backup_bucket_name=${BACKUP_BUCKET_NAME}")
+          fi
+
+          terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" apply -input=false -auto-approve -var-file=terraform.tfvars.example \
+            "${EXTRA_VARS[@]}"
 
   tf-outputs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
