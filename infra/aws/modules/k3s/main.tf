@@ -1,7 +1,7 @@
 locals {
-  server_subnet_id = var.k3s_server_subnet_id != null ? var.k3s_server_subnet_id : var.private_subnet_ids[0]
-  server_args      = length(var.k3s_server_extra_args) > 0 ? " ${join(" ", var.k3s_server_extra_args)}" : ""
-  agent_args       = length(var.k3s_agent_extra_args) > 0 ? " ${join(" ", var.k3s_agent_extra_args)}" : ""
+  server_subnet_id  = var.k3s_server_subnet_id != null ? var.k3s_server_subnet_id : var.private_subnet_ids[0]
+  server_args       = length(var.k3s_server_extra_args) > 0 ? " ${join(" ", var.k3s_server_extra_args)}" : ""
+  agent_args        = length(var.k3s_agent_extra_args) > 0 ? " ${join(" ", var.k3s_agent_extra_args)}" : ""
   backup_bucket_arn = var.backup_bucket_name != null ? "arn:aws:s3:::${var.backup_bucket_name}" : null
 }
 
