@@ -46,6 +46,36 @@ jobs:
       - name: Terraform init (local backend)
         run: terraform -chdir=infra/aws/bootstrap init -backend=false
 
+      - name: Import existing backend resources (idempotent)
+        run: |
+          set -euo pipefail
+          STATE_BUCKET="${{ inputs.state_bucket_name }}"
+          LOCK_TABLE="${{ inputs.lock_table_name || vars.TF_LOCK_TABLE_NAME }}"
+          BACKUP_BUCKET="${{ inputs.backup_bucket_name || vars.TF_SQLITE_BACKUP_BUCKET }}"
+
+          export TF_VAR_state_bucket_name="${STATE_BUCKET}"
+          export TF_VAR_lock_table_name="${LOCK_TABLE}"
+          export TF_VAR_region="${{ inputs.region || vars.AWS_REGION }}"
+
+          if aws s3api head-bucket --bucket "${STATE_BUCKET}" >/dev/null 2>&1; then
+            terraform -chdir=infra/aws/bootstrap import aws_s3_bucket.tf_state "${STATE_BUCKET}"
+            terraform -chdir=infra/aws/bootstrap import aws_s3_bucket_versioning.tf_state "${STATE_BUCKET}"
+            terraform -chdir=infra/aws/bootstrap import aws_s3_bucket_server_side_encryption_configuration.tf_state "${STATE_BUCKET}"
+            terraform -chdir=infra/aws/bootstrap import aws_s3_bucket_public_access_block.tf_state "${STATE_BUCKET}"
+          fi
+
+          if aws dynamodb describe-table --table-name "${LOCK_TABLE}" >/dev/null 2>&1; then
+            terraform -chdir=infra/aws/bootstrap import aws_dynamodb_table.tf_lock "${LOCK_TABLE}"
+          fi
+
+          if [[ -n "${BACKUP_BUCKET}" ]] && aws s3api head-bucket --bucket "${BACKUP_BUCKET}" >/dev/null 2>&1; then
+            export TF_VAR_backup_bucket_name="${BACKUP_BUCKET}"
+            terraform -chdir=infra/aws/bootstrap import module.sqlite_backups[0].aws_s3_bucket.this "${BACKUP_BUCKET}"
+            terraform -chdir=infra/aws/bootstrap import module.sqlite_backups[0].aws_s3_bucket_versioning.this "${BACKUP_BUCKET}"
+            terraform -chdir=infra/aws/bootstrap import module.sqlite_backups[0].aws_s3_bucket_server_side_encryption_configuration.this "${BACKUP_BUCKET}"
+            terraform -chdir=infra/aws/bootstrap import module.sqlite_backups[0].aws_s3_bucket_public_access_block.this "${BACKUP_BUCKET}"
+          fi
+
       - name: Terraform apply (create backend)
         run: |
           # Use local backend on runner to avoid a chicken-and-egg dependency.
