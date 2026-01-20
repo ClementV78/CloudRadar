@@ -82,4 +82,5 @@ jobs:
           terraform -chdir=infra/aws/bootstrap apply -auto-approve \
             -var="region=${{ inputs.region || vars.AWS_REGION }}" \
             -var="state_bucket_name=${{ inputs.state_bucket_name }}" \
-            -var="lock_table_name=${{ inputs.lock_table_name || vars.TF_LOCK_TABLE_NAME }}"
+            -var="lock_table_name=${{ inputs.lock_table_name || vars.TF_LOCK_TABLE_NAME }}" \
+            -var="backup_bucket_name=${{ inputs.backup_bucket_name || vars.TF_SQLITE_BACKUP_BUCKET }}"

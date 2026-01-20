@@ -80,10 +80,10 @@ output "edge_security_group_id" {
 
 output "sqlite_backup_bucket_name" {
   description = "S3 bucket name for SQLite backups."
-  value       = module.sqlite_backups.bucket_name
+  value       = local.sqlite_backup_bucket_name
 }
 
 output "sqlite_backup_bucket_arn" {
   description = "S3 bucket ARN for SQLite backups."
-  value       = module.sqlite_backups.bucket_arn
+  value       = "arn:aws:s3:::${local.sqlite_backup_bucket_name}"
 }

@@ -29,7 +29,7 @@ locals {
     if key != "health" || (port != var.edge_dashboard_nodeport && port != var.edge_api_nodeport)
   }
 
-  sqlite_backup_bucket_name = "${var.project}-${var.environment}-${data.aws_caller_identity.current.account_id}-sqlite-backups"
+  sqlite_backup_bucket_name = var.sqlite_backup_bucket_name != null ? var.sqlite_backup_bucket_name : "${var.project}-${var.environment}-${data.aws_caller_identity.current.account_id}-sqlite-backups"
 }
 
 data "aws_prefix_list" "s3" {
@@ -45,13 +45,6 @@ module "vpc" {
   public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
   tags                 = local.tags
-}
-
-module "sqlite_backups" {
-  source = "../../modules/backup-bucket"
-
-  name = local.sqlite_backup_bucket_name
-  tags = local.tags
 }
 
 module "nat_instance" {
