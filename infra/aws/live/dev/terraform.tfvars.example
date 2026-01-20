@@ -21,11 +21,13 @@ k3s_root_volume_size      = 40
 # k3s_agent_extra_args  = []
 
 edge_instance_type       = "t3.micro"
+# edge_ami_id             = "ami-xxxxxxxxxxxxxxxxx"
 edge_root_volume_size    = 40
 edge_allowed_cidrs       = ["0.0.0.0/0"]
 edge_server_name         = "_"
 edge_basic_auth_user     = "cloudradar"
 edge_basic_auth_ssm_parameter_name = "/cloudradar/edge/basic-auth"
+edge_ssm_egress_enabled  = false
 edge_dashboard_nodeport  = 30080
 edge_api_nodeport        = 30081
 edge_health_nodeport     = 32736

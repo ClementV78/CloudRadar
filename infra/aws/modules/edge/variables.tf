@@ -23,10 +23,22 @@ variable "allowed_cidrs" {
   type        = list(string)
 }
 
+variable "ssm_egress_enabled" {
+  description = "Whether to allow HTTPS egress to SSM endpoints over the Internet."
+  type        = bool
+  default     = false
+}
+
 variable "instance_type" {
   description = "Instance type for the edge EC2 instance."
   type        = string
   default     = "t3.micro"
+}
+
+variable "ami_id" {
+  description = "Optional AMI ID to pin the edge instance."
+  type        = string
+  default     = null
 }
 
 variable "root_volume_size" {

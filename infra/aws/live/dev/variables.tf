@@ -104,6 +104,12 @@ variable "edge_instance_type" {
   default     = "t3.micro"
 }
 
+variable "edge_ami_id" {
+  description = "Optional AMI ID to pin the edge instance."
+  type        = string
+  default     = null
+}
+
 variable "edge_root_volume_size" {
   description = "Root volume size in GB for the edge instance."
   type        = number
@@ -113,6 +119,12 @@ variable "edge_root_volume_size" {
 variable "edge_allowed_cidrs" {
   description = "CIDR blocks allowed to access the edge instance."
   type        = list(string)
+}
+
+variable "edge_ssm_egress_enabled" {
+  description = "Whether to allow HTTPS egress for SSM when endpoints are disabled."
+  type        = bool
+  default     = false
 }
 
 variable "edge_server_name" {

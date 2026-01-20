@@ -108,8 +108,19 @@ resource "aws_security_group_rule" "edge_egress_private" {
   description       = "Allow egress to private subnets"
 }
 
+resource "aws_security_group_rule" "edge_egress_ssm" {
+  count             = var.ssm_egress_enabled ? 1 : 0
+  type              = "egress"
+  security_group_id = aws_security_group.edge.id
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  cidr_blocks       = ["0.0.0.0/0"]
+  description       = "Allow HTTPS egress for SSM when VPC endpoints are disabled"
+}
+
 resource "aws_instance" "edge" {
-  ami                         = data.aws_ami.al2023.id
+  ami                         = coalesce(var.ami_id, data.aws_ami.al2023.id)
   instance_type               = var.instance_type
   subnet_id                   = var.public_subnet_id
   vpc_security_group_ids      = [aws_security_group.edge.id]
