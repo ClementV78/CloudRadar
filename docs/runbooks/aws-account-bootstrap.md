@@ -329,6 +329,7 @@ Required IAM permissions for the role/user running the tunnel:
   ],
   "Resource": [
     "arn:aws:ec2:us-east-1:<account-id>:instance/*",
+    "arn:aws:ssm:us-east-1:<account-id>:document/SSM-SessionManagerRunShell",
     "arn:aws:ssm:*::document/AWS-StartPortForwardingSessionToRemoteHost",
     "arn:aws:ssm:*::document/AWS-StartPortForwardingSession"
   ]

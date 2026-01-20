@@ -95,6 +95,8 @@ module "edge" {
   public_subnet_id              = module.vpc.public_subnet_ids[0]
   private_subnet_cidrs          = var.private_subnet_cidrs
   allowed_cidrs                 = var.edge_allowed_cidrs
+  ssm_egress_enabled            = var.edge_ssm_egress_enabled
+  ami_id                        = var.edge_ami_id
   instance_type                 = var.edge_instance_type
   root_volume_size              = var.edge_root_volume_size
   server_name                   = var.edge_server_name

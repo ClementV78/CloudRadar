@@ -130,7 +130,8 @@ flowchart LR
 - Default VPC network ACLs (no custom NACLs yet).
   - k3s node SG rules are self-referenced for 6443/10250/8472 (node-to-node only).
   - Edge reaches k3s only through NodePorts (30080/30081) via SG edge -> SG k3s.
-  - SSM endpoints SG allows ingress from both edge and k3s SGs (port 443).
+  - Edge may allow HTTPS egress for SSM when endpoints are disabled (dev only).
+  - Without SSM endpoints, Session Manager access requires `ssm:StartSession` on `arn:aws:ssm:us-east-1:<account-id>:document/SSM-SessionManagerRunShell`.
 
 ### IAM
 - IAM role + instance profile for k3s nodes (SSM managed policy).
@@ -156,6 +157,7 @@ flowchart LR
 ## Status
 
 - Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, S3 backup bucket for SQLite snapshots.
+- Implemented (IaC, dev): SSM/KMS interface endpoints are temporarily disabled to reduce cost; edge uses HTTPS egress for SSM.
 - Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery, Redis buffer in the data namespace, EBS CSI driver + `ebs-gp3` StorageClass.
 - Planned: observability stack, additional network hardening.
 
