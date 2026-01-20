@@ -6,11 +6,11 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: bootstrap-argocd.sh [--env <env>] [--project <project>] <instance-id> [region] [argocd-chart-version]
+Usage: bootstrap-argocd.sh [--env <env>] [--project <project>] [--region <region>] [<instance-id>] [argocd-chart-version]
 
 Example:
   scripts/bootstrap-argocd.sh i-0123456789abcdef us-east-1
-  scripts/bootstrap-argocd.sh --env dev --project cloudradar us-east-1
+  scripts/bootstrap-argocd.sh --env dev --project cloudradar --region us-east-1
 
 Environment overrides:
   ARGOCD_NAMESPACE=argocd
@@ -26,6 +26,15 @@ USAGE
 ENVIRONMENT=""
 PROJECT=""
 INSTANCE_ID=""
+REGION_OVERRIDE=""
+
+is_instance_id() {
+  [[ "$1" =~ ^i-[0-9a-f]{8}([0-9a-f]{9})?$ || "$1" =~ ^mi-[0-9a-f]{17}$ ]]
+}
+
+is_region() {
+  [[ "$1" =~ ^[a-z]{2}-[a-z]+-[0-9]+$ ]]
+}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -35,6 +44,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --project)
       PROJECT="${2:-}"
+      shift 2
+      ;;
+    --region)
+      REGION_OVERRIDE="${2:-}"
       shift 2
       ;;
     --help|-h)
@@ -57,8 +70,10 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ $# -gt 0 ]]; then
-  INSTANCE_ID="$1"
-  shift
+  if is_instance_id "$1"; then
+    INSTANCE_ID="$1"
+    shift
+  fi
 fi
 
 if [[ -z "${INSTANCE_ID}" && -z "${ENVIRONMENT}" ]]; then
@@ -66,8 +81,14 @@ if [[ -z "${INSTANCE_ID}" && -z "${ENVIRONMENT}" ]]; then
   exit 1
 fi
 
-REGION="${1:-${AWS_REGION:-us-east-1}}"
-ARGOCD_CHART_VERSION="${2:-${ARGOCD_CHART_VERSION:-9.3.4}}"
+REGION="${REGION_OVERRIDE:-${AWS_REGION:-us-east-1}}"
+if [[ -z "${REGION_OVERRIDE}" && $# -gt 0 ]]; then
+  if is_region "$1"; then
+    REGION="$1"
+    shift
+  fi
+fi
+ARGOCD_CHART_VERSION="${1:-${ARGOCD_CHART_VERSION:-9.3.4}}"
 ARGOCD_NAMESPACE="${ARGOCD_NAMESPACE:-argocd}"
 ARGOCD_APP_NAME="${ARGOCD_APP_NAME:-cloudradar}"
 ARGOCD_APP_NAMESPACE="${ARGOCD_APP_NAMESPACE:-cloudradar}"

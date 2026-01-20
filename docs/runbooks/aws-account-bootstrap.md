@@ -362,22 +362,7 @@ echo $! > /tmp/ssm-k3s-tunnel.pid
 Fetch kubeconfig from k3s (via SSM) and use the tunnel:
 
 ```bash
-command_id="$(aws ssm send-command \
-  --instance-ids <instance-id> \
-  --document-name AWS-RunShellScript \
-  --parameters commands='["sudo cat /etc/rancher/k3s/k3s.yaml"]' \
-  --query "Command.CommandId" \
-  --output text)"
-
-aws ssm get-command-invocation \
-  --command-id "${command_id}" \
-  --instance-id <instance-id> \
-  --query "StandardOutputContent" \
-  --output text > /tmp/k3s-aws.yaml
-
-sed -i 's#https://127.0.0.1:6443#https://127.0.0.1:16443#' /tmp/k3s-aws.yaml
-export KUBECONFIG=/tmp/k3s-aws.yaml
-kubectl get nodes
+source scripts/get-aws-kubeconfig.sh <instance-id> 16443
 ```
 
 Close the tunnel:
