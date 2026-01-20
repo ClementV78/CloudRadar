@@ -65,6 +65,7 @@ terraform -chdir=infra/aws/live/dev init -backend-config=backend.hcl
 
 ## Notes
 - This workflow uses a local backend and does not depend on existing remote state.
+- The workflow imports existing backend resources (state bucket, lock table, optional backup bucket) when they already exist, so it can be rerun safely.
 - Backend usage is configured in #6 after this completes.
 
 ## Related issues
