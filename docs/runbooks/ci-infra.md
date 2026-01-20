@@ -118,7 +118,7 @@ Use the dedicated destroy workflow when you need to tear down an environment.
 - `AWS_REGION`
 - `TF_STATE_BUCKET`
 - `TF_LOCK_TABLE_NAME`
-- `TF_SQLITE_BACKUP_BUCKET` (optional, SQLite backups bucket)
+- `TF_BACKUP_BUCKET_NAME` (optional, SQLite backups bucket)
 
 ## Related files
 

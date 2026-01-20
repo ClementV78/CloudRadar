@@ -10,6 +10,7 @@ using a temporary local Terraform state.
   - `AWS_TERRAFORM_ROLE_ARN`
   - `AWS_REGION` (default for workflow)
   - `TF_LOCK_TABLE_NAME` (default for workflow)
+  - `TF_BACKUP_BUCKET_NAME` (optional default for SQLite backups)
 
 ## Run
 1) In GitHub Actions, run **bootstrap-terraform-backend** workflow.
