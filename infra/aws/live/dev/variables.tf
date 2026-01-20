@@ -98,6 +98,12 @@ variable "k3s_agent_extra_args" {
   default     = []
 }
 
+variable "sqlite_backup_bucket_name" {
+  description = "Optional SQLite backup bucket name (created by bootstrap)."
+  type        = string
+  default     = null
+}
+
 variable "edge_instance_type" {
   description = "Instance type for the edge EC2 instance."
   type        = string

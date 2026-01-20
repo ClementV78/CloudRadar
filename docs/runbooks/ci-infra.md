@@ -23,6 +23,11 @@ Jobs run in CI to validate Terraform safely (no apply):
 - `environment`: target env (`dev` or `prod`).
 - `auto_approve`: must be `true` to run apply.
 - `run_smoke_tests`: when `true`, runs post-apply readiness and health checks (k3s, ArgoCD, healthz).
+- `backup_bucket_name`: optional override for the dev SQLite backup bucket.
+
+Notes:
+- When `backup_bucket_name` is empty, the workflow uses `TF_BACKUP_BUCKET_NAME` if set.
+- If neither is provided, Terraform derives the default bucket name in `infra/aws/live/dev`.
 
 ### Which environment is targeted in CI?
 
@@ -118,6 +123,7 @@ Use the dedicated destroy workflow when you need to tear down an environment.
 - `AWS_REGION`
 - `TF_STATE_BUCKET`
 - `TF_LOCK_TABLE_NAME`
+- `TF_BACKUP_BUCKET_NAME` (optional, SQLite backups bucket)
 
 ## Related files
 

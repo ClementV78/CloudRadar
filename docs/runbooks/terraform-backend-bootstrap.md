@@ -10,12 +10,14 @@ using a temporary local Terraform state.
   - `AWS_TERRAFORM_ROLE_ARN`
   - `AWS_REGION` (default for workflow)
   - `TF_LOCK_TABLE_NAME` (default for workflow)
+  - `TF_BACKUP_BUCKET_NAME` (optional default for SQLite backups)
 
 ## Run
 1) In GitHub Actions, run **bootstrap-terraform-backend** workflow.
 2) Provide:
    - `state_bucket_name` (globally unique)
    - `lock_table_name` (prefilled from `TF_LOCK_TABLE_NAME`)
+   - `backup_bucket_name` (optional, SQLite backups bucket)
    - `region` (prefilled from `AWS_REGION`)
 
 Example bucket name:
@@ -27,12 +29,14 @@ gh workflow run bootstrap-terraform-backend \
   --ref main \
   -f region=us-east-1 \
   -f state_bucket_name=cloudradar-tfstate-<account-id> \
-  -f lock_table_name=cloudradar-tf-lock
+  -f lock_table_name=cloudradar-tf-lock \
+  -f backup_bucket_name=cloudradar-dev-<account-id>-sqlite-backups
 ```
 
 ## Outputs
 - S3 state bucket created with versioning, encryption, public access blocked.
 - DynamoDB lock table created (PAY_PER_REQUEST).
+- SQLite backup bucket created (if `backup_bucket_name` provided).
 
 ## Remote backend configuration (post-bootstrap)
 After the backend exists, configure Terraform roots to use it.

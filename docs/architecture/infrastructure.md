@@ -172,6 +172,7 @@ flowchart LR
 - Edge depends on the SSM/S3 endpoints being created first to avoid cloud-init timeouts during bootstrap.
 - ArgoCD is bootstrapped via SSM from CI after infrastructure apply, then manages k8s apps via GitOps.
 - Edge package installs use the S3 gateway endpoint plus SG egress to the S3 prefix list.
+- SQLite backup bucket is provisioned by the Terraform bootstrap stack to keep it outside environment destroys.
 - TODO: set edge `server_name` to the public DNS name once available (remove nginx warning).
 - TODO: improve edge HA by running nginx on public k3s nodes + ASG (min 1, ideally 2+) with vertical scaling as needed.
 - TODO: migrate edge TLS to ACM + Route53 (issue #14).
