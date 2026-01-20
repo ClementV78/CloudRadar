@@ -66,6 +66,18 @@ variable "k3s_agent_extra_args" {
   default     = []
 }
 
+variable "enable_ebs_csi_policy" {
+  description = "Whether to attach the AWS managed policy for the EBS CSI driver."
+  type        = bool
+  default     = false
+}
+
+variable "backup_bucket_name" {
+  description = "Optional S3 bucket name for SQLite backups."
+  type        = string
+  default     = null
+}
+
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)

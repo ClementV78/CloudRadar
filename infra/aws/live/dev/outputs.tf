@@ -77,3 +77,13 @@ output "edge_security_group_id" {
   description = "Security group ID for the edge instance."
   value       = module.edge.edge_security_group_id
 }
+
+output "sqlite_backup_bucket_name" {
+  description = "S3 bucket name for SQLite backups."
+  value       = module.sqlite_backups.bucket_name
+}
+
+output "sqlite_backup_bucket_arn" {
+  description = "S3 bucket ARN for SQLite backups."
+  value       = module.sqlite_backups.bucket_arn
+}

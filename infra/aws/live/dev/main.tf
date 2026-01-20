@@ -2,6 +2,8 @@ provider "aws" {
   region = var.region
 }
 
+data "aws_caller_identity" "current" {}
+
 locals {
   // Common tags to keep resources discoverable across stacks.
   tags = merge(var.tags, {
@@ -26,6 +28,8 @@ locals {
     for key, port in local.edge_nodeport_rules : key => port
     if key != "health" || (port != var.edge_dashboard_nodeport && port != var.edge_api_nodeport)
   }
+
+  sqlite_backup_bucket_name = "${var.project}-${var.environment}-${data.aws_caller_identity.current.account_id}-sqlite-backups"
 }
 
 data "aws_prefix_list" "s3" {
@@ -41,6 +45,13 @@ module "vpc" {
   public_subnet_cidrs  = var.public_subnet_cidrs
   private_subnet_cidrs = var.private_subnet_cidrs
   tags                 = local.tags
+}
+
+module "sqlite_backups" {
+  source = "../../modules/backup-bucket"
+
+  name = local.sqlite_backup_bucket_name
+  tags = local.tags
 }
 
 module "nat_instance" {
@@ -71,6 +82,8 @@ module "k3s" {
   root_volume_size      = var.k3s_root_volume_size
   k3s_server_extra_args = var.k3s_server_extra_args
   k3s_agent_extra_args  = var.k3s_agent_extra_args
+  enable_ebs_csi_policy = true
+  backup_bucket_name    = local.sqlite_backup_bucket_name
   tags                  = local.tags
 }
 

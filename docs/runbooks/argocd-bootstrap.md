@@ -30,7 +30,7 @@ scripts/bootstrap-argocd.sh <instance-id> us-east-1
 
 Optional: resolve the instance by tags instead of passing an ID:
 ```bash
-scripts/bootstrap-argocd.sh --env <env> --project cloudradar us-east-1
+scripts/bootstrap-argocd.sh --env <env> --project cloudradar --region us-east-1
 ```
 
 Optional overrides (all have defaults):
