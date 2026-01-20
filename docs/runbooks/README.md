@@ -7,6 +7,7 @@ This page is the entry point for all runbooks and describes the recommended exec
 Purpose: establish IAM baseline, MFA, budgets, and the GitHub OIDC provider + Terraform role.
 
 - Runbook: `docs/runbooks/aws-account-bootstrap.md`
+- IAM inventory reference: `docs/iam/inventory.md`
 
 ## 2) Terraform backend bootstrap (required)
 

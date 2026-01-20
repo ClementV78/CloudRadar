@@ -138,6 +138,7 @@ flowchart LR
 - IAM managed policy attachment for EBS CSI driver (k3s nodes).
 - IAM policy for k3s nodes to read/write SQLite backups in S3.
 - IAM role + instance profile for edge (SSM managed policy + SSM parameter read).
+- Full IAM inventory: `docs/iam/inventory.md`.
 
 ## Network table (example: dev)
 
