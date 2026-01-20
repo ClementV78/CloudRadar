@@ -15,6 +15,12 @@ variable "lock_table_name" {
   default     = "cloudradar-tf-lock"
 }
 
+variable "backup_bucket_name" {
+  type        = string
+  description = "Optional S3 bucket name for SQLite backups."
+  default     = null
+}
+
 variable "tags" {
   type        = map(string)
   description = "Common tags for backend resources."

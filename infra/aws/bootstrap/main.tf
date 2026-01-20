@@ -43,3 +43,11 @@ resource "aws_dynamodb_table" "tf_lock" {
 
   tags = var.tags
 }
+
+module "sqlite_backups" {
+  count  = var.backup_bucket_name != null && var.backup_bucket_name != "" ? 1 : 0
+  source = "../modules/backup-bucket"
+
+  name = var.backup_bucket_name
+  tags = var.tags
+}

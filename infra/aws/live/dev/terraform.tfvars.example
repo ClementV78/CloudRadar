@@ -20,6 +20,9 @@ k3s_root_volume_size      = 40
 # k3s_server_extra_args = ["--tls-san=example.com"]
 # k3s_agent_extra_args  = []
 
+# Optional: use the bootstrap-created SQLite backup bucket.
+# sqlite_backup_bucket_name = "cloudradar-dev-<account-id>-sqlite-backups"
+
 edge_instance_type       = "t3.micro"
 # edge_ami_id             = "ami-xxxxxxxxxxxxxxxxx"
 edge_root_volume_size    = 40

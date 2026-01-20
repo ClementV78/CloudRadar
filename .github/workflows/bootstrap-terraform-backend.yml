@@ -14,6 +14,9 @@ on:
         description: "DynamoDB table name for Terraform locks"
         required: true
         default: "cloudradar-tf-lock"
+      backup_bucket_name:
+        description: "Optional S3 bucket name for SQLite backups"
+        required: false
       role_arn:
         description: "Optional role ARN to assume (defaults to AWS_TERRAFORM_ROLE_ARN variable)"
         required: false
@@ -49,4 +52,5 @@ jobs:
           terraform -chdir=infra/aws/bootstrap apply -auto-approve \
             -var="region=${{ inputs.region || vars.AWS_REGION }}" \
             -var="state_bucket_name=${{ inputs.state_bucket_name }}" \
-            -var="lock_table_name=${{ inputs.lock_table_name || vars.TF_LOCK_TABLE_NAME }}"
+            -var="lock_table_name=${{ inputs.lock_table_name || vars.TF_LOCK_TABLE_NAME }}" \
+            -var="backup_bucket_name=${{ inputs.backup_bucket_name || vars.TF_SQLITE_BACKUP_BUCKET }}"
