@@ -118,6 +118,11 @@ flowchart LR
 - Edge EC2 instance (public subnet).
 - ArgoCD deployed on k3s (bootstrapped via SSM from CI).
 
+### Storage
+- EBS CSI driver deployed via ArgoCD (kube-system).
+- `ebs-gp3` StorageClass for stateful workloads.
+- S3 backup bucket for SQLite snapshots.
+
 ### Security
 - Security group for k3s nodes (explicit ports).
 - Security group for NAT (allow from private CIDRs).
@@ -129,6 +134,8 @@ flowchart LR
 
 ### IAM
 - IAM role + instance profile for k3s nodes (SSM managed policy).
+- IAM managed policy attachment for EBS CSI driver (k3s nodes).
+- IAM policy for k3s nodes to read/write SQLite backups in S3.
 - IAM role + instance profile for edge (SSM managed policy + SSM parameter read).
 
 ## Network table (example: dev)
@@ -148,8 +155,8 @@ flowchart LR
 
 ## Status
 
-- Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, SSM/KMS endpoints.
-- Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery, Redis buffer in the data namespace.
+- Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, S3 backup bucket for SQLite snapshots.
+- Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery, Redis buffer in the data namespace, EBS CSI driver + `ebs-gp3` StorageClass.
 - Planned: observability stack, additional network hardening.
 
 ## Notes

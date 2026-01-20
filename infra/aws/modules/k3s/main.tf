@@ -2,6 +2,7 @@ locals {
   server_subnet_id = var.k3s_server_subnet_id != null ? var.k3s_server_subnet_id : var.private_subnet_ids[0]
   server_args      = length(var.k3s_server_extra_args) > 0 ? " ${join(" ", var.k3s_server_extra_args)}" : ""
   agent_args       = length(var.k3s_agent_extra_args) > 0 ? " ${join(" ", var.k3s_agent_extra_args)}" : ""
+  backup_bucket_arn = var.backup_bucket_name != null ? "arn:aws:s3:::${var.backup_bucket_name}" : null
 }
 
 data "aws_ami" "al2023" {
@@ -73,6 +74,50 @@ resource "aws_iam_instance_profile" "k3s_nodes" {
 resource "aws_iam_role_policy_attachment" "ssm_core" {
   role       = aws_iam_role.k3s_nodes.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi_driver" {
+  count = var.enable_ebs_csi_policy ? 1 : 0
+
+  role       = aws_iam_role.k3s_nodes.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
+
+data "aws_iam_policy_document" "backup_bucket" {
+  count = var.backup_bucket_name != null ? 1 : 0
+
+  statement {
+    actions = [
+      "s3:AbortMultipartUpload",
+      "s3:DeleteObject",
+      "s3:GetBucketLocation",
+      "s3:GetObject",
+      "s3:ListBucket",
+      "s3:ListBucketMultipartUploads",
+      "s3:ListMultipartUploadParts",
+      "s3:PutObject"
+    ]
+
+    resources = [
+      local.backup_bucket_arn,
+      "${local.backup_bucket_arn}/*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "backup_bucket" {
+  count = var.backup_bucket_name != null ? 1 : 0
+
+  name_prefix = "${var.name}-k3s-backups-"
+  policy      = data.aws_iam_policy_document.backup_bucket[0].json
+  tags        = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "backup_bucket" {
+  count = var.backup_bucket_name != null ? 1 : 0
+
+  role       = aws_iam_role.k3s_nodes.name
+  policy_arn = aws_iam_policy.backup_bucket[0].arn
 }
 
 resource "aws_security_group" "k3s_nodes" {
