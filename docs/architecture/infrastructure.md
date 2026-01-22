@@ -4,18 +4,54 @@ This document describes the Terraform layout and the baseline VPC network used p
 
 ## Terraform layout
 
+### Terraform roots
+- `infra/aws/bootstrap`: creates the Terraform backend (state bucket, lock table) and the SQLite backup bucket.
+- `infra/aws/live/dev`: deploys the full dev stack (VPC, NAT instance, k3s, edge) and wires the backup bucket name to k3s.
+- `infra/aws/live/prod`: deploys the prod VPC baseline only (future app/edge/k3s TBD).
+
 ```mermaid
 flowchart TB
+  subgraph Bootstrap["infra/aws/bootstrap"]
+    backend["state S3 bucket"]
+    lock["DynamoDB lock table"]
+    backups["SQLite backup bucket"]
+  end
+
   subgraph Live["infra/aws/live"]
     dev["dev root"]
     prod["prod root"]
   end
 
   subgraph Modules["infra/aws/modules"]
-    vpc["vpc module"]
-    nat["nat-instance module"]
-    k3s["k3s module"]
-    edge["edge module"]
+    subgraph vpc["vpc module"]
+      vpc_res["VPC"]
+      subnets["Public/private subnets"]
+      rts["Route tables"]
+      igw["Internet gateway"]
+    end
+
+    subgraph nat["nat-instance module"]
+      nat_ec2["NAT EC2 instance"]
+      nat_eip["Elastic IP"]
+      nat_route["Private RT default route"]
+    end
+
+    subgraph k3s["k3s module"]
+      k3s_server["k3s server EC2"]
+      k3s_workers["k3s worker ASG"]
+      k3s_sg["Security groups"]
+      k3s_iam["IAM role/profile"]
+    end
+
+    subgraph edge["edge module"]
+      edge_ec2["Edge EC2 instance"]
+      edge_sg["Security group"]
+      edge_ssm["SSM parameter (basic auth)"]
+    end
+
+    subgraph backup["backup-bucket module"]
+      backup_bucket["S3 bucket (versioning + SSE + public access block)"]
+    end
   end
 
   dev --> vpc
@@ -23,9 +59,7 @@ flowchart TB
   dev --> k3s
   dev --> edge
   prod --> vpc
-  prod --> nat
-  prod --> k3s
-  prod --> edge
+  Bootstrap --> backup
 ```
 
 ## VPC diagram (SGs on network flows)
@@ -33,39 +67,42 @@ flowchart TB
 ```mermaid
 flowchart TB
   internet((Internet))
+  s3((S3))
 
   subgraph VPC["VPC"]
+    direction TB
     igw["Internet Gateway"]
 
     subgraph Public["Public subnet"]
+      direction TB
       publicRT["Public route table"]
       edge["EC2 Nginx (edge)"]
       nat["EC2 NAT instance"]
     end
 
     subgraph Private["Private subnet"]
-      privateRT["Private route table"]
+      direction TB
       k3s["EC2 k3s nodes"]
-      ssmEndpoints["VPC interface endpoints (SSM/KMS)"]
-      edgeToK3s[" "]
+      privateRT["Private route table"]
+      ssmEndpoints["SSM/KMS interface endpoints (optional)"]
     end
+
+    s3Gateway["S3 gateway endpoint"]
   end
 
   internet --> igw
   igw --> publicRT
   publicRT --> edge
   publicRT --> nat
-  privateRT --> k3s
-  privateRT -.-> nat
+  edge -. "nodeports to k3s" .-> k3s
+  k3s --- privateRT
+  privateRT -.-|0.0.0.0/0 egress| nat
+  publicRT -. "S3 route" .-> s3Gateway
+  privateRT -. "S3 route" .-> s3Gateway
+  s3Gateway -.-> s3
 
-  internet -- "SG edge: 443/80" --> edge
-  edge -- "SG edge (egress): private CIDRs" --> edgeToK3s
-  edgeToK3s -- "SG k3s (ingress): allow from edge SG" --> k3s
-  edge -- "SG endpoints: allow from edge" --> ssmEndpoints
-  k3s -- "SG endpoints: allow from k3s" --> ssmEndpoints
-  nat -- "SG nat: allow from private CIDRs" --> privateRT
-
-  style edgeToK3s fill:transparent,stroke:transparent,stroke-width:0px;
+  edge -. "SSM (optional)" .-> ssmEndpoints
+  k3s -. "SSM (optional)" .-> ssmEndpoints
 ```
 
 ## Kubernetes workloads (namespaces + data flow)

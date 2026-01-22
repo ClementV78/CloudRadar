@@ -86,6 +86,11 @@ flowchart TB
   PR --> Dispatch
 ```
 
+## Reference diagrams
+
+- Infrastructure (auto-generated): ![CloudRadar infrastructure diagram](../architecture/diagrams/cloudradar-infrastructure.png)
+- Workloads (auto-generated): ![CloudRadar workloads diagram](../architecture/diagrams/cloudradar-workload-grid3.png)
+
 - Select `environment` (`dev` or `prod`).
 - Set `auto_approve=true` to allow apply.
 - Uses the same S3/DynamoDB backend and the OIDC role.
