@@ -84,6 +84,13 @@ Purpose: deploy the Redis buffer used by ingester/processor.
 
 - Runbook: `docs/runbooks/redis.md`
 
+## Reference diagrams
+
+Use these diagrams as visual context while following the runbooks.
+
+- Infrastructure (auto-generated): ![CloudRadar infrastructure diagram](../architecture/diagrams/cloudradar-infrastructure.png)
+- Workloads (auto-generated): ![CloudRadar workloads diagram](../architecture/diagrams/cloudradar-workload-grid3.png)
+
 ## 4) Next steps (planned)
 
 - Apply on dev when ready; keep prod for later.
