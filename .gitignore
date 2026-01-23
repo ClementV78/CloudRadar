@@ -38,3 +38,6 @@ docs/runbooks/infra-outputs.md
 
 # Local alerts
 .local/alerts/
+
+# Local scratch
+.local/
