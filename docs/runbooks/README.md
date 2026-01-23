@@ -84,6 +84,18 @@ Purpose: deploy the Redis buffer used by ingester/processor.
 
 - Runbook: `docs/runbooks/redis.md`
 
+## 3.5) OpenSky ingester
+
+Purpose: run the Java ingester locally or deploy it to k3s.
+
+- Runbook: `docs/runbooks/ingester.md`
+
+## Troubleshooting journal
+
+Short, running log of issues encountered and how they were resolved.
+
+- Journal: `docs/runbooks/issue-log.md`
+
 ## Reference diagrams
 
 Use these diagrams as visual context while following the runbooks.

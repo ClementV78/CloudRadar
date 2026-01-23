@@ -4,5 +4,6 @@ kind: Kustomization
 resources:
   - ebs-csi-application.yaml
   - health
+  - ingester
   - redis
   - storageclass-gp3.yaml
