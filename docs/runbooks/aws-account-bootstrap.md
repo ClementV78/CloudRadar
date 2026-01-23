@@ -257,6 +257,17 @@ Save as `cloudradar-infra-baseline.json`:
       "Resource": "arn:aws:ssm:us-east-1:<account-id>:parameter/cloudradar/edge/basic-auth"
     },
     {
+      "Sid": "SsmPutOpenSkyCredentials",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:PutParameter",
+        "ssm:AddTagsToResource",
+        "ssm:GetParameter",
+        "ssm:GetParameters"
+      ],
+      "Resource": "arn:aws:ssm:us-east-1:<account-id>:parameter/cloudradar/opensky/*"
+    },
+    {
       "Sid": "SsmValidation",
       "Effect": "Allow",
       "Action": [
@@ -310,7 +321,25 @@ aws ssm put-parameter \
   --overwrite
 ```
 
-### 6.5) Session Manager plugin (local)
+### 6.5) OpenSky credentials (ingester)
+
+Store the OpenSky OAuth client credentials in SSM Parameter Store and reference them from the ingester.
+
+```bash
+aws ssm put-parameter \
+  --name "/cloudradar/opensky/client_id" \
+  --type "SecureString" \
+  --value "<client-id>" \
+  --overwrite
+
+aws ssm put-parameter \
+  --name "/cloudradar/opensky/client_secret" \
+  --type "SecureString" \
+  --value "<client-secret>" \
+  --overwrite
+```
+
+### 6.6) Session Manager plugin (local)
 
 SSM port forwarding requires the Session Manager plugin installed locally.
 

@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingester
+  namespace: cloudradar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ingester
+  template:
+    metadata:
+      labels:
+        app: ingester
+    spec:
+      containers:
+        - name: ingester
+          image: ghcr.io/clementv78/cloudradar-ingester:0.1.2
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: REDIS_HOST
+              value: redis.data.svc.cluster.local
+            - name: REDIS_PORT
+              value: "6379"
+            - name: OPENSKY_CLIENT_ID_SSM
+              value: "/cloudradar/opensky/client_id"
+            - name: OPENSKY_CLIENT_SECRET_SSM
+              value: "/cloudradar/opensky/client_secret"
+            - name: OPENSKY_LAT_MIN
+              value: "46.8296"
+            - name: OPENSKY_LAT_MAX
+              value: "50.8836"
+            - name: OPENSKY_LON_MIN
+              value: "-0.7389"
+            - name: OPENSKY_LON_MAX
+              value: "5.4433"
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 20
+            timeoutSeconds: 3
+            periodSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 30
+            timeoutSeconds: 3
+            periodSeconds: 20
+            failureThreshold: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 300m
+              memory: 512Mi
