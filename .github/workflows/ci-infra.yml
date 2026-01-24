@@ -350,7 +350,7 @@ jobs:
           echo "edge_basic_auth_ssm_parameter_name=$(jq -r '.edge_basic_auth_ssm_parameter_name.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
 
   k3s-ready-check:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.run_smoke_tests == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
     runs-on: ubuntu-latest
     needs: tf-outputs
     steps:
