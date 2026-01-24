@@ -49,7 +49,7 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
 4. `tf-apply`: guarded apply (requires `auto_approve=true`).
 5. `tf-outputs` (dev only): load Terraform outputs for SSM/edge checks.
 6. `k3s-ready-check` (dev + smoke): wait for k3s nodes via SSM.
-7. `argocd-bootstrap` (dev): bootstrap ArgoCD via SSM.
+7. `argocd-bootstrap` (dev): bootstrap ArgoCD via SSM after k3s readiness.
 8. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
 
 ## Workflow diagram (Mermaid)
@@ -77,7 +77,7 @@ flowchart TB
     smoke-tests[smoke-tests]
 
     env-select --> tf-validate --> tf-plan --> tf-apply --> tf-outputs
-    tf-outputs --> argocd-bootstrap
+    tf-outputs --> k3s-ready-check --> argocd-bootstrap
     tf-outputs --> k3s-ready-check
     argocd-bootstrap --> smoke-tests
     k3s-ready-check --> smoke-tests
