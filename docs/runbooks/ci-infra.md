@@ -107,6 +107,7 @@ When `run_smoke_tests=true` (dev only), the workflow:
 - Waits for the `healthz` deployment rollout in the `cloudradar` namespace.
 - Fetches the edge public IP and Basic Auth settings from Terraform outputs.
 - Reads the Basic Auth password from SSM Parameter Store to curl `/healthz` externally.
+  - Uses bounded polling for SSM command status to avoid long Pending/InProgress waits.
 
 Prerequisite:
 - The CI role must allow `ssm:GetParameter` on the edge Basic Auth parameter.
