@@ -4,7 +4,6 @@ kind: Kustomization
 namespace: cloudradar
 
 resources:
-  - namespace.yaml
   - serviceaccount.yaml
   - rbac.yaml
   - deployment.yaml
