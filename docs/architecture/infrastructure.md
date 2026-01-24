@@ -149,10 +149,10 @@ flowchart LR
 - Gateway VPC endpoint for S3 (public + private route tables).
 
 ### Compute
-- k3s server EC2 instance (private subnet).
-- k3s worker Auto Scaling Group (private subnets) with launch template.
+- k3s server EC2 instance (private subnet, AL2023 minimal AMI with SSM agent installed via cloud-init).
+- k3s worker Auto Scaling Group (private subnets) with launch template (AL2023 minimal AMI with SSM agent installed via cloud-init).
 - NAT EC2 instance (public subnet).
-- Edge EC2 instance (public subnet).
+- Edge EC2 instance (public subnet, AL2023 minimal AMI with SSM agent installed via user-data).
 - ArgoCD deployed on k3s (bootstrapped via SSM from CI).
 
 ### Storage
@@ -208,6 +208,7 @@ flowchart LR
 - Edge SSM access is routed via VPC interface endpoints (SSM, EC2 messages, and KMS), keeping edge egress restricted to private subnets.
 - Edge depends on the SSM/S3 endpoints being created first to avoid cloud-init timeouts during bootstrap.
 - ArgoCD is bootstrapped via SSM from CI after infrastructure apply, then manages k8s apps via GitOps.
+- SSM agent is installed explicitly in k3s/edge bootstrap to avoid AMI package drift.
 - Edge package installs use the S3 gateway endpoint plus SG egress to the S3 prefix list.
 - SQLite backup bucket is provisioned by the Terraform bootstrap stack to keep it outside environment destroys.
 - TODO: set edge `server_name` to the public DNS name once available (remove nginx warning).

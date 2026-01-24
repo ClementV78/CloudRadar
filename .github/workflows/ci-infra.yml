@@ -444,7 +444,6 @@ jobs:
     needs:
       - argocd-bootstrap
       - tf-outputs
-      - k3s-ready-check
     steps:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
