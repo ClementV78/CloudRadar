@@ -6,11 +6,13 @@ YUM_BIN="$(command -v yum || true)"
 
 if [[ -n "$DNF_BIN" ]]; then
   # Amazon Linux 2023 uses dnf.
-  dnf install -y nginx openssl httpd-tools awscli
+  dnf install -y nginx openssl httpd-tools awscli amazon-ssm-agent
 else
   # Fallback for older images using yum.
-  yum install -y nginx openssl httpd-tools awscli
+  yum install -y nginx openssl httpd-tools awscli amazon-ssm-agent
 fi
+
+systemctl enable --now amazon-ssm-agent
 
 mkdir -p /etc/nginx/ssl
 
