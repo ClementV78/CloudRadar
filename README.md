@@ -24,7 +24,7 @@
 The project ingests real-world flight telemetry from OpenSky’s open data stream to power a dashboard that visualizes live aircraft positions and traffic details, lets users define exclusion zones, and triggers alerts on zone intrusions.
 
 **Technical Overview:**
-CloudRadar is a Terraform-driven AWS stack (k3s on EC2) with Prometheus/Grafana observability, a React + Leaflet UI, and a GitHub Actions CI/CD pipeline pushing containers to GHCR. Application workloads on k3s are delivered via GitOps with ArgoCD.
+CloudRadar is a Terraform-driven AWS stack (k3s on EC2) with Prometheus/Grafana observability, a React + Leaflet UI, and a GitHub Actions CI/CD pipeline pushing containers to GHCR. Application workloads on k3s are delivered via GitOps with ArgoCD. EC2 nodes use AL2023 minimal AMIs with SSM agent installed explicitly at boot to keep access reliable.
 
 **Project Management:**
 All features and fixes are tracked as GitHub Issues, grouped by milestones, and delivered through an iterative, issue-driven workflow. Progress is managed using a GitHub Projects Kanban board, following lightweight agile-inspired practices adapted for a solo project.
@@ -73,13 +73,13 @@ Start here if you are setting up the project from scratch.
 The platform runs entirely on AWS with a minimal footprint:
 
 - **EC2 (Public)**  
-  - Nginx reverse proxy (dev implemented)  
+  - Nginx reverse proxy (dev implemented, AL2023 minimal + SSM agent install)  
   - HTTPS + Basic Authentication via SSM Parameter Store (dev implemented)  
 - **CloudFront**  
   - Global edge caching for latency optimization (planned)  
 - **EC2 (Private)**  
-  - k3s Server (control plane)  
-  - k3s Agent (worker node)  
+  - k3s Server (control plane, AL2023 minimal + SSM agent install)  
+  - k3s Agent (worker node, AL2023 minimal + SSM agent install)  
 - **NAT Instance**  
   - Egress for private subnets (cost-aware alternative to NAT Gateway)  
 - **Amazon S3**  
@@ -188,7 +188,7 @@ These are high-level estimates based on current scope.
 - ✅ Cost guardrails enabled (budget alerts)
 - ✅ Terraform bootstrap solved via a dedicated workflow using local state to create S3/DynamoDB, then remote state for all other stacks
 - ✅ VPC module + per-environment live roots (dev/prod)
-- ✅ Provision k3s nodes with cloud-init (server + agent) + SSM validation
+- ✅ Provision k3s nodes with cloud-init (server + agent) + SSM validation + retry
 - ✅ Deploy edge Nginx with TLS + Basic Auth (dev)
 - ✅ Expose `/healthz` through edge Nginx
 - 📝 Add SQLite persistence + daily S3 backups + restore workflow

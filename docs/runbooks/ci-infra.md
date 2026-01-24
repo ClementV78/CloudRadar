@@ -48,8 +48,8 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
 3. `tf-plan`: init + plan with example tfvars.
 4. `tf-apply`: guarded apply (requires `auto_approve=true`).
 5. `tf-outputs` (dev only): load Terraform outputs for SSM/edge checks.
-6. `k3s-ready-check` (dev + smoke): wait for k3s nodes via SSM.
-7. `argocd-bootstrap` (dev): bootstrap ArgoCD via SSM.
+6. `k3s-ready-check` (dev): wait for k3s nodes via SSM.
+7. `argocd-bootstrap` (dev): bootstrap ArgoCD via SSM after k3s readiness.
 8. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
 
 ## Workflow diagram (Mermaid)
@@ -77,10 +77,7 @@ flowchart TB
     smoke-tests[smoke-tests]
 
     env-select --> tf-validate --> tf-plan --> tf-apply --> tf-outputs
-    tf-outputs --> argocd-bootstrap
-    tf-outputs --> k3s-ready-check
-    argocd-bootstrap --> smoke-tests
-    k3s-ready-check --> smoke-tests
+    tf-outputs --> k3s-ready-check --> argocd-bootstrap --> smoke-tests
   end
 
   PR --> Dispatch
@@ -98,7 +95,8 @@ flowchart TB
 - After apply (dev only), the workflow boots ArgoCD via SSM and applies the root GitOps Application.
 - The bootstrap uses the k3s server instance ID from Terraform outputs and requires SSM connectivity.
 - ArgoCD then syncs `k8s/apps` to the cluster automatically.
-- When `run_smoke_tests=true` (dev only), the workflow verifies k3s readiness, waits for the ArgoCD app to be Synced/Healthy, waits for the `healthz` deployment rollout, then curls `/healthz` from the Internet.
+- For dev applies, the workflow verifies k3s readiness with retries, then bootstraps ArgoCD.
+- When `run_smoke_tests=true` (dev only), it also waits for the ArgoCD app to be Synced/Healthy, waits for the `healthz` deployment rollout, then curls `/healthz` from the Internet.
 - The smoke test verifies edge Nginx via SSM (3 retries with 10s delay) before running the external `/healthz` curl.
 
 ## Post-apply smoke tests (optional)
