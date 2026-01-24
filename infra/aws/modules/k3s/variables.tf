@@ -66,6 +66,13 @@ variable "k3s_agent_extra_args" {
   default     = []
 }
 
+variable "serial_console_password_hash" {
+  description = "Optional password hash for ec2-user to enable EC2 Serial Console access."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "enable_ebs_csi_policy" {
   description = "Whether to attach the AWS managed policy for the EBS CSI driver."
   type        = bool

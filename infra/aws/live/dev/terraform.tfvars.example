@@ -20,6 +20,11 @@ k3s_root_volume_size      = 40
 # k3s_server_extra_args = ["--tls-san=example.com"]
 # k3s_agent_extra_args  = []
 
+# Optional: enable EC2 Serial Console login for ec2-user (temporary).
+# Provide a SHA-512 password hash, not plaintext.
+# Example: openssl passwd -6 'change-me'
+# k3s_server_serial_console_password_hash = "$6$..."
+
 # Optional: use the bootstrap-created SQLite backup bucket.
 # sqlite_backup_bucket_name = "cloudradar-dev-<account-id>-sqlite-backups"
 

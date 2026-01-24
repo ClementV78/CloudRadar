@@ -98,6 +98,13 @@ variable "k3s_agent_extra_args" {
   default     = []
 }
 
+variable "k3s_server_serial_console_password_hash" {
+  description = "Optional password hash for ec2-user to enable EC2 Serial Console access."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "sqlite_backup_bucket_name" {
   description = "Optional SQLite backup bucket name (created by bootstrap)."
   type        = string

@@ -75,6 +75,7 @@ module "k3s" {
   root_volume_size      = var.k3s_root_volume_size
   k3s_server_extra_args = var.k3s_server_extra_args
   k3s_agent_extra_args  = var.k3s_agent_extra_args
+  serial_console_password_hash = var.k3s_server_serial_console_password_hash
   enable_ebs_csi_policy = true
   backup_bucket_name    = local.sqlite_backup_bucket_name
   tags                  = local.tags

@@ -1,4 +1,10 @@
 #cloud-config
 package_update: true
+%{ if serial_console_password_hash != "" }
+users:
+  - name: ec2-user
+    lock_passwd: false
+    passwd: ${serial_console_password_hash}
+%{ endif }
 runcmd:
   - curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --secrets-encryption${server_args}" K3S_TOKEN="${k3s_token}" sh -
