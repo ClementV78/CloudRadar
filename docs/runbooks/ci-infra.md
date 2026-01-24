@@ -113,6 +113,20 @@ When `run_smoke_tests=true` (dev only), the workflow:
 Prerequisite:
 - The CI role must allow `ssm:GetParameter` on the edge Basic Auth parameter.
 
+## Troubleshooting: temporary EC2 Serial Console access (k3s server)
+
+If SSM is offline and you need console access, you can temporarily enable a local password
+for `ec2-user` on the k3s server via cloud-init.
+
+1. Generate a SHA-512 hash (local only):
+   - `openssl passwd -6 'change-me'`
+2. Set the hash in `infra/aws/live/dev/terraform.tfvars`:
+   - `k3s_server_serial_console_password_hash = "$6$..."`
+3. Apply with a replace of the k3s server instance so cloud-init re-runs.
+4. Remove the variable once diagnostics are done and replace the instance again.
+
+This keeps SSH password auth disabled while allowing Serial Console login.
+
 ## Manual destroy (workflow_dispatch)
 
 Use the dedicated destroy workflow when you need to tear down an environment.

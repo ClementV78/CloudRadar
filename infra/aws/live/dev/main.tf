@@ -64,20 +64,21 @@ module "nat_instance" {
 module "k3s" {
   source = "../../modules/k3s"
 
-  name                  = "${var.project}-${var.environment}"
-  vpc_id                = module.vpc.vpc_id
-  private_subnet_ids    = module.vpc.private_subnet_ids
-  server_instance_type  = var.k3s_server_instance_type
-  worker_instance_type  = var.k3s_worker_instance_type
-  worker_min_size       = var.k3s_worker_min_size
-  worker_desired        = var.k3s_worker_desired
-  worker_max_size       = var.k3s_worker_max_size
-  root_volume_size      = var.k3s_root_volume_size
-  k3s_server_extra_args = var.k3s_server_extra_args
-  k3s_agent_extra_args  = var.k3s_agent_extra_args
-  enable_ebs_csi_policy = true
-  backup_bucket_name    = local.sqlite_backup_bucket_name
-  tags                  = local.tags
+  name                         = "${var.project}-${var.environment}"
+  vpc_id                       = module.vpc.vpc_id
+  private_subnet_ids           = module.vpc.private_subnet_ids
+  server_instance_type         = var.k3s_server_instance_type
+  worker_instance_type         = var.k3s_worker_instance_type
+  worker_min_size              = var.k3s_worker_min_size
+  worker_desired               = var.k3s_worker_desired
+  worker_max_size              = var.k3s_worker_max_size
+  root_volume_size             = var.k3s_root_volume_size
+  k3s_server_extra_args        = var.k3s_server_extra_args
+  k3s_agent_extra_args         = var.k3s_agent_extra_args
+  serial_console_password_hash = var.k3s_server_serial_console_password_hash
+  enable_ebs_csi_policy        = true
+  backup_bucket_name           = local.sqlite_backup_bucket_name
+  tags                         = local.tags
 }
 
 module "edge" {

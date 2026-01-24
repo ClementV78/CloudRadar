@@ -11,7 +11,7 @@ data "aws_ami" "al2023" {
 
   filter {
     name   = "name"
-    values = ["al2023-ami-*-x86_64"]
+    values = ["al2023-ami-minimal-*-x86_64"]
   }
 }
 
@@ -27,8 +27,9 @@ data "cloudinit_config" "server" {
   part {
     content_type = "text/cloud-config"
     content = templatefile("${path.module}/templates/cloud-init-server.yaml", {
-      k3s_token   = random_password.k3s_token.result
-      server_args = local.server_args
+      k3s_token                    = random_password.k3s_token.result
+      server_args                  = local.server_args
+      serial_console_password_hash = var.serial_console_password_hash
     })
   }
 }

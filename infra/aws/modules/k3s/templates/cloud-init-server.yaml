@@ -1,4 +1,14 @@
 #cloud-config
 package_update: true
+%{ if serial_console_password_hash != "" }
+users:
+  - name: ec2-user
+    lock_passwd: false
+    passwd: ${serial_console_password_hash}
+    groups: [wheel]
+    sudo: ["ALL=(ALL) ALL"]
+%{ endif }
 runcmd:
+  - (command -v dnf >/dev/null 2>&1 && dnf install -y amazon-ssm-agent) || (command -v yum >/dev/null 2>&1 && yum install -y amazon-ssm-agent)
+  - systemctl enable --now amazon-ssm-agent
   - curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --secrets-encryption${server_args}" K3S_TOKEN="${k3s_token}" sh -
