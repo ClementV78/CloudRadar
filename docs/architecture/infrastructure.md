@@ -153,6 +153,19 @@ flowchart LR
 - k3s worker Auto Scaling Group (private subnets) with launch template (AL2023 minimal AMI with SSM agent installed via cloud-init).
 - NAT EC2 instance (public subnet).
 - Edge EC2 instance (public subnet, AL2023 minimal AMI with SSM agent installed via user-data).
+
+### EC2 instance types (defaults)
+
+Values come from `infra/aws/live/dev/terraform.tfvars.example` unless overridden per environment.
+
+| Component | Default instance type | Notes |
+| --- | --- | --- |
+| k3s server | `t3.small` | Private subnet (dev). |
+| k3s workers | `t3.micro` | Auto Scaling Group (dev). |
+| edge | `t3.micro` | Public subnet (dev). |
+| NAT instance | `t3.nano` | Public subnet (dev). |
+
+Prod values are currently aligned with module defaults and may be overridden later in `infra/aws/live/prod`.
 - ArgoCD deployed on k3s (bootstrapped via SSM from CI).
 
 ### Storage
