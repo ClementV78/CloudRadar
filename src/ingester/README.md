@@ -94,6 +94,7 @@ mvn -q spring-boot:run
 - `INGESTER_REDIS_KEY` (default: `cloudradar:ingest:queue`)
 - `OPENSKY_LAT_MIN`, `OPENSKY_LAT_MAX`, `OPENSKY_LON_MIN`, `OPENSKY_LON_MAX`
 - `OPENSKY_BASE_URL`, `OPENSKY_TOKEN_URL`
+- `OPENSKY_BASE_URL_SSM`, `OPENSKY_TOKEN_URL_SSM`
 
 ## Health & metrics
 - `GET /healthz`

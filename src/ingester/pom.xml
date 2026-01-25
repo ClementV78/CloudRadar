@@ -13,7 +13,7 @@
 
   <groupId>com.cloudradar</groupId>
   <artifactId>ingester</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.4</version>
   <name>cloudradar-ingester</name>
   <description>OpenSky ingester for CloudRadar</description>
 

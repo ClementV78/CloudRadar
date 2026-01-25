@@ -25,6 +25,8 @@ opensky:
   client-secret: ${OPENSKY_CLIENT_SECRET:}
   client-id-ssm: ${OPENSKY_CLIENT_ID_SSM:}
   client-secret-ssm: ${OPENSKY_CLIENT_SECRET_SSM:}
+  base-url-ssm: ${OPENSKY_BASE_URL_SSM:}
+  token-url-ssm: ${OPENSKY_TOKEN_URL_SSM:}
 
 aws:
   region: ${AWS_REGION:us-east-1}

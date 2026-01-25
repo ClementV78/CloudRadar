@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: ingester
-          image: ghcr.io/clementv78/cloudradar-ingester:0.1.3
+          image: ghcr.io/clementv78/cloudradar-ingester:0.1.4
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -28,6 +28,10 @@ spec:
               value: "/cloudradar/opensky/client_id"
             - name: OPENSKY_CLIENT_SECRET_SSM
               value: "/cloudradar/opensky/client_secret"
+            - name: OPENSKY_BASE_URL_SSM
+              value: "/cloudradar/opensky/base_url"
+            - name: OPENSKY_TOKEN_URL_SSM
+              value: "/cloudradar/opensky/token_url"
             - name: OPENSKY_LAT_MIN
               value: "46.8296"
             - name: OPENSKY_LAT_MAX
