@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: ingester
-          image: ghcr.io/clementv78/cloudradar-ingester:0.1.2
+          image: ghcr.io/clementv78/cloudradar-ingester:0.1.3
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

@@ -38,6 +38,21 @@ public class FlightIngestJob {
   private volatile long currentDelayMs;
   private volatile long nextAllowedAtMs;
   private volatile RateLimitLevel lastRateLevel = RateLimitLevel.NORMAL;
+  private volatile boolean disabled = false;
+  private final java.util.concurrent.atomic.AtomicInteger consecutiveFailures =
+      new java.util.concurrent.atomic.AtomicInteger(0);
+  private static final long[] FAILURE_BACKOFF_MS = {
+    1000L,      // 1s
+    2000L,      // 2s
+    5000L,      // 5s
+    10000L,     // 10s
+    30000L,     // 30s
+    60000L,     // 60s
+    300000L,    // 5m
+    600000L,    // 10m
+    1800000L,   // 30m
+    3600000L    // 1h
+  };
   private final java.util.concurrent.atomic.AtomicLong remainingCredits = new java.util.concurrent.atomic.AtomicLong(-1);
   private final java.util.concurrent.atomic.AtomicLong lastRemainingCredits = new java.util.concurrent.atomic.AtomicLong(-1);
   private final java.util.concurrent.atomic.AtomicLong requestsSinceReset = new java.util.concurrent.atomic.AtomicLong(0);
@@ -75,6 +90,9 @@ public class FlightIngestJob {
 
   @Scheduled(fixedDelayString = "${ingester.refresh-ms}")
   public void ingest() {
+    if (disabled) {
+      return;
+    }
     long now = System.currentTimeMillis();
     if (now < nextAllowedAtMs) {
       return;
@@ -98,12 +116,22 @@ public class FlightIngestJob {
 
       updateCreditTracking(result.remainingCredits());
       updateRateLimit(result.remainingCredits());
+      consecutiveFailures.set(0);
+      nextAllowedAtMs = System.currentTimeMillis() + currentDelayMs;
     } catch (Exception ex) {
       // Keep the scheduler running even if a cycle fails.
       errorCounter.increment();
       log.error("Ingestion cycle failed", ex);
-    } finally {
-      nextAllowedAtMs = System.currentTimeMillis() + currentDelayMs;
+      int failureCount = consecutiveFailures.incrementAndGet();
+      if (failureCount <= FAILURE_BACKOFF_MS.length) {
+        long backoffMs = FAILURE_BACKOFF_MS[failureCount - 1];
+        nextAllowedAtMs = System.currentTimeMillis() + backoffMs;
+        log.warn("OpenSky fetch failed (attempt {}), backing off for {} ms", failureCount, backoffMs);
+      } else {
+        disabled = true;
+        nextAllowedAtMs = Long.MAX_VALUE;
+        log.error("OpenSky fetch failed {} times. Disabling ingestion until restart.", failureCount);
+      }
     }
   }
 

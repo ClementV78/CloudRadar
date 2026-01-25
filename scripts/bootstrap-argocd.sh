@@ -150,12 +150,63 @@ commands=(
   # Install or upgrade ArgoCD into its namespace.
   "sudo --preserve-env=KUBECONFIG helm upgrade --install argocd argo/argo-cd --namespace ${ARGOCD_NAMESPACE} --create-namespace ${HELM_VERSION_FLAG}"
   # Wait for CRDs and ArgoCD server to be ready before creating the Application.
-  "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=120s"
-  "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} wait --for=condition=Available deployment/argocd-server --timeout=300s"
-  "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} get pods -o wide"
+  "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=120s --request-timeout=5s"
+  "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} wait --for=condition=Available deployment/argocd-server --timeout=300s --request-timeout=5s"
+  "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} get pods -o wide --request-timeout=5s"
   # Apply the root Application for GitOps sync (auto-sync enabled).
   "printf '%s\n' \"apiVersion: argoproj.io/v1alpha1\" \"kind: Application\" \"metadata:\" \"  name: ${ARGOCD_APP_NAME}\" \"  namespace: ${ARGOCD_NAMESPACE}\" \"spec:\" \"  project: default\" \"  source:\" \"    repoURL: ${ARGOCD_APP_REPO}\" \"    targetRevision: ${ARGOCD_APP_REVISION}\" \"    path: ${ARGOCD_APP_PATH}\" \"  destination:\" \"    server: https://kubernetes.default.svc\" \"    namespace: ${ARGOCD_APP_NAMESPACE}\" \"  syncPolicy:\" \"    automated:\" \"      prune: true\" \"      selfHeal: true\" \"    syncOptions:\" \"      - CreateNamespace=true\" | sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl apply -f -"
 )
+
+# Poll SSM command status with a hard timeout to avoid infinite waiting.
+wait_for_ssm_command() {
+  local region="$1"
+  local command_id="$2"
+  local instance_id="$3"
+  local max_wait_seconds="${4:-900}"
+  local sleep_seconds=10
+  local elapsed=0
+
+  while true; do
+    local status
+    status="$(aws ssm get-command-invocation \
+      --region "${region}" \
+      --command-id "${command_id}" \
+      --instance-id "${instance_id}" \
+      --query "Status" \
+      --output text 2>/dev/null || true)"
+
+    case "${status}" in
+      Success)
+        return 0
+        ;;
+      Failed|Cancelled|TimedOut|Cancelling)
+        aws ssm get-command-invocation \
+          --region "${region}" \
+          --command-id "${command_id}" \
+          --instance-id "${instance_id}"
+        return 1
+        ;;
+      Pending|InProgress|Delayed|"")
+        echo "Waiting for SSM command (status=${status:-unknown})..."
+        ;;
+      *)
+        echo "Unexpected SSM status: ${status}" >&2
+        ;;
+    esac
+
+    if [[ "${elapsed}" -ge "${max_wait_seconds}" ]]; then
+      echo "SSM command ${command_id} did not finish within ${max_wait_seconds}s." >&2
+      aws ssm get-command-invocation \
+        --region "${region}" \
+        --command-id "${command_id}" \
+        --instance-id "${instance_id}"
+      return 1
+    fi
+
+    sleep "${sleep_seconds}"
+    elapsed=$((elapsed + sleep_seconds))
+  done
+}
 
  # Encode commands for SSM RunShellScript.
 params_json="$(printf "%s\n" "${commands[@]}" | jq -Rn '{commands: [inputs]}')"
@@ -165,15 +216,13 @@ command_id="$(aws ssm send-command \
   --instance-ids "${INSTANCE_ID}" \
   --document-name "AWS-RunShellScript" \
   --parameters "${params_json}" \
+  --timeout-seconds 1200 \
   --query "Command.CommandId" \
   --output text)"
 
 echo "::notice title=SSM::argocd bootstrap command_id=${command_id}"
 
-aws ssm wait command-executed \
-  --region "${REGION}" \
-  --command-id "${command_id}" \
-  --instance-id "${INSTANCE_ID}"
+wait_for_ssm_command "${REGION}" "${command_id}" "${INSTANCE_ID}" 900
 
 aws ssm get-command-invocation \
   --region "${REGION}" \

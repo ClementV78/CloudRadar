@@ -98,6 +98,7 @@ flowchart TB
 - For dev applies, the workflow verifies k3s readiness with retries, then bootstraps ArgoCD.
 - When `run_smoke_tests=true` (dev only), it also waits for the ArgoCD app to be Synced/Healthy, waits for the `healthz` deployment rollout, then curls `/healthz` from the Internet.
 - The smoke test verifies edge Nginx via SSM (3 retries with 10s delay) before running the external `/healthz` curl.
+  - On failure, it prints `systemctl status nginx`, recent `journalctl` logs, and the 443 listen check to speed up diagnostics.
 
 ## Post-apply smoke tests (optional)
 
@@ -107,6 +108,7 @@ When `run_smoke_tests=true` (dev only), the workflow:
 - Waits for the `healthz` deployment rollout in the `cloudradar` namespace.
 - Fetches the edge public IP and Basic Auth settings from Terraform outputs.
 - Reads the Basic Auth password from SSM Parameter Store to curl `/healthz` externally.
+  - Uses bounded polling for SSM command status to avoid long Pending/InProgress waits.
 
 Prerequisite:
 - The CI role must allow `ssm:GetParameter` on the edge Basic Auth parameter.
