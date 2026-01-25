@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 public class OpenSkyTokenService {
   private static final Logger log = LoggerFactory.getLogger(OpenSkyTokenService.class);
 
-  private final OpenSkyProperties properties;
+  private final OpenSkyEndpointProvider endpointProvider;
   private final OpenSkyCredentialsProvider credentialsProvider;
   private final HttpClient httpClient;
   private final ObjectMapper objectMapper;
@@ -27,11 +27,11 @@ public class OpenSkyTokenService {
   private Instant expiry;
 
   public OpenSkyTokenService(
-      OpenSkyProperties properties,
+      OpenSkyEndpointProvider endpointProvider,
       OpenSkyCredentialsProvider credentialsProvider,
       HttpClient httpClient,
       ObjectMapper objectMapper) {
-    this.properties = properties;
+    this.endpointProvider = endpointProvider;
     this.credentialsProvider = credentialsProvider;
     this.httpClient = httpClient;
     this.objectMapper = objectMapper;
@@ -45,11 +45,15 @@ public class OpenSkyTokenService {
 
     try {
       OpenSkyCredentials creds = credentialsProvider.get();
+      String tokenUrl = endpointProvider.tokenUrl();
+      if (tokenUrl == null || tokenUrl.isBlank()) {
+        throw new IllegalStateException("OpenSky token URL is missing.");
+      }
       String form = "grant_type=client_credentials"
           + "&client_id=" + urlEncode(creds.clientId())
           + "&client_secret=" + urlEncode(creds.clientSecret());
       HttpRequest request = HttpRequest.newBuilder()
-          .uri(URI.create(properties.tokenUrl()))
+          .uri(URI.create(tokenUrl))
           .header("Content-Type", "application/x-www-form-urlencoded")
           .POST(HttpRequest.BodyPublishers.ofString(form))
           .build();

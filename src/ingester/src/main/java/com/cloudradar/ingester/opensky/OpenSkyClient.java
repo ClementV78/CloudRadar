@@ -19,19 +19,19 @@ import org.springframework.stereotype.Component;
 public class OpenSkyClient {
   private static final Logger log = LoggerFactory.getLogger(OpenSkyClient.class);
 
-  private final OpenSkyProperties properties;
+  private final OpenSkyEndpointProvider endpointProvider;
   private final IngesterProperties ingesterProperties;
   private final OpenSkyTokenService tokenService;
   private final HttpClient httpClient;
   private final ObjectMapper objectMapper;
 
   public OpenSkyClient(
-      OpenSkyProperties properties,
+      OpenSkyEndpointProvider endpointProvider,
       IngesterProperties ingesterProperties,
       OpenSkyTokenService tokenService,
       HttpClient httpClient,
       ObjectMapper objectMapper) {
-    this.properties = properties;
+    this.endpointProvider = endpointProvider;
     this.ingesterProperties = ingesterProperties;
     this.tokenService = tokenService;
     this.httpClient = httpClient;
@@ -42,9 +42,13 @@ public class OpenSkyClient {
     try {
       // Query OpenSky states endpoint within the configured bbox.
       IngesterProperties.Bbox bbox = ingesterProperties.bbox();
+      String baseUrl = endpointProvider.baseUrl();
+      if (baseUrl == null || baseUrl.isBlank()) {
+        throw new IllegalStateException("OpenSky base URL is missing.");
+      }
       String url = String.format(
           "%s/states/all?lamin=%s&lamax=%s&lomin=%s&lomax=%s",
-          properties.baseUrl(), bbox.latMin(), bbox.latMax(), bbox.lonMin(), bbox.lonMax());
+          baseUrl, bbox.latMin(), bbox.latMax(), bbox.lonMin(), bbox.lonMax());
 
       HttpRequest request = HttpRequest.newBuilder()
           .uri(URI.create(url))

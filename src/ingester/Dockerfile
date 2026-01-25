@@ -7,6 +7,6 @@ RUN mvn -q -DskipTests package
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
-COPY --from=build /workspace/target/ingester-0.1.0.jar /app/ingester.jar
+COPY --from=build /workspace/target/ingester-0.1.4.jar /app/ingester.jar
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/ingester.jar"]

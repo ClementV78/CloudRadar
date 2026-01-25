@@ -40,6 +40,7 @@ Runbook for the OpenSky ingester service (Java 17 / Spring Boot).
 
 - `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` (optional direct credentials)
 - `OPENSKY_CLIENT_ID_SSM` / `OPENSKY_CLIENT_SECRET_SSM` (default `/cloudradar/opensky/client_id` and `/cloudradar/opensky/client_secret`)
+- `OPENSKY_BASE_URL_SSM` / `OPENSKY_TOKEN_URL_SSM` (optional SSM parameter names for custom OpenSky endpoints)
 
 ## Local development
 
@@ -79,6 +80,8 @@ Follow `docs/runbooks/aws-account-bootstrap.md` to create:
 
 - `/cloudradar/opensky/client_id`
 - `/cloudradar/opensky/client_secret`
+- `/cloudradar/opensky/base_url` (optional)
+- `/cloudradar/opensky/token_url` (optional)
 
 Ensure the k3s node IAM role can read them (`ssm:GetParameter`).
 
