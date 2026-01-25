@@ -23,7 +23,22 @@ openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
   -subj "/CN=${server_name}"
 
 # Pull the Basic Auth password from SSM Parameter Store.
-basic_auth_password="$(aws ssm get-parameter --name "${basic_auth_ssm_parameter_name}" --with-decryption --region "${aws_region}" --query 'Parameter.Value' --output text)"
+basic_auth_password=""
+for attempt in {1..6}; do
+  basic_auth_password="$(aws ssm get-parameter --name "${basic_auth_ssm_parameter_name}" --with-decryption --region "${aws_region}" --query 'Parameter.Value' --output text 2>/tmp/ssm-basic-auth.err || true)"
+  if [[ -n "$basic_auth_password" && "$basic_auth_password" != "None" ]]; then
+    basic_auth_password="$(printf '%s' "$basic_auth_password" | tr -d '\r\n')"
+    break
+  fi
+  echo "SSM basic auth parameter not available yet (attempt ${attempt}/6)."
+  sleep 10
+done
+
+if [[ -z "$basic_auth_password" || "$basic_auth_password" == "None" ]]; then
+  echo "Failed to fetch SSM basic auth parameter after 6 attempts." >&2
+  cat /tmp/ssm-basic-auth.err >&2 || true
+  exit 1
+fi
 htpasswd -bc /etc/nginx/.htpasswd "${basic_auth_user}" "$basic_auth_password"
 
 # Write the templated Nginx config.
