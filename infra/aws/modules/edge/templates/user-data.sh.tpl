@@ -30,7 +30,7 @@ for attempt in {1..6}; do
     basic_auth_password="$(printf '%s' "$basic_auth_password" | tr -d '\r\n')"
     break
   fi
-  echo "SSM basic auth parameter not available yet (attempt ${attempt}/6)."
+  echo "SSM basic auth parameter not available yet (attempt $${attempt}/6)."
   sleep 10
 done
 
