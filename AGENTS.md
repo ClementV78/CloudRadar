@@ -36,6 +36,8 @@
 - Always show executed commands.
 - Explain commands that are new or complex.
 - When appropriate, offer to let the user run commands themselves.
+- When sharing logs or metrics, call out the key signals and explicit conclusions.
+- When running commands on Amazon Linux minimal/light images, prefer `grep`/`awk` over `rg` (ripgrep may be unavailable).
 - Ensure runbooks and ADRs link to related issues, and issues link back to those docs.
 - If there is a conflict between speed of delivery and perfect structure, prefer a reasonable, explicit trade-off and document it briefly.
 - Minimize manual changes in AWS Console/UI. Prefer IaC and pipelines: Terraform for AWS infra, ArgoCD for Kubernetes, and CI/CD to execute and audit changes. Any exception must be justified and documented.
@@ -53,7 +55,7 @@
 - When a change concerns skills, use the `skill` type in titles (e.g., `skill(agents): harden auto-merge`).
 - Do not add PRs to the GitHub Project; rely on issue links so Development stays clean.
 - Do not assume labels exist; verify or create them before applying.
-- Close GitHub issues once DoD is verified and evidence is recorded.
+- Close GitHub issues only after adding a comment with DoD evidence (tests/logs/metrics) and recording verification.
 - Keep GitHub metadata complete: assignees, labels, project status (issues), milestone (except tooling), and cross-links.
 - For issues, ensure Assignees, Labels, Project, Project Status, and Milestone are set; for PRs, ensure Assignees and Labels are set and use closing keywords so issues appear in Development, except for meta refs noted below.
 - PRs do not require Project/Status fields to avoid clutter.
@@ -74,6 +76,7 @@
 - Do not commit real emails or account identifiers; use placeholders in the repo.
 - Never share credentials (even temporary) in chat or documentation.
 - Never commit sensitive data (non-exhaustive): credentials, tokens, API keys, passwords, real emails, or personal info.
+- Do not commit personal URLs or endpoints; use placeholders or SSM/Secrets for private values.
 - Prefer credential export without writing files to disk.
 - For bootstrap tasks, provide both a runbook and a script, and map steps between them.
 - After bootstrap, avoid leaving broad IAM user policies attached; prefer least-privilege roles via OIDC.
