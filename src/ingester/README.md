@@ -68,6 +68,15 @@ classDiagram
 3. The response is mapped to `FlightState` objects, then to a simple JSON payload.
 4. `RedisPublisher` pushes each payload into a Redis List (`cloudradar:ingest:queue`).
 5. Metrics and health endpoints are exposed via Actuator (`/metrics`, `/healthz`).
+6. When OpenSky is unreachable, the ingester applies progressive backoff and stops after the final tier until restart.
+
+### Failure backoff
+
+When OpenSky connections fail, the ingester waits:
+
+`1s → 2s → 5s → 10s → 30s → 60s → 5m → 10m → 30m → 1h → stop`
+
+After the last backoff tier, ingestion is disabled until the pod restarts.
 
 ## Local run
 
