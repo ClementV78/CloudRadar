@@ -31,6 +31,8 @@
 - At session start, review the full ADR list in `docs/architecture/decisions/` and keep it in mind for decisions and updates.
 - Keep `.codex-context.md` updated regularly.
 - Explicitly mark “planned” vs “implemented” in README status sections.
+- Update `docs/runbooks/issue-log.md` when a new issue occurs (except minor), when there is new information, or when the issue is resolved/closed.
+- Before logging a new issue, check `docs/runbooks/issue-log.md` for similar past incidents to reuse lessons learned.
 
 ### 4.3 Command Transparency & Learning
 - Always show executed commands.
