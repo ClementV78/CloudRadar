@@ -609,10 +609,12 @@ jobs:
           EDGE_BASIC_AUTH_SSM_PARAMETER_NAME: ${{ needs.tf-outputs.outputs.edge_basic_auth_ssm_parameter_name }}
         run: |
           params="$(jq -cn \
-            --arg c0 "set -e" \
-            --arg c1 "systemctl is-active nginx" \
-            --arg c2 "ss -ltnp | grep -E ':443'" \
-            '{commands: [$c0, $c1, $c2]}')"
+            --arg c0 'set -euo pipefail' \
+            --arg c1 'nginx_status=$(systemctl is-active nginx || true); echo "nginx_status=${nginx_status}"' \
+            --arg c2 'ss -ltnp | grep -E ":443" || true' \
+            --arg c3 'if [ "${nginx_status}" != "active" ]; then systemctl status nginx --no-pager -l; journalctl -u nginx --no-pager -n 200 || true; exit 1; fi' \
+            --arg c4 'ss -ltnp | grep -E ":443" >/dev/null' \
+            '{commands: [$c0, $c1, $c2, $c3, $c4]}')"
 
           poll_ssm_command() {
             local command_id=$1
