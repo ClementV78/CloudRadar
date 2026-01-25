@@ -33,13 +33,13 @@ spec:
             - name: OPENSKY_TOKEN_URL_SSM
               value: "/cloudradar/opensky/token_url"
             - name: OPENSKY_LAT_MIN
-              value: "46.8296"
+              value: "47.9557"
             - name: OPENSKY_LAT_MAX
-              value: "50.8836"
+              value: "49.7575"
             - name: OPENSKY_LON_MIN
-              value: "-0.7389"
+              value: "0.9823"
             - name: OPENSKY_LON_MAX
-              value: "5.4433"
+              value: "3.7221"
           readinessProbe:
             httpGet:
               path: /healthz
