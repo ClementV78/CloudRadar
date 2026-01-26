@@ -79,6 +79,12 @@ Purpose: expose `/healthz` via the edge Nginx to validate end-to-end k3s connect
 - Runbook: `docs/runbooks/health-endpoint.md`
 - TODO: configure a Docker credential helper to avoid GHCR login warnings.
 
+## 3.3.1) Admin scale API (optional)
+
+Purpose: scale the ingester deployment via a small admin API that talks to the K8s API.
+
+- Runbook: `docs/runbooks/admin-scale.md`
+
 ## 3.4) Redis buffer (data namespace)
 
 Purpose: deploy the Redis buffer used by ingester/processor.

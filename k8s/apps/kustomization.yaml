@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - ebs-csi-application.yaml
+  - admin-scale
   - health
   - ingester
   - redis

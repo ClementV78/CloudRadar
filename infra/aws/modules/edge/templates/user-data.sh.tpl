@@ -24,6 +24,7 @@ openssl req -x509 -nodes -newkey rsa:2048 -days 365 \
 
 # Pull the Basic Auth password from SSM Parameter Store.
 basic_auth_password=""
+admin_internal_token=""
 for attempt in {1..6}; do
   basic_auth_password="$(aws ssm get-parameter --name "${basic_auth_ssm_parameter_name}" --with-decryption --region "${aws_region}" --query 'Parameter.Value' --output text 2>/tmp/ssm-basic-auth.err || true)"
   if [[ -n "$basic_auth_password" && "$basic_auth_password" != "None" ]]; then
@@ -39,12 +40,31 @@ if [[ -z "$basic_auth_password" || "$basic_auth_password" == "None" ]]; then
   cat /tmp/ssm-basic-auth.err >&2 || true
   exit 1
 fi
+
+for attempt in {1..6}; do
+  admin_internal_token="$(aws ssm get-parameter --name "${admin_token_ssm_parameter_name}" --with-decryption --region "${aws_region}" --query 'Parameter.Value' --output text 2>/tmp/ssm-admin-token.err || true)"
+  if [[ -n "$admin_internal_token" && "$admin_internal_token" != "None" ]]; then
+    admin_internal_token="$(printf '%s' "$admin_internal_token" | tr -d '\r\n')"
+    break
+  fi
+  echo "SSM admin token parameter not available yet (attempt $${attempt}/6)."
+  sleep 10
+done
+
+if [[ -z "$admin_internal_token" || "$admin_internal_token" == "None" ]]; then
+  echo "Failed to fetch SSM admin token parameter after 6 attempts." >&2
+  cat /tmp/ssm-admin-token.err >&2 || true
+  exit 1
+fi
 htpasswd -bc /etc/nginx/.htpasswd "${basic_auth_user}" "$basic_auth_password"
 
 # Write the templated Nginx config.
 cat > /etc/nginx/conf.d/edge.conf <<'NGINXCONF'
 ${nginx_conf}
 NGINXCONF
+
+admin_internal_token_escaped="$(printf '%s' "$admin_internal_token" | sed 's/[&|]/\\&/g')"
+sed -i "s|__ADMIN_INTERNAL_TOKEN__|$admin_internal_token_escaped|g" /etc/nginx/conf.d/edge.conf
 
 # Validate and launch Nginx.
 nginx -t
