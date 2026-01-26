@@ -1,6 +1,26 @@
 # Troubleshooting Journal
 
-This log tracks incidents and fixes in chronological order. Use it for debugging patterns and onboarding.
+This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
+
+## 2026-01-26
+
+### [app/k8s] Admin-scale image pull blocked (GHCR private)
+- **Severity:** Medium
+- **Impact:** `admin-scale` pod stuck in `ImagePullBackOff` (`403/401 Unauthorized`) and API unavailable.
+- **Analysis:** GHCR package `cloudradar-admin-scale` was private; k3s tried anonymous pull.
+- **Resolution:** Made GHCR image public (or configure imagePullSecret). Pod started successfully afterward. (Refs: PR #160)
+
+### [edge/k8s] Admin NodePort unreachable from edge
+- **Severity:** Medium
+- **Impact:** Edge returned `504 Gateway Time-out` when calling the admin-scale API.
+- **Analysis:** k3s security group lacked inbound rule for the admin NodePort (`32737/TCP`).
+- **Resolution:** Added SG rule for the NodePort via Terraform and redeployed. (Refs: issue #161, PR #162)
+
+### [gitops/argocd] Ingester replica scaling reverted
+- **Severity:** Medium
+- **Impact:** Manual scale via admin API reverted by ArgoCD sync.
+- **Analysis:** ArgoCD managed the `spec.replicas` field and reconciled it back to the desired state from Git.
+- **Resolution:** Added ArgoCD `ignoreDifferences` for `spec.replicas` on the ingester Deployment and documented it in the bootstrap runbook. (Refs: issue #163, PR #164)
 
 ## 2026-01-25
 
