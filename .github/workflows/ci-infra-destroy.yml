@@ -77,4 +77,4 @@ jobs:
         run: terraform -chdir="${TF_DIR}" validate
 
       - name: Terraform destroy
-        run: terraform -chdir="${TF_DIR}" destroy -input=false -auto-approve -var-file=terraform.tfvars.example
+        run: terraform -chdir="${TF_DIR}" destroy -input=false -auto-approve -var-file=terraform.tfvars

@@ -45,7 +45,7 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
 
 1. `env-select`: select `dev` or `prod`, expose `TF_DIR`/`TF_KEY`.
 2. `tf-validate`: init + validate (remote backend).
-3. `tf-plan`: init + plan with example tfvars.
+3. `tf-plan`: init + plan with `terraform.tfvars`.
 4. `tf-apply`: guarded apply (requires `auto_approve=true`).
 5. `tf-outputs` (dev only): load Terraform outputs for SSM/edge checks.
 6. `k3s-ready-check` (dev): wait for k3s nodes via SSM.
@@ -91,7 +91,8 @@ flowchart TB
 - Select `environment` (`dev` or `prod`).
 - Set `auto_approve=true` to allow apply.
 - Uses the same S3/DynamoDB backend and the OIDC role.
-- Uses `terraform.tfvars.example` for required inputs (replace with real values when needed).
+- Uses `terraform.tfvars` for required inputs.
+- `terraform.tfvars.example` is a reference template only.
 - After apply (dev only), the workflow boots ArgoCD via SSM and applies the root GitOps Application.
 - The bootstrap uses the k3s server instance ID from Terraform outputs and requires SSM connectivity.
 - ArgoCD then syncs `k8s/apps` to the cluster automatically.
@@ -120,8 +121,8 @@ for `ec2-user` on the k3s server via cloud-init.
 
 1. Generate a SHA-512 hash (local only):
    - `openssl passwd -6 'change-me'`
-2. Set the hash in `infra/aws/live/dev/terraform.tfvars`:
-   - `k3s_server_serial_console_password_hash = "$6$..."`
+2. Export the hash locally (do not commit it):
+   - `export TF_VAR_k3s_server_serial_console_password_hash="$6$..."`
 3. Apply with a replace of the k3s server instance so cloud-init re-runs.
 4. Remove the variable once diagnostics are done and replace the instance again.
 

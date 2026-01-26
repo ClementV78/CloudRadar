@@ -9,6 +9,7 @@
 *.tfstate
 *.tfstate.backup
 *.tfvars
+!infra/aws/live/**/terraform.tfvars
 infra/aws/live/**/backend.hcl
 
 # Build & Dependencies
@@ -26,6 +27,7 @@ backups/
 *.key
 creds.json
 .env
+.envrc
 .DS_Store
 backups/*.bundle
 
