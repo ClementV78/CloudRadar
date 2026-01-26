@@ -130,7 +130,7 @@ jobs:
             EXTRA_VARS+=("-var=sqlite_backup_bucket_name=${BACKUP_BUCKET_NAME}")
           fi
 
-          terraform -chdir=${{ matrix.dir }} plan -input=false -no-color -var-file=terraform.tfvars.example \
+          terraform -chdir=${{ matrix.dir }} plan -input=false -no-color -var-file=terraform.tfvars \
             "${EXTRA_VARS[@]}"
 
   validate-modules:
@@ -256,7 +256,7 @@ jobs:
             EXTRA_VARS+=("-var=sqlite_backup_bucket_name=${BACKUP_BUCKET_NAME}")
           fi
 
-          terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" plan -input=false -no-color -var-file=terraform.tfvars.example \
+          terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" plan -input=false -no-color -var-file=terraform.tfvars \
             "${EXTRA_VARS[@]}"
 
   tf-apply:
@@ -303,7 +303,7 @@ jobs:
             EXTRA_VARS+=("-var=sqlite_backup_bucket_name=${BACKUP_BUCKET_NAME}")
           fi
 
-          terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" apply -input=false -auto-approve -var-file=terraform.tfvars.example \
+          terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" apply -input=false -auto-approve -var-file=terraform.tfvars \
             "${EXTRA_VARS[@]}"
 
   tf-outputs:

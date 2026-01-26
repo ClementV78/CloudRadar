@@ -156,7 +156,7 @@ flowchart LR
 
 ### EC2 instance types (defaults)
 
-Values come from `infra/aws/live/dev/terraform.tfvars.example` unless overridden per environment.
+Values come from `infra/aws/live/dev/terraform.tfvars` unless overridden per environment.
 
 | Component | Default instance type | Notes |
 | --- | --- | --- |
@@ -194,7 +194,7 @@ Prod values are currently aligned with module defaults and may be overridden lat
 
 | Component | CIDR / Range | AZ | Route table | Security group | SG name | NACL | Notes |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| VPC | 10.0.0.0/16 | us-east-1 | n/a | n/a | n/a | default | `infra/aws/live/dev/terraform.tfvars.example` |
+| VPC | 10.0.0.0/16 | us-east-1 | n/a | n/a | n/a | default | `infra/aws/live/dev/terraform.tfvars` |
 | Public subnet | 10.0.1.0/24 | us-east-1a | public RT | nat SG (NAT), edge SG | `cloudradar-dev-nat`, `cloudradar-dev-edge` | default | Public IPs on launch |
 | Private subnet | 10.0.101.0/24 | us-east-1a | private RT | k3s SG | `cloudradar-dev-k3s-nodes` | default | No public IPs |
 | Public RT | 0.0.0.0/0 -> IGW | us-east-1 | n/a | n/a | n/a | default | Egress for public subnet |
@@ -218,7 +218,7 @@ Prod values are currently aligned with module defaults and may be overridden lat
 - Private subnet egress is handled by the NAT instance module and the private route table default route.
 - The edge EC2 instance is the public entry point (Nginx reverse proxy) used for TLS termination and basic auth in front of k3s services.
 - Edge basic auth password is read from SSM Parameter Store at boot (see `docs/runbooks/aws-account-bootstrap.md` for IAM).
-- Edge SSM access is routed via VPC interface endpoints (SSM, EC2 messages, and KMS), keeping edge egress restricted to private subnets.
+- Edge SSM access is routed via VPC interface endpoints when enabled; otherwise, edge allows HTTPS egress for SSM over the Internet.
 - Edge depends on the SSM/S3 endpoints being created first to avoid cloud-init timeouts during bootstrap.
 - ArgoCD is bootstrapped via SSM from CI after infrastructure apply, then manages k8s apps via GitOps.
 - SSM agent is installed explicitly in k3s/edge bootstrap to avoid AMI package drift.

@@ -28,6 +28,7 @@ Purpose: initialize and validate the Terraform roots for each environment.
 1. Copy `backend.hcl.example` to `backend.hcl` in each env folder and set the real bucket/table names.
 2. Run `terraform init -backend-config=backend.hcl`.
 3. Run `terraform validate` and `terraform plan` with the env tfvars.
+   - `terraform.tfvars.example` is a reference template only and is not used by CI.
 
 Example for dev:
 
@@ -36,7 +37,7 @@ cd infra/aws/live/dev
 cp backend.hcl.example backend.hcl
 terraform init -backend-config=backend.hcl
 terraform validate
-terraform plan -var-file=terraform.tfvars.example
+terraform plan -var-file=terraform.tfvars
 ```
 
 Example for prod:
@@ -46,7 +47,7 @@ cd infra/aws/live/prod
 cp backend.hcl.example backend.hcl
 terraform init -backend-config=backend.hcl
 terraform validate
-terraform plan -var-file=terraform.tfvars.example
+terraform plan -var-file=terraform.tfvars
 ```
 
 ## 3.1) Capture infra outputs (optional)
