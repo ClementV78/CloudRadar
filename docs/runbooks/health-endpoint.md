@@ -46,6 +46,43 @@ curl -k -u "<user>:<password>" https://<edge-public-ip>/healthz
 }
 ```
 
+## How it works (DevOps view)
+
+### Data flow overview
+```mermaid
+flowchart LR
+  client[External caller] -->|HTTPS + Basic Auth| edge[Edge Nginx]
+  edge -->|NodePort 32736| svc[healthz Service]
+  svc --> pod[healthz Pod]
+  pod -->|ServiceAccount token| api[Kubernetes API]
+  pod -->|optional| metrics[Metrics Server]
+```
+
+### Components and responsibilities
+- **Edge Nginx** exposes `/healthz` publicly and enforces Basic Auth.
+- **healthz Service** is a ClusterIP/NodePort entrypoint so edge can reach the pod.
+- **healthz Pod** serves `/healthz` and collects non-sensitive cluster aggregates.
+- **Kubernetes API** is queried in-cluster using the pod ServiceAccount token.
+- **Metrics Server** is optional; if absent, the response reports `metrics.available=false`.
+
+### Authentication and authorization
+- The pod authenticates to the Kubernetes API using the **ServiceAccount token** mounted at:
+  - `/var/run/secrets/kubernetes.io/serviceaccount/token`
+- Authorization is enforced via **RBAC**:
+  - `ClusterRole healthz-reader` grants **read-only** access to `nodes`, `pods`, and `deployments`.
+  - Access to `metrics.k8s.io` is also read-only (if Metrics Server is installed).
+- This keeps the endpoint **observability-focused** without write permissions.
+
+### Security posture
+- **No sensitive data** is returned (only counts and aggregates).
+- **Public access** is protected by **Basic Auth** at the edge.
+- **K8s API access** is limited to read-only resources via RBAC.
+
+### Operational notes
+- If the Kubernetes API is unreachable, the endpoint returns `status=degraded` with error details.
+- If Metrics Server is missing, health stays `ok` but `metrics.available=false`.
+- The service is designed for **end-to-end validation** (edge → k3s → API) rather than deep diagnostics.
+
 ## Notes
 - `/healthz` is protected by the edge Basic Auth.
 - If metrics are not available, the response will include `"metrics": {"available": false}`.
