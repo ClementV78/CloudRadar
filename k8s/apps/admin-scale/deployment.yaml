@@ -25,7 +25,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: ADMIN_TOKEN_SSM_NAME
-              value: /cloudradar/edge/admin-token
+              value: /cloudradar/admin/k8s-admin-api-token
             - name: AWS_REGION
               value: us-east-1
             - name: TARGET_NAMESPACE

@@ -18,7 +18,7 @@ flowchart LR
 - Edge Nginx is deployed and reachable.
 - The admin scale app is deployed under `k8s/apps/admin-scale`.
 - The internal token exists in SSM (edge and admin API read the same parameter).
-  - Default path: `/cloudradar/edge/admin-token`.
+  - Default path: `/cloudradar/admin/k8s-admin-api-token`.
 - k3s nodes can reach SSM (NAT or VPC endpoints) and have `ssm:GetParameter` permissions.
 
 ## Secret configuration (Basic Auth + internal token)
@@ -29,7 +29,7 @@ flowchart LR
 
 ### Admin internal token (edge -> admin API)
 - Terraform input: `edge_admin_token_ssm_parameter_name`
-- Default SSM path: `/cloudradar/edge/admin-token`
+- Default SSM path: `/cloudradar/admin/k8s-admin-api-token`
 
 The admin API reads the token directly from SSM (same source as the edge).
 
@@ -55,7 +55,7 @@ openssl rand -hex 32
 ### 3) Store the token in SSM (edge)
 ```bash
 aws ssm put-parameter \
-  --name "/cloudradar/edge/admin-token" \
+  --name "/cloudradar/admin/k8s-admin-api-token" \
   --type SecureString \
   --value "<token>" \
   --overwrite
