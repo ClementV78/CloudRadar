@@ -28,13 +28,13 @@ spec:
             - name: REDIS_PORT
               value: "6379"
             - name: PROCESSOR_REDIS_INPUT_KEY
-              value: cloudradar:ingest:queue
+              value: "cloudradar:ingest:queue"
             - name: PROCESSOR_LAST_POSITIONS_KEY
-              value: cloudradar:aircraft:last
+              value: "cloudradar:aircraft:last"
             - name: PROCESSOR_TRACK_KEY_PREFIX
-              value: cloudradar:aircraft:track:
+              value: "cloudradar:aircraft:track:"
             - name: PROCESSOR_BBOX_SET_KEY
-              value: cloudradar:aircraft:in_bbox
+              value: "cloudradar:aircraft:in_bbox"
             - name: PROCESSOR_TRACK_LENGTH
               value: "180"
           ports:
