@@ -76,6 +76,22 @@ mvn -q spring-boot:run
 - `GET /healthz`
 - `GET /metrics/prometheus`
 
+## Metrics
+
+Key processor metrics exposed at `/metrics/prometheus`:
+
+- `processor_events_processed_total` — total events consumed from Redis.
+- `processor_events_errors_total` — total processing errors.
+- `processor_bbox_count` — current count of aircraft inside the bbox.
+- `processor_last_processed_epoch` — Unix epoch (seconds) of last processed event.
+
+Example (local port-forward):
+
+```bash
+kubectl -n cloudradar port-forward deploy/processor 8080:8080
+curl -s http://localhost:8080/metrics/prometheus | rg "^processor_"
+```
+
 ## Deployment notes
 - Processor uses Redis only in v1; SQLite persistence is tracked in #165.
 - Ensure Redis is reachable at `redis.data.svc.cluster.local:6379` inside the cluster.

@@ -104,10 +104,11 @@ The k3s cluster hosts all application workloads and platform components.
 
 ### Namespaces
 
-**apps**
+**cloudradar**
 - `ingester` — telemetry ingestion
-- `processor` — scalable event consumers
-- `dashboard` — API + UI
+- `processor` — event aggregates for the UI
+- `admin-scale` — admin API to scale ingester
+- `dashboard` — API + UI (planned)
 
 **data**
 - `redis` — event queue / buffer
@@ -123,8 +124,9 @@ ArgoCD syncs everything under `k8s/apps` automatically.
 
 - ✅ `health` — minimal `/healthz` endpoint
 - ✅ `redis` — event buffer in `data` namespace
-- 📝 `ingester` — OpenSky ingestion (planned)
-- 📝 `processor` — Java processor (planned)
+- ✅ `ingester` — OpenSky ingestion
+- ✅ `processor` — Java processor (Redis aggregates)
+- ✅ `admin-scale` — ingester scaling API
 - 📝 `dashboard` — API + UI (planned)
 
 ---
