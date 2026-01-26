@@ -4,6 +4,18 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-01-26
 
+### [gitops/argocd] App sync failed due to malformed processor manifest
+- **Severity:** Medium
+- **Impact:** ArgoCD application stayed in `sync=Unknown`, auto-sync was skipped, and bootstrap wait steps failed.
+- **Analysis:** `kustomize build k8s/apps` failed because processor env values contained unquoted `:` which broke YAML parsing.
+- **Resolution:** Quoted Redis key values in `k8s/apps/processor/deployment.yaml`. (Refs: PR #168)
+
+### [app/k8s] Processor crash loop due to aggressive probes
+- **Severity:** Medium
+- **Impact:** `processor` pod restarted and never became Ready.
+- **Analysis:** Readiness/liveness probes fired immediately while Spring Boot was still starting (~30s).
+- **Resolution:** Added `startupProbe` and initial delays for readiness/liveness. (Refs: PR #169)
+
 ### [app/k8s] Admin-scale image pull blocked (GHCR private)
 - **Severity:** Medium
 - **Impact:** `admin-scale` pod stuck in `ImagePullBackOff` (`403/401 Unauthorized`) and API unavailable.
