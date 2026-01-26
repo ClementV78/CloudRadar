@@ -97,6 +97,12 @@ Purpose: run the Java ingester locally or deploy it to k3s.
 
 - Runbook: `docs/runbooks/ingester.md`
 
+## 3.6) Processor aggregates
+
+Purpose: consume Redis events and build in-memory aggregates for the UI.
+
+- Runbook: `docs/runbooks/processor.md`
+
 ## Troubleshooting journal
 
 Short, running log of issues encountered and how they were resolved.

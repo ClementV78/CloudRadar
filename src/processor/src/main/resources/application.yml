@@ -1,0 +1,37 @@
+server:
+  port: 8080
+
+processor:
+  poll-timeout-seconds: ${PROCESSOR_POLL_TIMEOUT_SECONDS:2}
+  track-length: ${PROCESSOR_TRACK_LENGTH:180}
+  redis:
+    input-key: ${PROCESSOR_REDIS_INPUT_KEY:cloudradar:ingest:queue}
+    last-positions-key: ${PROCESSOR_LAST_POSITIONS_KEY:cloudradar:aircraft:last}
+    track-key-prefix: ${PROCESSOR_TRACK_KEY_PREFIX:cloudradar:aircraft:track:}
+    bbox-set-key: ${PROCESSOR_BBOX_SET_KEY:cloudradar:aircraft:in_bbox}
+  bbox:
+    lat-min: ${PROCESSOR_LAT_MIN:46.8296}
+    lat-max: ${PROCESSOR_LAT_MAX:50.8836}
+    lon-min: ${PROCESSOR_LON_MIN:-0.7389}
+    lon-max: ${PROCESSOR_LON_MAX:5.4433}
+
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:redis.data.svc.cluster.local}
+      port: ${REDIS_PORT:6379}
+
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health,metrics,prometheus
+      path-mapping:
+        health: healthz
+        metrics: metrics/actuator
+        prometheus: metrics/prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
