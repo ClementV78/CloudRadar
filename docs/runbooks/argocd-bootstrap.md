@@ -75,6 +75,27 @@ aws ssm send-command \
 
 Note: the script exports `KUBECONFIG=/etc/rancher/k3s/k3s.yaml` and preserves it when running `sudo`.
 
+## Replica overrides for ingester
+The bootstrap script configures ArgoCD to ignore `spec.replicas` for the `ingester` deployment.
+This allows the admin scale API to change replicas without ArgoCD reverting them.
+
+If the Application already exists, you can patch it manually:
+```bash
+kubectl -n argocd patch app cloudradar --type merge -p '{
+  "spec": {
+    "ignoreDifferences": [
+      {
+        "group": "apps",
+        "kind": "Deployment",
+        "name": "ingester",
+        "namespace": "cloudradar",
+        "jsonPointers": ["/spec/replicas"]
+      }
+    ]
+  }
+}'
+```
+
 ## Notes
 - This is a one-time bootstrap. After that, ArgoCD manages k8s apps via GitOps.
 - Keep ArgoCD access private; prefer port-forwarding over public exposure.
