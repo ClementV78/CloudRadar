@@ -34,6 +34,11 @@ flowchart LR
 
 The **SSM parameter** and the **Kubernetes Secret** must contain the **same token** value.
 
+## Auth behavior (implementation detail)
+- The API expects the header `X-Internal-Token`.
+- The token is loaded from the `ADMIN_INTERNAL_TOKEN` environment variable.
+- In code: `src/admin-scale/app.py` compares the header value to the env var and returns **401** when invalid.
+
 ## Steps
 
 ### 1) Build and publish the image
