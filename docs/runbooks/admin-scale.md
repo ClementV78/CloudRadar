@@ -21,6 +21,19 @@ flowchart LR
   - SSM parameter for edge to inject (e.g. `/cloudradar/edge/admin-token`).
   - Kubernetes Secret `admin-scale-token` (same value).
 
+## Secret configuration (Basic Auth + internal token)
+
+### Edge Basic Auth (public access)
+- Terraform input: `edge_basic_auth_ssm_parameter_name`
+- Default SSM path: `/cloudradar/edge/basic-auth`
+
+### Admin internal token (edge -> admin API)
+- Terraform input: `edge_admin_token_ssm_parameter_name`
+- Default SSM path: `/cloudradar/edge/admin-token`
+- Kubernetes Secret: `admin-scale-token` (key: `token`)
+
+The **SSM parameter** and the **Kubernetes Secret** must contain the **same token** value.
+
 ## Steps
 
 ### 1) Build and publish the image
