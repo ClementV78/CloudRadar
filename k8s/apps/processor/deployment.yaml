@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: processor
+  namespace: cloudradar
+  labels:
+    app.kubernetes.io/name: processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: processor
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: processor
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: processor
+          image: ghcr.io/clementv78/cloudradar-processor:0.1.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REDIS_HOST
+              value: redis.data.svc.cluster.local
+            - name: REDIS_PORT
+              value: "6379"
+            - name: PROCESSOR_REDIS_INPUT_KEY
+              value: cloudradar:ingest:queue
+            - name: PROCESSOR_LAST_POSITIONS_KEY
+              value: cloudradar:aircraft:last
+            - name: PROCESSOR_TRACK_KEY_PREFIX
+              value: cloudradar:aircraft:track:
+            - name: PROCESSOR_BBOX_SET_KEY
+              value: cloudradar:aircraft:in_bbox
+            - name: PROCESSOR_TRACK_LENGTH
+              value: "180"
+          ports:
+            - containerPort: 8080
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi

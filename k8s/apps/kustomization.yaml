@@ -7,5 +7,6 @@ resources:
   - admin-scale
   - health
   - ingester
+  - processor
   - redis
   - storageclass-gp3.yaml
