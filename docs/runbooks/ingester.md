@@ -93,6 +93,9 @@ kubectl -n cloudradar get pods
 kubectl -n cloudradar logs deploy/ingester --tail=50
 ```
 
+Note: the ingester deployment is set to `replicas: 0` by default. Use the admin scale API runbook
+to enable it when needed: `docs/runbooks/admin-scale.md`.
+
 ### 3) Validate health + metrics
 
 ```bash

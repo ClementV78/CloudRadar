@@ -13,6 +13,11 @@ upstream health_upstream {
   server ${upstream_host}:${health_upstream_port};
 }
 
+upstream admin_upstream {
+  # Admin scale service running behind the edge proxy.
+  server ${upstream_host}:${admin_upstream_port};
+}
+
 server {
   listen 443 ssl;
   server_name ${server_name};
@@ -33,6 +38,17 @@ server {
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  location /admin/ {
+    # Route admin scale traffic to the private backend.
+    proxy_pass http://admin_upstream;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Internal-Token "__ADMIN_INTERNAL_TOKEN__";
   }
 
   location /api/ {

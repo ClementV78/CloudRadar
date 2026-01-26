@@ -63,6 +63,11 @@ variable "basic_auth_ssm_parameter_name" {
   type        = string
 }
 
+variable "admin_token_ssm_parameter_name" {
+  description = "SSM parameter name storing the internal admin token."
+  type        = string
+}
+
 variable "region" {
   description = "AWS region for the SSM parameter lookup."
   type        = string
@@ -87,6 +92,12 @@ variable "health_upstream_port" {
   description = "NodePort for the health service."
   type        = number
 }
+
+variable "admin_upstream_port" {
+  description = "NodePort for the admin scale service."
+  type        = number
+}
+
 variable "enable_http_redirect" {
   description = "Whether to redirect HTTP to HTTPS."
   type        = bool

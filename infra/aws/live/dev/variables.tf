@@ -156,6 +156,11 @@ variable "edge_basic_auth_ssm_parameter_name" {
   type        = string
 }
 
+variable "edge_admin_token_ssm_parameter_name" {
+  description = "SSM parameter name storing the admin internal token."
+  type        = string
+}
+
 variable "edge_dashboard_nodeport" {
   description = "NodePort for the dashboard service."
   type        = number
@@ -170,6 +175,11 @@ variable "edge_health_nodeport" {
   description = "NodePort for the health service. Defaults to the dashboard nodeport when null."
   type        = number
   default     = null
+}
+
+variable "edge_admin_nodeport" {
+  description = "NodePort for the admin scale service."
+  type        = number
 }
 
 variable "edge_enable_http_redirect" {

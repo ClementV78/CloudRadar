@@ -5,6 +5,7 @@ locals {
     dashboard_upstream_port = var.dashboard_upstream_port
     api_upstream_port       = var.api_upstream_port
     health_upstream_port    = var.health_upstream_port
+    admin_upstream_port     = var.admin_upstream_port
     enable_http_redirect    = var.enable_http_redirect ? "1" : "0"
   })
 }
@@ -62,7 +63,10 @@ resource "aws_iam_role_policy" "edge_ssm_parameter" {
           "ssm:GetParameter",
           "ssm:GetParameters"
         ]
-        Resource = "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter${var.basic_auth_ssm_parameter_name}"
+        Resource = [
+          "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter${var.basic_auth_ssm_parameter_name}",
+          "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}:parameter${var.admin_token_ssm_parameter_name}"
+        ]
       }
     ]
   })
@@ -128,11 +132,12 @@ resource "aws_instance" "edge" {
   iam_instance_profile        = aws_iam_instance_profile.edge.name
   user_data_replace_on_change = true
   user_data = templatefile("${path.module}/templates/user-data.sh.tpl", {
-    server_name                   = var.server_name
-    basic_auth_user               = var.basic_auth_user
-    basic_auth_ssm_parameter_name = var.basic_auth_ssm_parameter_name
-    aws_region                    = var.region
-    nginx_conf                    = local.nginx_conf
+    server_name                    = var.server_name
+    basic_auth_user                = var.basic_auth_user
+    basic_auth_ssm_parameter_name  = var.basic_auth_ssm_parameter_name
+    admin_token_ssm_parameter_name = var.admin_token_ssm_parameter_name
+    aws_region                     = var.region
+    nginx_conf                     = local.nginx_conf
   })
 
   metadata_options {
