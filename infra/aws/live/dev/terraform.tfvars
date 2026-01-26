@@ -16,7 +16,7 @@ k3s_worker_desired       = 1
 k3s_worker_max_size      = 3
 k3s_root_volume_size     = 40
 
-edge_instance_type                 = "t3.micro"
+edge_instance_type = "t3.micro"
 # edge_ami_id                        = "ami-xxxxxxxxxxxxxxxxx"
 edge_root_volume_size              = 40
 edge_allowed_cidrs                 = ["0.0.0.0/0"]
