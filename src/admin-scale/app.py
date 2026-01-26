@@ -8,14 +8,20 @@ import urllib.error
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import boto3
+from botocore.exceptions import BotoCoreError, ClientError
+
 TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 CA_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 K8S_HOST = "https://kubernetes.default.svc"
 PORT = int(os.getenv("PORT", "8080"))
 NAMESPACE = os.getenv("TARGET_NAMESPACE", "cloudradar")
 DEPLOYMENT = os.getenv("TARGET_DEPLOYMENT", "ingester")
-INTERNAL_TOKEN = os.getenv("ADMIN_INTERNAL_TOKEN", "")
+SSM_TOKEN_NAME = os.getenv("ADMIN_TOKEN_SSM_NAME", "/cloudradar/edge/admin-token")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+TOKEN_CACHE_SECONDS = int(os.getenv("ADMIN_TOKEN_CACHE_SECONDS", "300"))
 ALLOWED_REPLICAS = os.getenv("ALLOWED_REPLICAS", "0,1,2")
+_TOKEN_CACHE = {"value": None, "ts": 0.0}
 
 
 def _load_token():
@@ -64,6 +70,27 @@ def _json_response(handler, status_code, payload):
   handler.wfile.write(body)
 
 
+def _get_internal_token():
+  now = time.time()
+  cached = _TOKEN_CACHE.get("value")
+  if cached and (now - _TOKEN_CACHE.get("ts", 0.0) < TOKEN_CACHE_SECONDS):
+    return cached
+
+  try:
+    client = boto3.client("ssm", region_name=AWS_REGION)
+    resp = client.get_parameter(Name=SSM_TOKEN_NAME, WithDecryption=True)
+    token = resp.get("Parameter", {}).get("Value", "").strip()
+  except (BotoCoreError, ClientError):
+    return None
+
+  if not token:
+    return None
+
+  _TOKEN_CACHE["value"] = token
+  _TOKEN_CACHE["ts"] = now
+  return token
+
+
 class AdminHandler(BaseHTTPRequestHandler):
   def do_GET(self):  # noqa: N802
     if self.path != "/healthz":
@@ -79,7 +106,12 @@ class AdminHandler(BaseHTTPRequestHandler):
       self.end_headers()
       return
 
-    if not _is_authorized(self.headers.get("X-Internal-Token", "")):
+    token = _get_internal_token()
+    if not token:
+      _json_response(self, 502, {"error": "admin token unavailable from ssm"})
+      return
+
+    if not _is_authorized(self.headers.get("X-Internal-Token", ""), token):
       _unauthorized(self)
       return
 
@@ -137,10 +169,8 @@ class AdminHandler(BaseHTTPRequestHandler):
     return
 
 
-def _is_authorized(token):
-  if not INTERNAL_TOKEN:
-    return False
-  return hmac.compare_digest(token, INTERNAL_TOKEN)
+def _is_authorized(token, expected):
+  return hmac.compare_digest(token, expected)
 
 
 def _utc_now():

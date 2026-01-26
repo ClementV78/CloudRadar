@@ -24,11 +24,10 @@ spec:
           image: ghcr.io/clementv78/cloudradar-admin-scale:0.1.0
           imagePullPolicy: IfNotPresent
           env:
-            - name: ADMIN_INTERNAL_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: admin-scale-token
-                  key: token
+            - name: ADMIN_TOKEN_SSM_NAME
+              value: /cloudradar/edge/admin-token
+            - name: AWS_REGION
+              value: us-east-1
             - name: TARGET_NAMESPACE
               value: cloudradar
             - name: TARGET_DEPLOYMENT

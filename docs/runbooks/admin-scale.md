@@ -17,9 +17,9 @@ flowchart LR
 ## Prerequisites
 - Edge Nginx is deployed and reachable.
 - The admin scale app is deployed under `k8s/apps/admin-scale`.
-- The internal token exists in **two places**:
-  - SSM parameter for edge to inject (e.g. `/cloudradar/edge/admin-token`).
-  - Kubernetes Secret `admin-scale-token` (same value).
+- The internal token exists in SSM (edge and admin API read the same parameter).
+  - Default path: `/cloudradar/edge/admin-token`.
+- k3s nodes can reach SSM (NAT or VPC endpoints) and have `ssm:GetParameter` permissions.
 
 ## Secret configuration (Basic Auth + internal token)
 
@@ -30,14 +30,13 @@ flowchart LR
 ### Admin internal token (edge -> admin API)
 - Terraform input: `edge_admin_token_ssm_parameter_name`
 - Default SSM path: `/cloudradar/edge/admin-token`
-- Kubernetes Secret: `admin-scale-token` (key: `token`)
 
-The **SSM parameter** and the **Kubernetes Secret** must contain the **same token** value.
+The admin API reads the token directly from SSM (same source as the edge).
 
 ## Auth behavior (implementation detail)
 - The API expects the header `X-Internal-Token`.
-- The token is loaded from the `ADMIN_INTERNAL_TOKEN` environment variable.
-- In code: `src/admin-scale/app.py` compares the header value to the env var and returns **401** when invalid.
+- The token is loaded from SSM using `ADMIN_TOKEN_SSM_NAME` and `AWS_REGION`.
+- In code: `src/admin-scale/app.py` compares the header value to the SSM token and returns **401** when invalid.
 
 ## Steps
 
@@ -62,20 +61,12 @@ aws ssm put-parameter \
   --overwrite
 ```
 
-### 4) Store the token in Kubernetes (admin-scale)
-Do **not** commit the token in git. Apply a Secret locally:
-```bash
-kubectl -n cloudradar create secret generic admin-scale-token \
-  --from-literal=token="<token>" \
-  --dry-run=client -o yaml | kubectl apply -f -
-```
-
-### 5) Deploy the manifests
+### 4) Deploy the manifests
 ```bash
 kubectl apply -k k8s/apps/admin-scale
 ```
 
-### 6) Validate scaling
+### 5) Validate scaling
 From an SSM session (or any network path that can reach the service):
 ```bash
 curl -s -X POST \
@@ -93,4 +84,4 @@ kubectl -n cloudradar get deploy ingester
 ## Notes
 - The ServiceAccount RBAC is restricted to `deployments/scale` for `ingester` only.
 - The edge injects `X-Internal-Token` after Basic Auth; users never see the token.
-- If you rotate the token, update **both** SSM and the Kubernetes Secret.
+- If you rotate the token, update the SSM parameter.
