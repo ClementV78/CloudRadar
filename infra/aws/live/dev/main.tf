@@ -23,6 +23,7 @@ locals {
     dashboard = var.edge_dashboard_nodeport
     api       = var.edge_api_nodeport
     health    = local.edge_health_nodeport
+    admin     = var.edge_admin_nodeport
   }
   edge_nodeport_rules_filtered = {
     for key, port in local.edge_nodeport_rules : key => port
