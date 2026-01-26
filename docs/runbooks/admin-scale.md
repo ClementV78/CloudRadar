@@ -46,6 +46,9 @@ docker build -t ghcr.io/clementv78/cloudradar-admin-scale:0.1.0 src/admin-scale
 docker push ghcr.io/clementv78/cloudradar-admin-scale:0.1.0
 ```
 
+Note: the first push creates the GHCR package. Ensure the package is public
+or add an imagePullSecret if you keep it private.
+
 ### 2) Create the admin token
 Generate a strong token locally (example):
 ```bash
