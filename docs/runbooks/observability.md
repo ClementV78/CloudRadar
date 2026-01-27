@@ -4,7 +4,7 @@
 
 Prometheus scrapes metrics from all k3s services. Grafana provides dashboards for ingestion/processing health monitoring.
 
-**Stack**: Prometheus (2d retention, 5GB PVC) + Grafana (stateless, no persistence)  
+**Stack**: Prometheus (7d retention, 5GB PVC) + Grafana (stateless, no persistence)  
 **Cost**: ~$0.50/month (Prometheus PVC only)
 
 ## Access
@@ -37,7 +37,7 @@ Then open http://localhost:9090
 
 - **Chart**: `prometheus-community/kube-prometheus-stack` v60.0.2
 - **Namespace**: `monitoring`
-- **Retention**: 2 days (MVP cost-optimized)
+- **Retention**: 7 days (MVP, data-flexible: if accumulation < 4 GB will keep all 7 days)
 - **Storage**: 5 GB gp3 EBS
 - **Scrape interval**: 30 seconds (default)
 - **Targets**: All k3s nodes + services with `prometheus.io/scrape=true` label

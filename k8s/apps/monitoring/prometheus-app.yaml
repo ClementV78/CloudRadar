@@ -13,7 +13,7 @@ spec:
       values: |
         prometheus:
           prometheusSpec:
-            retention: 2d
+            retention: 7d
             retentionSize: "4GB"
             storageSpec:
               volumeClaimTemplate:
