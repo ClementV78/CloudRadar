@@ -2,65 +2,34 @@
 
 This page is the entry point for all runbooks and describes the recommended execution order.
 
----
-
-## 📋 Quick Navigation
-
-- **[Bootstrap Phase](bootstrap/)** — First-time AWS, Terraform, ArgoCD setup
-- **[Operations Phase](operations/)** — Deploy services: Redis, Ingester, Processor, Health, Admin-Scale, Observability
-- **[Troubleshooting](troubleshooting/)** — Issue log and common problems
-- **[CI/CD Reference](ci-cd/)** — Infrastructure and application CI/CD workflows
-
----
-
-## 🚀 Execution Order (Full Sequence)
-
-### Phase 1: Bootstrap (One-time setup)
-
-#### 1) AWS account bootstrap (required)
+## 1) AWS account bootstrap (required)
 
 Purpose: establish IAM baseline, MFA, budgets, and the GitHub OIDC provider + Terraform role.
 
-- Runbook: [bootstrap/aws-account-bootstrap.md](bootstrap/aws-account-bootstrap.md)
-- IAM inventory reference: [docs/iam/inventory.md](../iam/inventory.md)
+- Runbook: `docs/runbooks/aws-account-bootstrap.md`
+- IAM inventory reference: `docs/iam/inventory.md`
 
-#### 2) Terraform backend bootstrap (required)
+## 2) Terraform backend bootstrap (required)
 
 Purpose: create the S3 bucket and DynamoDB table used by Terraform state and locking.
 
-- Runbook: [bootstrap/terraform-backend-bootstrap.md](bootstrap/terraform-backend-bootstrap.md)
+- Runbook: `docs/runbooks/terraform-backend-bootstrap.md`
 
-#### 3) ArgoCD bootstrap (one-time)
-
-Purpose: deploy ArgoCD inside k3s to enable GitOps.
-
-- Runbook: [bootstrap/argocd-bootstrap.md](bootstrap/argocd-bootstrap.md)
-
-Post-bootstrap checks (optional):
-- Verify the ArgoCD Application status (Synced/Healthy).
-- Retrieve the initial admin password (if needed).
-
----
-
-### Phase 2: Reference (Understand CI/CD before applying)
-
-#### 2.1) CI infrastructure workflow reference (recommended)
+## 2.1) CI workflow reference (recommended)
 
 Purpose: understand what `ci-infra` validates on PRs and how manual apply works.
 
-- Runbook: [ci-cd/ci-infra.md](ci-cd/ci-infra.md)
+- Runbook: `docs/runbooks/ci-infra.md`
 
-#### 2.2) App CI/CD workflow reference (recommended)
+## 2.2) App CI/CD workflow reference (recommended)
 
 Purpose: understand how multi-service Docker images are built and pushed to GHCR.
 
-- Runbook: [ci-cd/ci-app.md](ci-cd/ci-app.md)
+- Runbook: `docs/runbooks/ci-app.md`
 - Services: ingester, processor, dashboard, health, admin-scale
 - Triggers: PR (build only), push to main (build + push), tags (semver push)
 
----
-
-### Phase 3: Terraform Live Roots (per environment)
+## 3) Terraform live roots (per environment)
 
 Purpose: initialize and validate the Terraform roots for each environment.
 
@@ -89,7 +58,7 @@ terraform validate
 terraform plan -var-file=terraform.tfvars
 ```
 
-#### 3.1) Capture infra outputs (optional)
+## 3.1) Capture infra outputs (optional)
 
 Purpose: generate a local Markdown snapshot of Terraform outputs for quick reference.
 
@@ -99,62 +68,63 @@ Purpose: generate a local Markdown snapshot of Terraform outputs for quick refer
 ./scripts/update-infra-outputs.sh dev --init
 ```
 
-This writes [ci-cd/infra-outputs.md](ci-cd/infra-outputs.md) locally. The file is intentionally not committed.
+This writes `docs/runbooks/infra-outputs.md` locally. The file is intentionally not committed.
 
----
+## 3.2) ArgoCD bootstrap (one-time)
 
-### Phase 4: Deploy Services (ArgoCD Applications)
+Purpose: deploy ArgoCD inside k3s to enable GitOps.
 
-All services below are deployed via ArgoCD Applications to k3s:
+- Runbook: `docs/runbooks/argocd-bootstrap.md`
 
-#### 4.1) Redis buffer (data namespace)
+Post-bootstrap checks (optional):
+- Verify the ArgoCD Application status (Synced/Healthy).
+- Retrieve the initial admin password (if needed).
 
-Purpose: deploy the Redis buffer used by ingester/processor.
-
-- Runbook: [operations/redis.md](operations/redis.md)
-
-#### 4.2) OpenSky ingester
-
-Purpose: run the Java ingester locally or deploy it to k3s.
-
-- Runbook: [operations/ingester.md](operations/ingester.md)
-
-#### 4.3) Processor aggregates
-
-Purpose: consume Redis events and build in-memory aggregates for the UI.
-
-- Runbook: [operations/processor.md](operations/processor.md)
-
-#### 4.4) Health endpoint (optional)
+## 3.3) Edge health endpoint (optional)
 
 Purpose: expose `/healthz` via the edge Nginx to validate end-to-end k3s connectivity.
 
-- Runbook: [operations/health-endpoint.md](operations/health-endpoint.md)
+- Runbook: `docs/runbooks/health-endpoint.md`
+- TODO: configure a Docker credential helper to avoid GHCR login warnings.
 
-#### 4.5) Admin-Scale API (optional)
+## 3.3.1) Admin scale API (optional)
 
 Purpose: scale the ingester deployment via a small admin API that talks to the K8s API.
 
-- Runbook: [operations/admin-scale.md](operations/admin-scale.md)
+- Runbook: `docs/runbooks/admin-scale.md`
 
-#### 4.6) Observability Stack (Prometheus + Grafana)
+## 3.4) Redis buffer (data namespace)
+
+Purpose: deploy the Redis buffer used by ingester/processor.
+
+- Runbook: `docs/runbooks/redis.md`
+
+## 3.5) OpenSky ingester
+
+Purpose: run the Java ingester locally or deploy it to k3s.
+
+- Runbook: `docs/runbooks/ingester.md`
+
+## 3.6) Processor aggregates
+
+Purpose: consume Redis events and build in-memory aggregates for the UI.
+
+- Runbook: `docs/runbooks/processor.md`
+
+## 3.7) Observability stack (Prometheus + Grafana)
 
 Purpose: deploy Prometheus (metrics collection) and Grafana (dashboards) for cluster and application health monitoring.
 
-- Runbook: [operations/observability.md](operations/observability.md)
-- Stack: Prometheus (7d retention, 5GB PVC) + Grafana (stateless, auto-datasource)
+- Runbook: `docs/runbooks/observability.md`
+- Stack: Prometheus (2d retention, 5GB) + Grafana (stateless, admin dashboard)
 - Cost: ~$0.50/month
 - Access: Port-forward for local development
 
----
-
-### Phase 5: Troubleshooting
-
-#### Issue Log
+## Troubleshooting journal
 
 Short, running log of issues encountered and how they were resolved.
 
-- Journal: [troubleshooting/issue-log.md](troubleshooting/issue-log.md)
+- Journal: `docs/runbooks/issue-log.md`
 
 ## Reference diagrams
 
