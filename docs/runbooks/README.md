@@ -111,6 +111,15 @@ Purpose: consume Redis events and build in-memory aggregates for the UI.
 
 - Runbook: `docs/runbooks/processor.md`
 
+## 3.7) Observability stack (Prometheus + Grafana)
+
+Purpose: deploy Prometheus (metrics collection) and Grafana (dashboards) for cluster and application health monitoring.
+
+- Runbook: `docs/runbooks/observability.md`
+- Stack: Prometheus (2d retention, 5GB) + Grafana (stateless, admin dashboard)
+- Cost: ~$0.50/month
+- Access: Port-forward for local development
+
 ## Troubleshooting journal
 
 Short, running log of issues encountered and how they were resolved.
