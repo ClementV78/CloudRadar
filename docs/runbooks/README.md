@@ -21,6 +21,14 @@ Purpose: understand what `ci-infra` validates on PRs and how manual apply works.
 
 - Runbook: `docs/runbooks/ci-infra.md`
 
+## 2.2) App CI/CD workflow reference (recommended)
+
+Purpose: understand how multi-service Docker images are built and pushed to GHCR.
+
+- Runbook: `docs/runbooks/ci-app.md`
+- Services: ingester, processor, dashboard, health, admin-scale
+- Triggers: PR (build only), push to main (build + push), tags (semver push)
+
 ## 3) Terraform live roots (per environment)
 
 Purpose: initialize and validate the Terraform roots for each environment.
