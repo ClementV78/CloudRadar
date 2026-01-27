@@ -64,8 +64,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=pr
             type=ref,event=branch
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
@@ -86,4 +85,5 @@ jobs:
           echo "✅ Image built and pushed for ${{ matrix.service }}"
           echo "Registry: ${{ env.REGISTRY }}"
           echo "Repository: ${{ github.repository }}"
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Tags:"
+          echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n' | sed 's/^/  - /'
