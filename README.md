@@ -33,8 +33,8 @@ All features and fixes are tracked as GitHub Issues and delivered through an ite
 | Tool / Practice | Purpose | Value | Status |
 | --- | --- | --- | --- |
 | Terraform | Infrastructure as Code for AWS resources (VPC, EC2, IAM, S3) | Reproducible, reviewable infrastructure changes | Implemented |
-| GitHub Actions | CI for infra (`fmt/validate/plan`) | Fast feedback and safer changes | Implemented (infra) |
-| GitHub Container Registry (GHCR) | Container registry for app images | Centralized, versioned image distribution | Planned (automated); manual pushes supported |
+| GitHub Actions | CI for infra (`fmt/validate/plan`) + multi-image builds | Fast feedback and safer changes; parallel service builds | Implemented |
+| GitHub Container Registry (GHCR) | Container registry for app images | Centralized, versioned image distribution | Implemented (automated multi-image) |
 | Docker | Local image builds for services | Portable builds aligned with CI artifacts | Implemented (local/manual) |
 | ArgoCD (GitOps) | Sync `k8s/apps` to the cluster | Declarative deploys and drift control | Implemented |
 | Kustomize | Compose Kubernetes manifests | Reuse and consistency across apps | Implemented |
