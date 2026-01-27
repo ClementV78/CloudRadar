@@ -4,11 +4,21 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - '.github/workflows/build-and-push.yml'
+      - 'Dockerfile*'
+      - '.dockerignore'
     tags:
       - 'v*'
   pull_request:
     branches:
       - main
+    paths:
+      - 'src/**'
+      - '.github/workflows/build-and-push.yml'
+      - 'Dockerfile*'
+      - '.dockerignore'
 
 env:
   REGISTRY: ghcr.io

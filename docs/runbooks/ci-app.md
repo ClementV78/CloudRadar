@@ -4,9 +4,19 @@ This runbook explains the `build-and-push` GitHub Actions workflow, which automa
 
 ## When it runs
 
-- On pull requests to `main`: builds all services but **does not push** to GHCR (dry-run validation).
-- On push to `main`: builds and pushes images with tags.
-- On push to tags (e.g., `v1.0.0`): builds and pushes images with semantic versioning tags.
+- On **pull requests** to `main` that touch files in `src/`, workflow file, or Dockerfile: builds all services but **does not push** to GHCR (dry-run validation).
+- On **push to main** with changes in `src/`, workflow file, or Dockerfile: builds and pushes images with tags.
+- On **push to tags** (e.g., `v1.0.0`): builds and pushes images with semantic versioning tags (all services, regardless of path filters).
+- Skipped: changes to docs, infra, k8s manifests, or other non-app files.
+
+### Path filters
+
+To avoid unnecessary builds, the workflow only runs when:
+- Any file in `src/**` changes
+- `.github/workflows/build-and-push.yml` changes
+- `Dockerfile*` or `.dockerignore` changes
+
+This ensures docs/infra/runbook updates don't trigger builds.
 
 ## What happens
 
