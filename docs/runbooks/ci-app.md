@@ -39,20 +39,55 @@ For each service, the workflow:
    - Uses `secrets.GITHUB_TOKEN` provided by GitHub
    - No static credentials needed (OIDC-like pattern)
 4. **Extract metadata** via `docker/metadata-action`
-   - Tags: semver (e.g., `v1.0.0`), branch name, commit SHA, and `latest` (on main)
-   - Example output: `ghcr.io/clementv78/cloudradar/ingester:latest`, `ghcr.io/clementv78/cloudradar/ingester:main-abc123ef`
+   - Tags are context-aware (PR, branch, SHA, latest)
+   - See [Image tagging strategy](#image-tagging-strategy) for examples
 5. **Build and push**
    - Build context: `./src/{service}`
    - Push only when **not** a PR (`push: ${{ github.event_name != 'pull_request' }}`)
    - Cache layers via GitHub Actions cache (`mode=max`)
 
-### Conditional behavior
+### Image tagging strategy
 
-| Trigger | Action | Push to GHCR |
-| --- | --- | --- |
-| Pull request | Build only | ❌ No |
-| Push to `main` | Build + push | ✅ Yes (`latest` + branch tags) |
-| Push tag `v*` | Build + push | ✅ Yes (semver tags) |
+Tags are **explicit and context-aware** for clarity and traceability.
+
+### On pull requests
+
+```
+ghcr.io/clementv78/cloudradar/ingester:pr-173
+ghcr.io/clementv78/cloudradar/ingester:85591c6d
+```
+
+**Use case**: Test image from a specific PR without affecting main.
+
+### On branches (e.g., `feature/prometheus-exporter`)
+
+```
+ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter
+ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter-85591c6d
+```
+
+**Use case**: Build and test from feature branches before merge.
+
+### On main (default branch)
+
+```
+ghcr.io/clementv78/cloudradar/ingester:main
+ghcr.io/clementv78/cloudradar/ingester:latest
+ghcr.io/clementv78/cloudradar/ingester:main-85591c6d
+```
+
+**Use case**: Stable release images; `latest` points to main.
+
+### On tags (e.g., `v1.0.0`)
+
+```
+ghcr.io/clementv78/cloudradar/ingester:v1.0.0
+ghcr.io/clementv78/cloudradar/ingester:85591c6d
+```
+
+**Use case**: Release-pinned versions.
+
+
 
 ## Image registry location
 
