@@ -50,39 +50,50 @@ For each service, the workflow:
 
 Tags are **explicit and context-aware** for clarity and traceability.
 
-### On pull requests
+### Quick reference
+
+| Context | Tag Format | Lisibilité | Use Case |
+| --- | --- | --- | --- |
+| PR | `pr-173`, `85591c6` | ✅ PR number visible | Test image from PR #173 |
+| Branch | `feature-xyz`, `feature-xyz-85591c6` | ✅ Branch name visible | Feature branch builds |
+| Main | `main`, `latest`, `main-85591c6` | ✅ Latest release | Stable builds |
+| Tag (semver) | `v1.0.0`, `85591c6` | ✅ Release version | Release-pinned versions |
+
+### Examples per context
+
+#### On pull requests
 
 ```
 ghcr.io/clementv78/cloudradar/ingester:pr-173
-ghcr.io/clementv78/cloudradar/ingester:85591c6d
+ghcr.io/clementv78/cloudradar/ingester:85591c6
 ```
 
 **Use case**: Test image from a specific PR without affecting main.
 
-### On branches (e.g., `feature/prometheus-exporter`)
+#### On branches (e.g., `feature/prometheus-exporter`)
 
 ```
 ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter
-ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter-85591c6d
+ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter-85591c6
 ```
 
 **Use case**: Build and test from feature branches before merge.
 
-### On main (default branch)
+#### On main (default branch)
 
 ```
 ghcr.io/clementv78/cloudradar/ingester:main
 ghcr.io/clementv78/cloudradar/ingester:latest
-ghcr.io/clementv78/cloudradar/ingester:main-85591c6d
+ghcr.io/clementv78/cloudradar/ingester:main-85591c6
 ```
 
 **Use case**: Stable release images; `latest` points to main.
 
-### On tags (e.g., `v1.0.0`)
+#### On tags (e.g., `v1.0.0`)
 
 ```
 ghcr.io/clementv78/cloudradar/ingester:v1.0.0
-ghcr.io/clementv78/cloudradar/ingester:85591c6d
+ghcr.io/clementv78/cloudradar/ingester:85591c6
 ```
 
 **Use case**: Release-pinned versions.
