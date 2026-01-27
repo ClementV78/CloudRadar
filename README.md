@@ -1,6 +1,6 @@
 # CloudRadar — Flight Telemetry Analyzer (Budget MVP)
 
-> **Event-Driven Telemetry Processing** on AWS & Kubernetes (k3s).
+> **Queue-Driven Telemetry Processing** on AWS & Kubernetes (k3s).
 
 ![AWS](https://img.shields.io/badge/Cloud-AWS-232F3E?style=flat&logo=amazon-aws&logoColor=white)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-k3s-326CE5?style=flat&logo=kubernetes&logoColor=white)
@@ -9,36 +9,52 @@
 ![GitOps](https://img.shields.io/badge/GitOps-ArgoCD-FE6A16?style=flat&logo=argo&logoColor=white)
 ![FinOps](https://img.shields.io/badge/Cost%20Aware-Low%20Budget-2E7D32?style=flat)
 
+**Key DevOps practices:** IaC (Terraform), GitOps (ArgoCD), CI/CD (GitHub Actions), FinOps (cost-aware infra), Security (OIDC + SSM).
+
 ---
 
 ## 📌 Project Overview
 
-**CloudRadar** is a **DevOps & Cloud Architecture showcase project** designed to demonstrate how to build an **event-driven data processing platform** on AWS with a strong focus on:
+**CloudRadar** is a **DevOps & Cloud Architecture showcase**: a lightweight AWS platform that runs a **queue-driven telemetry pipeline** (ingester → Redis list → consumers) on a minimal k3s stack. It emphasizes cost-efficient infrastructure choices, GitOps delivery, and operational readiness.
 
-- cost-efficient infrastructure,
-- Kubernetes fundamentals,
-- automation, GitOps, and CI/CD,
-- observability and operational concerns.
+**Functional Overview:** Ingest live flight telemetry from OpenSky, aggregate events, and expose data for a map dashboard with alertable zones.
 
-**Functional Overview:**
-The project ingests real-world flight telemetry from OpenSky’s open data stream to power a dashboard that visualizes live aircraft positions and traffic details, lets users define exclusion zones, and triggers alerts on zone intrusions.
-
-**Technical Overview:**
-CloudRadar is a Terraform-driven AWS stack (k3s on EC2) with Prometheus/Grafana observability, a React + Leaflet UI, and a GitHub Actions CI/CD pipeline pushing containers to GHCR. Application workloads on k3s are delivered via GitOps with ArgoCD. EC2 nodes use AL2023 minimal AMIs with SSM agent installed explicitly at boot to keep access reliable.
+**Technical Overview:** Terraform provisions AWS (k3s on EC2, IAM, S3, VPC). GitHub Actions runs infra CI; ArgoCD syncs `k8s/apps`. Prometheus/Grafana observability and GHCR app publishing are planned.
 
 **Project Management:**
-All features and fixes are tracked as GitHub Issues, grouped by milestones, and delivered through an iterative, issue-driven workflow. Progress is managed using a GitHub Projects Kanban board, following lightweight agile-inspired practices adapted for a solo project.
+All features and fixes are tracked as GitHub Issues and delivered through an iterative, issue-driven workflow. Progress is managed using a GitHub Projects Kanban board, following lightweight agile-inspired practices adapted for a solo project.
+
+**Why this project exists:** provide a concrete, end-to-end DevOps/Cloud Architecture portfolio with real IaC, CI/CD, GitOps, and cost trade-offs.
+
+**Quick links:** [Runbooks](docs/runbooks/README.md) · [Infra doc](docs/architecture/infrastructure.md) · [ADRs](docs/architecture/decisions/) · [Architecture diagram](docs/architecture/cloudradar-v1-high-level.png)
+
+## 🛠️ DevOps Tooling & Practices
+
+| Tool / Practice | Purpose | Value | Status |
+| --- | --- | --- | --- |
+| Terraform | Infrastructure as Code for AWS resources (VPC, EC2, IAM, S3) | Reproducible, reviewable infrastructure changes | Implemented |
+| GitHub Actions | CI for infra (`fmt/validate/plan`) | Fast feedback and safer changes | Implemented (infra) |
+| GitHub Container Registry (GHCR) | Container registry for app images | Centralized, versioned image distribution | Planned (automated); manual pushes supported |
+| Docker | Local image builds for services | Portable builds aligned with CI artifacts | Implemented (local/manual) |
+| ArgoCD (GitOps) | Sync `k8s/apps` to the cluster | Declarative deploys and drift control | Implemented |
+| Kustomize | Compose Kubernetes manifests | Reuse and consistency across apps | Implemented |
+| Helm | Manage charts via ArgoCD (e.g., EBS CSI) | Standard packaging for add-ons | Implemented (via ArgoCD) |
+| k3s | Lightweight Kubernetes on EC2 | Low-cost, production-like K8s | Implemented |
+| Prometheus + Grafana | Metrics collection and dashboards | Monitoring & observability by design | Planned |
+| SSM Parameter Store + IAM OIDC | Secure parameters and CI access | Fewer static creds, better auditability | Implemented |
+
+## 🧩 DevOps Skills Demonstrated
+
+| Skill | Evidence in this project |
+| --- | --- |
+| Infrastructure as Code | Terraform modules, remote state (S3 + DynamoDB) |
+| GitOps Delivery | ArgoCD syncs `k8s/apps` to the cluster |
+| CI for Infrastructure | GitHub Actions `fmt/validate/plan` with manual apply |
+| Secure CI Access | IAM OIDC (no static AWS keys) |
+| Cost Awareness | k3s on EC2 + NAT instance vs managed alternatives |
+| Operational Readiness | Runbooks for bootstrap, verification, and ops |
 
 This repository represents **Version 1 (MVP)** of the platform.
-
----
-
-## 🚀 Getting Started (Runbooks)
-
-Start here if you are setting up the project from scratch.
-
-1. Follow the runbook order in [docs/runbooks/README.md](docs/runbooks/README.md).
-2. Complete each runbook step-by-step (bootstrap → backend → live env).
 
 ---
 
@@ -46,10 +62,8 @@ Start here if you are setting up the project from scratch.
 
 - Design a **budget-aware cloud architecture** on AWS
 - Run Kubernetes **without managed control plane (EKS)** using **k3s on EC2**
-- Implement an **event-driven processing chain** (producer → queue → consumers)
+- Implement a **queue-driven processing chain** (producer → Redis queue → consumers)
 - Automate infra checks and delivery with **GitHub Actions** (infra CI live; app pipeline planned)
-- Provide **observability by design** (Prometheus & Grafana) (planned)
-- Ensure **data durability** with automated backups (planned)
 
 ---
 
@@ -64,93 +78,25 @@ Start here if you are setting up the project from scratch.
 - Event buffering: **Redis**
 - MVP storage: **SQLite (PV / EBS)**
 - Observability (planned): **Prometheus & Grafana**
-- Backups (planned): **Amazon S3**
+- Backups (planned): **Daily SQLite to Amazon S3**
 
 ---
 
 ## ☁️ AWS Infrastructure
 
-The platform runs entirely on AWS with a minimal footprint:
+High-level components (details in [docs/architecture/infrastructure.md](docs/architecture/infrastructure.md)):
 
-- **EC2 (Public)**  
-  - Nginx reverse proxy (dev implemented, AL2023 minimal + SSM agent install)  
-  - HTTPS + Basic Authentication via SSM Parameter Store (dev implemented)  
-- **CloudFront**  
-  - Global edge caching for latency optimization (planned)  
-- **EC2 (Private)**  
-  - k3s Server (control plane, AL2023 minimal + SSM agent install)  
-  - k3s Agent (worker node, AL2023 minimal + SSM agent install)  
-- **NAT Instance**  
-  - Egress for private subnets (cost-aware alternative to NAT Gateway)  
-- **Amazon S3**  
-  - Daily backups (planned)  
-  - Restore on environment rebuild  
- - **VPC Endpoints (SSM + S3 gateway)**  
-  - Private access for SSM and S3 when enabled (dev implemented)
+| Component | Role | Status |
+| --- | --- | --- |
+| VPC (public edge + private k3s) | Network segmentation and routing | Implemented |
+| EC2 (Public) | Nginx reverse proxy + basic auth | Dev implemented |
+| EC2 (Private) | k3s server + worker nodes | Implemented |
+| NAT Instance | Private subnet egress | Implemented |
+| CloudFront | Edge caching | Planned |
+| S3 | Backups (daily) | Planned |
+| VPC Endpoints (SSM, S3) | Private access to control/data plane | Dev implemented |
 
-Infrastructure is provisioned using **Terraform**, including:
-- networking,
-- EC2 instances,
-- S3 buckets,
-- IAM roles and policies.
-
-VPC networking is managed per environment with a reusable module (implemented). See `docs/architecture/infrastructure.md` for the network inventory/table.
-
----
-
-## ☸️ Kubernetes Architecture (k3s)
-
-The k3s cluster hosts all application workloads and platform components.
-
-### Namespaces
-
-**cloudradar**
-- `ingester` — telemetry ingestion
-- `processor` — event aggregates for the UI
-- `admin-scale` — admin API to scale ingester
-- `dashboard` — API + UI (planned)
-
-**data**
-- `redis` — event queue / buffer
-- `sqlite` — MVP persistent storage
-
-**observability**
-- `prometheus`
-- `grafana`
-
-### GitOps apps (`k8s/apps`)
-
-ArgoCD syncs everything under `k8s/apps` automatically.
-
-- ✅ `health` — minimal `/healthz` endpoint
-- ✅ `redis` — event buffer in `data` namespace
-- ✅ `ingester` — OpenSky ingestion
-- ✅ `processor` — Java processor (Redis aggregates)
-- ✅ `admin-scale` — ingester scaling API
-- 📝 `dashboard` — API + UI (planned)
-
----
-
-## 📊 Observability (Planned)
-
-Observability is planned using CNCF-friendly tools:
-
-- **Prometheus** scrapes application and platform metrics
-- **Grafana** provides dashboards for:
-  - ingestion rate
-  - processing latency
-  - system health
-
-No managed monitoring services are used in v1.
-
----
-
-## 🔁 Backup & Restore Strategy (Planned)
-
-- SQLite data is backed up **daily** using a Kubernetes `CronJob`
-- Backups are stored in **Amazon S3**
-- A manual backup can be triggered before destroying the environment
-- Data is restored automatically on environment rebuild (planned)
+Infrastructure is provisioned with Terraform (networking, IAM, compute, storage).
 
 ---
 
@@ -168,7 +114,24 @@ Infra CI is live; app CI/CD is planned. Application workloads on k3s are reconci
 
 ---
 
-## ✅ Implementation Status
+## ☸️ Kubernetes Architecture (k3s)
+
+The k3s cluster runs a **control plane** and **worker node(s)** on EC2, hosting all application workloads and platform components. ArgoCD manages workloads declaratively via GitOps.
+
+### GitOps apps (`k8s/apps`)
+
+ArgoCD syncs everything under `k8s/apps` automatically.
+
+| App | Role | Namespace | Status |
+| --- | --- | --- | --- |
+| `health` | Minimal `/healthz` endpoint | `cloudradar` | Implemented |
+| `redis` | Event buffer | `data` | Implemented |
+| `ingester` | OpenSky ingestion | `cloudradar` | Implemented |
+| `processor` | Redis aggregates | `cloudradar` | Implemented |
+| `admin-scale` | Ingester scaling API | `cloudradar` | Implemented |
+| `dashboard` | API + UI | `cloudradar` | Planned |
+
+---
 
 ## 📈 Project Progress (Estimates)
 
@@ -179,67 +142,24 @@ Infra CI is live; app CI/CD is planned. Application workloads on k3s are reconci
 | v2 | `#-------------------` | 5% |
 
 These are high-level estimates based on current scope.
+Detailed status is tracked in [docs/project-status.md](docs/project-status.md) and in the GitHub Project board.
 
-**Progress by category (v1-mvp)**
+| Category | Progress | Notes |
+| --- | --- | --- |
+| Infra | ✅ Mostly done | k3s nodes, edge, IAM, Terraform backend |
+| Automation | ✅ Core done | infra CI + manual apply; app CI/CD planned |
+| Application | 📝 In progress | ingestion → Redis → processor working; storage/API pending |
+| Monitoring | 📝 Planned | Prometheus/Grafana, Loki, Alertmanager |
+| UI | 📝 Planned | Grafana Geomap MVP |
 
-**Infra**
-- ✅ AWS account secured (MFA root, no static root keys)
-- ✅ IAM baseline set (bootstrap user + MFA, bootstrap role, least-privilege policies) — see `docs/runbooks/aws-account-bootstrap.md`
-- ✅ IAM OIDC for GitHub Actions configured (no static AWS keys in CI)
-- ✅ Terraform backend ready (S3 state + DynamoDB lock)
-- ✅ Cost guardrails enabled (budget alerts)
-- ✅ Terraform bootstrap solved via a dedicated workflow using local state to create S3/DynamoDB, then remote state for all other stacks
-- ✅ VPC module + per-environment live roots (dev/prod)
-- ✅ Provision k3s nodes with cloud-init (server + agent) + SSM validation + retry
-- ✅ Deploy edge Nginx with TLS + Basic Auth (dev)
-- ✅ Expose `/healthz` through edge Nginx
-- 📝 Add SQLite persistence + daily S3 backups + restore workflow
+---
 
-**Automation**
-- ✅ Backend bootstrap workflow in GitHub Actions (local state, idempotent)
-- ✅ Infra CI workflow (fmt/validate/plan + tfsec) on PRs
-- ✅ Manual infra apply workflow (workflow_dispatch)
-- ✅ Runbooks available for bootstrap and verification
-- ✅ GitOps bootstrap with ArgoCD (k3s)
-- 📝 Application CI/CD pipeline (build + GHCR publish)
+## 🚀 Getting Started (Runbooks)
 
-**Application**
-- 📝 Integrate OpenSky ingestion source (or equivalent public feed)
-- 📝 Wire ingestion -> Redis -> processor -> SQLite
-- 📝 Implement minimal API for dashboard queries
-- ✅ Deploy Redis buffer in the data namespace
-- 📝 End-to-end demo with sample telemetry data
+Start here if you are setting up the project from scratch.
 
-**Monitoring**
-- 📝 Deploy Prometheus + Grafana with starter dashboards
-- 📝 Add logging stack (Loki + Promtail)
-- 📝 Add alerting via Alertmanager
-
-**UI**
-- 📝 Grafana Geomap panel as MVP UI
-
-**Next milestones**
-
-**v1.1 (next)**
-1. Add logging stack (Loki + Promtail).
-2. Add alerting via Alertmanager.
-3. Harden networking with baseline NetworkPolicies.
-4. Build the custom UI (React/Leaflet) with a polished dashboard experience.
-
-**v2 (next)**
-1. Multi-AZ network layout and HA worker nodes.
-2. IRSA + least-privilege IAM for workloads.
-3. Optional EKS foundation and advanced GitOps.
-
-**References**
-- Runbook: [docs/runbooks/aws-account-bootstrap.md](docs/runbooks/aws-account-bootstrap.md)
-- Runbook: [docs/runbooks/terraform-backend-bootstrap.md](docs/runbooks/terraform-backend-bootstrap.md)
-- Runbooks index: [docs/runbooks/README.md](docs/runbooks/README.md)
-- Agent guide (project-specific): [AGENTS.md](AGENTS.md)
-- Agent guide (generic template): [docs/agents/GENERIC-AGENTS.md](docs/agents/GENERIC-AGENTS.md)
-- Infra doc: [docs/architecture/infrastructure.md](docs/architecture/infrastructure.md)
-- Diagram: [docs/architecture/cloudradar-v1-high-level.png](docs/architecture/cloudradar-v1-high-level.png)
-- Decision Records: [docs/architecture/decisions/](docs/architecture/decisions/)
+1. Follow the runbook order in [docs/runbooks/README.md](docs/runbooks/README.md).
+2. Complete each runbook step-by-step (bootstrap → backend → live env).
 
 ---
 
