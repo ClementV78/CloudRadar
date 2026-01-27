@@ -35,7 +35,6 @@ jobs:
         service:
           - ingester
           - processor
-          - dashboard
           - health
           - admin-scale
 
