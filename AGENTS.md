@@ -96,6 +96,21 @@
 - Use closing keywords to link PRs to issues: prefer `Closes #ID` for features and `Fixes #ID` for bugs so the issue appears in Development.
 - Keep destructive workflows (apply/destroy) manual-only with explicit confirmation inputs.
 
+### 4.9 Cloud & DevOps Practices (MVP)
+
+**GitOps & IaC as Source of Truth**:
+- All infrastructure changes via Git + IaC (Terraform for AWS, Kubernetes manifests for k8s)
+- Test before merge: `terraform plan`, `kubectl apply --dry-run=client`
+- Idempotent changes: safe to apply multiple times with no side effects
+
+**Observability Endpoints**:
+- All services expose `/healthz` (liveness) and `/metrics` (Prometheus) for cluster visibility
+- Prometheus + Grafana configured end-to-end; use for debugging and capacity planning
+
+**Cost Awareness**:
+- Document resource allocation and cost implications (e.g., PVC size, retention policies)
+- Prefer free-tier and lowest-cost options; justify exceptions
+
 ## 5. Decided Tech Stack (Decision Context)
 
 **Core Production Stack** (locked, no changes without ADR):
