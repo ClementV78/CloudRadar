@@ -22,8 +22,8 @@ graph TB
     Health["Health<br/>(Python)"]
     AdminScale["Admin-Scale<br/>(Python)"]
     Edge["Edge Nginx<br/>(load balancer)"]
-    Dashboard["Dashboard<br/>(React/Vite)<br/>[Planned]"]
-    Prometheus["Prometheus<br/>(metrics)"]
+    Dashboard["Dashboard<br/>(React/Vite)<br/>[Planned v1.1]"]
+    Prometheus["Prometheus<br/>(metrics collection)"]
     Grafana["Grafana<br/>(dashboards)"]
 
     OpenSky -->|periodic fetch| Ingester
@@ -36,7 +36,8 @@ graph TB
     Processor -->|metrics| Prometheus
     Prometheus -->|visualize| Grafana
     Dashboard -->|read aggregates| RedisAgg
-    Dashboard -->|metrics| Prometheus
+    Dashboard -->|embed dashboards| Grafana
+    Grafana -->|query| Prometheus
 ```
 
 ---
@@ -366,37 +367,41 @@ src/admin-scale/
 
 ## 5. Dashboard (React / Vite)
 
-### Purpose
-Frontend for visualizing aircraft positions, flight tracks, and cluster health. Uses Leaflet for map visualization and Grafana for metrics dashboards.
+### ⚠️ Status: Not Yet Implemented
+**Planned for v1.1** — Currently in planning phase only. No code or deployment yet.
 
-### Technology Stack
+Dependencies:
+- Processor aggregates finalized ✅
+- Redis schema stable ✅
+- Observability stack deployed ✅ (issue #10)
+
+### Purpose
+Frontend for visualizing aircraft positions, flight tracks, and cluster health. Will use Leaflet for map visualization and Grafana (via embedded iframes) for observability dashboards.
+
+### Technology Stack (Planned)
 - **Language**: TypeScript / React 18
 - **Build Tool**: Vite
 - **Map**: Leaflet + Leaflet-Geosearch
 - **Styling**: TailwindCSS
-- **Metrics**: Grafana (embedded dashboards)
+- **Observability**: Grafana (embedded dashboards from metrics stack)
 - **State**: Context API (minimal)
-
-### Status
-**In Planning** for v1.1 — Depends on:
-- Processor aggregates finalized ✅
-- Redis schema stable ✅
-- Observability stack deployed ✅ (issue #10)
 
 ### Planned Architecture
 
 ```mermaid
 graph TB
-    Dashboard["Dashboard<br/>(React/Vite)"]
+    Dashboard["Dashboard<br/>(React/Vite)<br/>[Not Yet Implemented]"]
     Leaflet["Leaflet Map<br/>(aircraft positions)"]
     GeoSearch["Geosearch Plugin<br/>(location search)"]
-    Metrics["Grafana Embed<br/>(cluster health)"]
+    Grafana["Grafana Embed<br/>(observability dashboards)"]
+    Prometheus["Prometheus<br/>(metrics source)"]
     RedisAPI["REST API<br/>(aggregates proxy)<br/>[Future]"]
     Redis["Redis Aggregates<br/>(aircraft:*, in_bbox)"]
     
     Dashboard -->|display| Leaflet
     Dashboard -->|search| GeoSearch
-    Dashboard -->|embed| Metrics
+    Dashboard -->|embed dashboards| Grafana
+    Grafana -->|query metrics| Prometheus
     Dashboard -->|fetch| RedisAPI
     RedisAPI -->|read| Redis
 ```
@@ -439,8 +444,8 @@ sequenceDiagram
     Dashboard->>RedisAgg: fetch aircraft:in_bbox
     Dashboard->>RedisAgg: fetch aircraft:last for each
     Dashboard->>Dashboard: render on map
-    Dashboard->>Grafana: fetch metrics
-    Dashboard->>Grafana: render health dashboard
+    Dashboard->>Grafana: embed observability dashboards<br/>(Grafana queries Prometheus)
+    Dashboard->>Grafana: display health/metrics
 ```
 
 ---
