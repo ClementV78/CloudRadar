@@ -1,0 +1,66 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: grafana
+    targetRevision: "7.6.10"
+    helm:
+      values: |
+        adminPassword: admin
+        
+        datasources:
+          datasources.yaml:
+            apiVersion: 1
+            datasources:
+            - name: Prometheus
+              type: prometheus
+              url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+              access: proxy
+              isDefault: true
+        
+        dashboardProviders:
+          dashboardproviders.yaml:
+            apiVersion: 1
+            providers:
+            - name: 'default'
+              orgId: 1
+              folder: ''
+              type: file
+              disableDeletion: false
+              editable: true
+              options:
+                path: /var/lib/grafana/dashboards/default
+        
+        dashboards:
+          default:
+            cloudradar-ingester:
+              url: https://raw.githubusercontent.com/prometheus-community/helm-charts/main/charts/kube-prometheus-stack/dashboards/kubernetes-apps.json
+            cloudradar-processor:
+              url: https://raw.githubusercontent.com/prometheus-community/helm-charts/main/charts/kube-prometheus-stack/dashboards/kubernetes-cluster.json
+        
+        persistence:
+          enabled: false
+        
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

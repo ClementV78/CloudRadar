@@ -28,8 +28,8 @@
 
 ### 4.2 Context & Documentation Hygiene
 - At session start, load context from `.codex-context.md` without asking (if present), then confirm it was loaded and provide a brief recap (recent actions and next planned steps).
+- **`.codex-context.md` maintenance rule**: This is a **local session file** (never committed; in `.gitignore`). Update it **regularly during work** (after each major task block) to track: active branches, current issue/PR, recent decisions, next steps. Enables seamless session continuity and context recovery.
 - At session start, review the full ADR list in `docs/architecture/decisions/` and keep it in mind for decisions and updates.
-- Keep `.codex-context.md` updated regularly.
 - Explicitly mark “planned” vs “implemented” in README status sections.
 - Update `docs/runbooks/issue-log.md` when a new issue occurs (except minor), when there is new information, or when the issue is resolved/closed.
 - Before logging a new issue, check `docs/runbooks/issue-log.md` for similar past incidents to reuse lessons learned.
@@ -45,27 +45,27 @@
 - Minimize manual changes in AWS Console/UI. Prefer IaC and pipelines: Terraform for AWS infra, ArgoCD for Kubernetes, and CI/CD to execute and audit changes. Any exception must be justified and documented.
 
 ### 4.4 Project & GitHub Management
-- When creating a new issue, note dependencies or relationships to other issues.
-- Codex may use `gh` to read issues and the GitHub Project: https://github.com/ClementV78/CloudRadar/issues and https://github.com/users/ClementV78/projects/1/
-- Every new issue must be added to the GitHub Project and placed either in a sprint/iteration or explicitly in Backlog.
-- Tech-decision issues must be placed in the Project "Decisions" column.
-- Keep issue status in the GitHub Project updated as work progresses (Backlog → In progress → In review → Done/Cancelled).
-- Use the Project "Ready" column as the queue of next tickets: move one ticket to Ready, start it, move it to In progress, then refresh Ready.
-- Always keep the Project backlog board up to date.
-- In issues and PRs, include clickable links whenever referencing docs, ADRs, runbooks, or other resources.
-- When creating issues, PRs, or comments via `gh`, ensure newlines render correctly (use heredoc or `$'...'` instead of literal `\\n`).
-- When a change concerns skills, use the `skill` type in titles (e.g., `skill(agents): harden auto-merge`).
-- Do not add PRs to the GitHub Project; rely on issue links so Development stays clean.
-- Do not assume labels exist; verify or create them before applying.
-- Close GitHub issues only after adding a comment with DoD evidence (tests/logs/metrics) and recording verification.
-- Keep GitHub metadata complete: assignees, labels, project status (issues), milestone (except tooling), and cross-links.
-- For issues, ensure Assignees, Labels, Project, Project Status, and Milestone are set; for PRs, ensure Assignees and Labels are set and use closing keywords so issues appear in Development, except for meta refs noted below.
-- PRs do not require Project/Status fields to avoid clutter.
-- PRs never require reviewers in this solo workflow.
-- For AGENTS-only PRs, add `Refs #55` (do not close the meta issue; no closing keywords).
-- For docs-only PRs (README/runbooks/architecture), add `Refs #57` (do not close the meta issue; no closing keywords).
-- Do not modify Project Status options via API/CLI; changing options re-IDs statuses and will drop items into "No Status". If a Status change is needed, use the GitHub UI and re-map items immediately.
-- For commits, workflows, issues, PRs, and project items, fill required metadata (assignees, labels, project status, milestone, reviewers, and links) consistently.
+
+**Metadata Requirements** (AI-actionable checklist):
+- **Issues**: Assignees + Labels + Project + Project Status + Milestone (except tooling)
+- **PRs**: Assignees + Labels + Closing keywords (`Closes #ID` for feat, `Fixes #ID` for bugs)
+- **Meta PRs**: Use `Refs #55` (AGENTS) or `Refs #57` (docs-only) — no closing keywords
+
+**Workflow & Consistency**:
+- When creating issues: note dependencies, add to Project (Backlog or sprint), link related ADRs/runbooks
+- Tech-decision issues → Project "Decisions" column; others → "Ready" (next queue) or "Backlog"
+- Track progress: Backlog → Ready → In progress → In review → Done/Cancelled
+- Issue closure: add DoD evidence comment (tests/logs/metrics) before closing
+- Include clickable links in issues/PRs when referencing docs, ADRs, runbooks
+- GitHub metadata is maintained consistently across all items (avoid "No Status" gotcha)
+
+**Technical Details**:
+- Use `gh` CLI to read/create issues; ensure newlines render correctly (heredoc or `$'...'` syntax)
+- Do not add PRs to Project board (issue links keep Development clean)
+- Do not modify Project Status via API/CLI (re-IDs options; use GitHub UI instead)
+- PRs do not require reviewers or Project Status in solo workflow
+- Verify labels exist before applying; create if needed
+- Use `skill` type for skill updates (e.g., `skill(agents): harden auto-merge`)
 - Prefer testing workflows on a branch before merging to main.
 
 ### 4.5 CI Reproducibility
@@ -92,17 +92,40 @@
 - When asked to make changes outside the current branch scope, explicitly warn and offer to create a dedicated branch before proceeding.
 - Do not continue committing on a branch whose PR is already merged/closed; create a new branch and PR for additional changes.
 - Keep branches short-lived: sync with `main` at least daily and before opening a PR; if a branch is stale (e.g., >7 days old or far behind `main`), stop and rebase/merge or create a fresh branch and cherry-pick to avoid drift.
-- PR merges are performed by the user, not by Codex.
+- **PR merges**: User merges all PRs except AGENTS.md standalone (agent auto-merges). Agent creates PR and waits for explicit user approval unless it's AGENTS.md-only.
 - Use closing keywords to link PRs to issues: prefer `Closes #ID` for features and `Fixes #ID` for bugs so the issue appears in Development.
 - Keep destructive workflows (apply/destroy) manual-only with explicit confirmation inputs.
 
-## 5. Tech Stack Overview
-- **Infrastructure as Code**: Terraform (modular, AWS-focused).
-- **Orchestration**: k3s (lightweight Kubernetes) on EC2.
-- **Cloud Provider**: AWS (cost-aware, IAM-first).
-- **Observability**: Prometheus + Grafana (metrics).
-- **Backend**: Python (for ingestion/processing services, only if needed).
-- **Frontend**: React + Vite + Leaflet (map-based telemetry dashboard).
+### 4.9 Cloud & DevOps Practices (MVP)
+
+**GitOps & IaC as Source of Truth**:
+- All infrastructure changes via Git + IaC (Terraform for AWS, Kubernetes manifests for k8s)
+- Test before merge: `terraform plan`, `kubectl apply --dry-run=client`
+- Idempotent changes: safe to apply multiple times with no side effects
+
+**Observability Endpoints**:
+- All services expose `/healthz` (liveness) and `/metrics` (Prometheus) for cluster visibility
+- Prometheus + Grafana configured end-to-end; use for debugging and capacity planning
+
+**Cost Awareness**:
+- Document resource allocation and cost implications (e.g., PVC size, retention policies)
+- Prefer free-tier and lowest-cost options; justify exceptions
+
+## 5. Decided Tech Stack (Decision Context)
+
+**Core Production Stack** (locked, no changes without ADR):
+- **IaC**: Terraform (AWS modules, remote state in S3, OIDC for CI/CD)
+- **Kubernetes**: k3s on EC2 (lightweight, cost-optimized; see ADR-0002)
+- **Ingestion/Processing**: Java 17 + Spring Boot (type-safe, production-proven; see ADR-0014)
+- **Event Buffer**: Redis (in-memory queue + aggregates; see ADR-0015)
+- **Observability**: Prometheus + Grafana (metrics-first, 7d retention; see ADR-0005)
+- **GitOps**: ArgoCD (declarative k8s deployments; see ADR-0013)
+
+**Frontend** (Planned v1.1):
+- React 18 + Vite + Leaflet (interactive map, real-time aircraft positions)
+- Grafana embeds for cluster health dashboards
+
+**When choosing tools**: Consult the ADR list in `docs/architecture/decisions/` before proposing new technologies. Changes require ADR and user approval.
 
 ## 6. Conventions
 - Issue/commit format: `type(scope): message`
@@ -130,6 +153,32 @@
 
 **Core Rule:** ⛔ **No direct push to `main`.** All changes require a Pull Request.
 
+### 9.1 Agent vs User Responsibilities
+
+**Agent (Codex) Responsibilities**:
+- Create branches, write code/docs, commits
+- Validate locally (terraform plan, kubectl dry-run, linting)
+- **Always request user review of code/doc changes before committing** — present changes and ask: "Review these changes before I commit?"
+- Create PRs with clear descriptions and DoD evidence
+- **Auto-merge only**: AGENTS.md standalone updates (no other files, all CI passing, no conflicts)
+
+**User Responsibilities**:
+- Review and approve agent-proposed changes before commit (code review, clarity, correctness)
+- Merge all non-AGENTS.md PRs manually (feature, fix, infra, app, docs)
+- Make final architectural decisions (approve/reject new ADRs, tech choices, structural changes)
+- Update GitHub Project status in UI when needed
+- Make final call on high-risk changes (terraform apply, destructive operations)
+
+**Agent Must Escalate To User**:
+- **Architecture evolution**: if changes affect infra/k8s/app structure, ask: "This modifies the architecture. Should I proceed? Any decisions needed?"
+- **New ADR-level decisions**: tool adoptions, major refactors, design patterns
+- **Cost implications**: if adding resources or services with cost impact, validate cost assumption first
+- **Non-AGENTS.md PRs**: always wait for user approval before merging
+
+**Implicit Approval** (Solo Workflow):
+- User approval is implicit for merged PRs (you review your own work via agent-requested review)
+- No external reviewer needed; agent acts as sounding board
+
 * **🔗 Contextual Changes (`feat/...`):**
     If an update is linked to a specific feature, modify `AGENTS.md` directly within that feature branch.
 * **🛠️ Isolated Updates (`docs/...`):**
@@ -140,8 +189,8 @@
 * **🧭 Meta Issue for Docs:**
     Track docs-only changes (README/runbooks/architecture) in https://github.com/ClementV78/CloudRadar/issues/57.
     Each docs-only PR must reference the meta issue and add a short changelog entry to it.
-* **🚀 Auto-Merge Policy:**
-    **Strictly reserved for `AGENTS.md` standalone updates.** Apply **Auto-Merge** right after AGENTS.md update to keep `main` synchronized.
+* **🚀 Auto-Merge Policy (Agent-Executed):**
+    **Strictly reserved for `AGENTS.md` standalone updates.** Codex (agent) may apply auto-merge directly via `gh pr merge` after creating the PR (conditions: all CI checks passing + no conflicts + no other files modified). User is notified after merge.
 * **🧰 AGENTS Update Skill:**
     Use the `cloudradar-agents-update` skill when asked to update `AGENTS.md`.
     Before running the skill, ensure `main` is up to date to avoid stash conflicts.

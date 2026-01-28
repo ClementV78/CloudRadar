@@ -40,7 +40,7 @@ All features and fixes are tracked as GitHub Issues and delivered through an ite
 | Kustomize | Compose Kubernetes manifests | Reuse and consistency across apps | Implemented |
 | Helm | Manage charts via ArgoCD (e.g., EBS CSI) | Standard packaging for add-ons | Implemented (via ArgoCD) |
 | k3s | Lightweight Kubernetes on EC2 | Low-cost, production-like K8s | Implemented |
-| Prometheus + Grafana | Metrics collection and dashboards | Monitoring & observability by design | Planned |
+| Prometheus + Grafana | Metrics collection and dashboards | Monitoring & observability by design | Implemented (2d retention MVP, ~$0.50/month) |
 | SSM Parameter Store + IAM OIDC | Secure parameters and CI access | Fewer static creds, better auditability | Implemented |
 
 ## 🧩 DevOps Skills Demonstrated
@@ -77,7 +77,7 @@ This repository represents **Version 1 (MVP)** of the platform.
 - Private compute: **k3s cluster (2 EC2 nodes: 1 control plane + 1 worker)**
 - Event buffering: **Redis**
 - MVP storage: **SQLite (PV / EBS)**
-- Observability (planned): **Prometheus & Grafana**
+- Observability: **Prometheus + Grafana** (7d retention, $0.50/month)
 - Backups (planned): **Daily SQLite to Amazon S3**
 
 ---
@@ -147,9 +147,9 @@ Detailed status is tracked in [docs/project-status.md](docs/project-status.md) a
 | Category | Progress | Notes |
 | --- | --- | --- |
 | Infra | ✅ Mostly done | k3s nodes, edge, IAM, Terraform backend |
-| Automation | ✅ Core done | infra CI + manual apply; app CI/CD planned |
+| Automation | ✅ Core done | infra CI + manual apply; app CI/CD in progress |
 | Application | 📝 In progress | ingestion → Redis → processor working; storage/API pending |
-| Monitoring | 📝 Planned | Prometheus/Grafana, Loki, Alertmanager |
+| Monitoring | ✅ Implemented | Prometheus/Grafana (MVP), AlertManager (planned Sprint 2) |
 | UI | 📝 Planned | Grafana Geomap MVP |
 
 ---
