@@ -92,7 +92,7 @@
 - When asked to make changes outside the current branch scope, explicitly warn and offer to create a dedicated branch before proceeding.
 - Do not continue committing on a branch whose PR is already merged/closed; create a new branch and PR for additional changes.
 - Keep branches short-lived: sync with `main` at least daily and before opening a PR; if a branch is stale (e.g., >7 days old or far behind `main`), stop and rebase/merge or create a fresh branch and cherry-pick to avoid drift.
-- PR merges are performed by the user, not by Codex.
+- **PR merges**: User merges all PRs except AGENTS.md standalone (agent auto-merges). Agent creates PR and waits for explicit user approval unless it's AGENTS.md-only.
 - Use closing keywords to link PRs to issues: prefer `Closes #ID` for features and `Fixes #ID` for bugs so the issue appears in Development.
 - Keep destructive workflows (apply/destroy) manual-only with explicit confirmation inputs.
 
@@ -153,6 +153,32 @@
 
 **Core Rule:** ⛔ **No direct push to `main`.** All changes require a Pull Request.
 
+### 9.1 Agent vs User Responsibilities
+
+**Agent (Codex) Responsibilities**:
+- Create branches, write code/docs, commits
+- Validate locally (terraform plan, kubectl dry-run, linting)
+- **Always request user review of code/doc changes before committing** — present changes and ask: "Review these changes before I commit?"
+- Create PRs with clear descriptions and DoD evidence
+- **Auto-merge only**: AGENTS.md standalone updates (no other files, all CI passing, no conflicts)
+
+**User Responsibilities**:
+- Review and approve agent-proposed changes before commit (code review, clarity, correctness)
+- Merge all non-AGENTS.md PRs manually (feature, fix, infra, app, docs)
+- Make final architectural decisions (approve/reject new ADRs, tech choices, structural changes)
+- Update GitHub Project status in UI when needed
+- Make final call on high-risk changes (terraform apply, destructive operations)
+
+**Agent Must Escalate To User**:
+- **Architecture evolution**: if changes affect infra/k8s/app structure, ask: "This modifies the architecture. Should I proceed? Any decisions needed?"
+- **New ADR-level decisions**: tool adoptions, major refactors, design patterns
+- **Cost implications**: if adding resources or services with cost impact, validate cost assumption first
+- **Non-AGENTS.md PRs**: always wait for user approval before merging
+
+**Implicit Approval** (Solo Workflow):
+- User approval is implicit for merged PRs (you review your own work via agent-requested review)
+- No external reviewer needed; agent acts as sounding board
+
 * **🔗 Contextual Changes (`feat/...`):**
     If an update is linked to a specific feature, modify `AGENTS.md` directly within that feature branch.
 * **🛠️ Isolated Updates (`docs/...`):**
@@ -164,7 +190,7 @@
     Track docs-only changes (README/runbooks/architecture) in https://github.com/ClementV78/CloudRadar/issues/57.
     Each docs-only PR must reference the meta issue and add a short changelog entry to it.
 * **🚀 Auto-Merge Policy (Agent-Executed):**
-    **Strictly reserved for `AGENTS.md` standalone updates.** Codex (agent) may apply auto-merge directly via `gh pr merge` after creating the PR (no user approval needed for AGENTS.md-only changes; keep `main` synchronized). Conditions: all CI checks passing + no conflicts.
+    **Strictly reserved for `AGENTS.md` standalone updates.** Codex (agent) may apply auto-merge directly via `gh pr merge` after creating the PR (conditions: all CI checks passing + no conflicts + no other files modified). User is notified after merge.
 * **🧰 AGENTS Update Skill:**
     Use the `cloudradar-agents-update` skill when asked to update `AGENTS.md`.
     Before running the skill, ensure `main` is up to date to avoid stash conflicts.
