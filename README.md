@@ -26,7 +26,7 @@ All features and fixes are tracked as GitHub Issues and delivered through an ite
 
 **Why this project exists:** provide a concrete, end-to-end DevOps/Cloud Architecture portfolio with real IaC, CI/CD, GitOps, and cost trade-offs.
 
-**Quick links:** [Runbooks](docs/runbooks/README.md) · [Infra doc](docs/architecture/infrastructure.md) · [ADRs](docs/architecture/decisions/) · [Architecture diagram](docs/architecture/cloudradar-v1-high-level.png)
+**Quick links:** [📚 Documentation Hub](docs/README.md) · [🚀 Runbooks](docs/runbooks/README.md) · [🏗️ Infra](docs/architecture/infrastructure.md) · [🎯 ADRs](docs/architecture/decisions/)
 
 ## 🛠️ DevOps Tooling & Practices
 
@@ -154,7 +154,28 @@ Detailed status is tracked in [docs/project-status.md](docs/project-status.md) a
 
 ---
 
-## 🚀 Getting Started (Runbooks)
+## � Where to Find Information
+
+**Documentation is organized in a hub model:**
+
+### If you want to...
+
+| Goal | Start Here |
+| --- | --- |
+| **Understand the architecture** | [📚 Documentation Hub → Architecture](docs/README.md#️-understanding-the-architecture) |
+| **Deploy or operate something** | [🚀 Runbooks Execution Order](docs/runbooks/README.md) |
+| **Find a specific runbook** | [📚 Documentation Hub → Runbooks](docs/README.md#-getting-things-done-runbooks) |
+| **Check a technical decision** | [🎯 ADRs Index](docs/README.md#-adr-index) |
+| **Troubleshoot an issue** | [🚧 Issue Log](docs/runbooks/troubleshooting/issue-log.md) + [🎯 ADRs](docs/architecture/decisions/) |
+| **Understand k3s/infra** | [🏗️ Infrastructure Architecture](docs/architecture/infrastructure.md) |
+| **Understand microservices** | [🧩 Application Architecture](docs/architecture/application-architecture.md) |
+| **Review agent rules** | [AGENTS.md](AGENTS.md) (root) |
+
+**→ [Go to the Documentation Hub](docs/README.md) for the complete navigation guide.**
+
+---
+
+## �🚀 Getting Started (Runbooks)
 
 Start here if you are setting up the project from scratch.
 
