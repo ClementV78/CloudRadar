@@ -193,3 +193,16 @@ variable "edge_ssm_vpc_endpoints_enabled" {
   type        = bool
   default     = true
 }
+variable "grafana_admin_password" {
+  description = "Grafana admin password. If empty, a random one will be generated."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "prometheus_auth_password" {
+  description = "Prometheus authentication password. If empty, a random one will be generated."
+  type        = string
+  sensitive   = true
+  default     = ""
+}

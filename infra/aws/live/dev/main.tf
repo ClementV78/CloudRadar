@@ -209,3 +209,24 @@ resource "aws_security_group_rule" "k3s_nodeports_from_edge" {
   source_security_group_id = module.edge.edge_security_group_id
   description              = "Allow edge access to k3s ${each.key} nodeport"
 }
+# Allow edge to access k3s Ingress Controller (port 80)
+resource "aws_security_group_rule" "k3s_ingress_from_edge" {
+  type                     = "ingress"
+  security_group_id        = module.k3s.k3s_security_group_id
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  source_security_group_id = module.edge.edge_security_group_id
+  description              = "Allow edge to k3s Ingress Controller (port 80)"
+}
+
+# Allow edge to access k3s Ingress Controller (port 443) for HTTPS
+resource "aws_security_group_rule" "k3s_ingress_https_from_edge" {
+  type                     = "ingress"
+  security_group_id        = module.k3s.k3s_security_group_id
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = module.edge.edge_security_group_id
+  description              = "Allow edge to k3s Ingress Controller (port 443)"
+}

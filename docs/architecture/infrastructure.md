@@ -200,17 +200,44 @@ Prod values are currently aligned with module defaults and may be overridden lat
 | Public RT | 0.0.0.0/0 -> IGW | us-east-1 | n/a | n/a | n/a | default | Egress for public subnet |
 | Private RT | 0.0.0.0/0 -> NAT | us-east-1 | n/a | n/a | n/a | default | Egress for private subnet |
 | k3s SG | 6443/TCP, 10250/TCP, 8472/UDP | us-east-1 | n/a | k3s SG | `cloudradar-dev-k3s-nodes` | default | Self-referenced rules |
+| k3s SG (Ingress) | 80/TCP, 443/TCP from edge | us-east-1 | n/a | edge SG | `cloudradar-dev-k3s-nodes` | default | Allow edge to k3s Ingress Controller |
 | NAT SG | All from private CIDRs | us-east-1 | n/a | nat SG | `cloudradar-dev-nat` | default | Egress to Internet |
 | Edge SG | 443/TCP (and 80/TCP redirect) | us-east-1 | n/a | edge SG | `cloudradar-dev-edge` | default | Access limited by `edge_allowed_cidrs` |
 | SSM endpoints | 443/TCP from edge SG | us-east-1 | n/a | edge SSM endpoints SG | `cloudradar-dev-edge-ssm-endpoints` | default | Interface endpoints for SSM/KMS |
 | S3 endpoint | AWS prefix list | us-east-1 | public + private RT | edge SG (egress) | `cloudradar-dev-s3-endpoint` | default | Gateway endpoint for AL2023 repos |
+
+## Observability Stack (Prometheus + Grafana)
+
+| Component | Details | Status |
+| --- | --- | --- |
+| **Namespace** | `monitoring` | Created by Terraform/K8s (manual) |
+| **Prometheus** | `prometheus-community/kube-prometheus-stack` v60.0.2 | Deployed via ArgoCD Application |
+| **Grafana** | `grafana/grafana` v7.6.10 | Deployed via ArgoCD Application |
+| **Storage** | 5GB gp3 EBS (Prometheus PVC) | Provisioned via EBS CSI + gp3 StorageClass |
+| **Retention** | 7 days (or when 4GB limit hit) | Configurable in Prometheus Helm values |
+| **Datasource** | Prometheus → Grafana (internal DNS) | Auto-configured, cluster-local |
+| **Ingress** | Traefik ingress controller (k3s default) | `grafana.cloudradar.local` via edge |
+| **Authentication** | K8s Secret `grafana-admin` (password) | Created manually post-bootstrap (see runbook) |
+| **Password Storage** | AWS SSM Parameter Store | `/cloudradar/grafana/admin-password` |
+| **Cost** | ~$0.50/month (PVC only) | 5GB gp3 @ $0.10/GB/month |
+| **Metrics Targets** | node-exporter, kube-state-metrics, app pods (with scrape labels) | Auto-discovered via ServiceMonitor |
+
+**Deployment Flow:**
+1. Terraform generates passwords + stores in SSM (no K8s create)
+2. Manual: create K8s Secrets in monitoring namespace (post-bootstrap)
+3. ArgoCD detects `k8s/apps/monitoring/` and syncs Applications
+4. Prometheus starts, scrapes metrics; Grafana connects as datasource
+5. Edge Nginx routes `grafana.cloudradar.local` to k3s Ingress
+
+See [docs/runbooks/observability.md](../runbooks/observability.md) for operational details and setup steps.
 
 ## Status
 
 - Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, S3 backup bucket for SQLite snapshots.
 - Implemented (IaC, dev): SSM/KMS interface endpoints are temporarily disabled to reduce cost; edge uses HTTPS egress for SSM.
 - Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery, Redis buffer in the data namespace, EBS CSI driver + `ebs-gp3` StorageClass.
-- Planned: observability stack, additional network hardening.
+- Implemented (Observability): Prometheus + Grafana stack (7d retention, 5GB PVC, $0.50/month), auto-deployed via ArgoCD, manual K8s Secret setup.
+- Planned: additional network hardening, AlertManager rules (Sprint 2).
 
 ## Notes
 

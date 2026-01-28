@@ -11,7 +11,9 @@ spec:
     targetRevision: "7.6.10"
     helm:
       values: |
-        adminPassword: admin
+        admin:
+          existingSecret: grafana-admin
+          existingSecretPasswordKey: admin-password
         
         datasources:
           datasources.yaml:
