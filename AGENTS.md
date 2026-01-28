@@ -68,13 +68,24 @@
 - Use `skill` type for skill updates (e.g., `skill(agents): harden auto-merge`)
 - Prefer testing workflows on a branch before merging to main.
 
-### 4.5 CI Reproducibility
+### 4.4.1 Issues vs PRs — Semantic Clarity
+
+**Issues** (describe problems/requests, future tense):
+- Content: Problem statement, context, why it matters, Definition of Done
+- Created before work starts to discuss and plan
+
+**PRs** (describe solutions implemented, past tense):
+- Content: What changed, files affected, why (briefly), link to issue
+- Keep short: 3-5 bullets max; don't re-explain the entire problem
+- PR is a progress report, not a deep justification of the problem
+
+### 4.6 CI Reproducibility
 - CI checks should use example/non-sensitive inputs when a plan/validate requires variables.
 - Version lockfiles that pin tool/provider versions to keep CI and local runs consistent.
 - In Terraform workflows, use `-var-file` for plan/apply only (validate does not accept it).
 - For CI tools that call the GitHub API (e.g., security scanners), provide a GitHub token to avoid rate limits.
 
-### 4.6 Security & Access
+### 4.7 Security & Access
 - Do not commit real emails or account identifiers; use placeholders in the repo.
 - Never share credentials (even temporary) in chat or documentation.
 - Never commit sensitive data (non-exhaustive): credentials, tokens, API keys, passwords, real emails, or personal info.
@@ -83,11 +94,11 @@
 - For bootstrap tasks, provide both a runbook and a script, and map steps between them.
 - After bootstrap, avoid leaving broad IAM user policies attached; prefer least-privilege roles via OIDC.
 
-### 4.7 FinOps & Cost Awareness
+### 4.8 FinOps & Cost Awareness
 - Prefer free-tier usage for AWS and keep GitHub Actions within free minutes when possible.
 - Apply a FinOps mindset: default to free-tier or lowest-cost options, and justify any paid services or upgrades.
 
-### 4.8 Scope & Merge Hygiene
+### 4.9 Scope & Merge Hygiene
 - Do not mix multiple issue scopes in a single branch; split work into separate branches if it happens.
 - When asked to make changes outside the current branch scope, explicitly warn and offer to create a dedicated branch before proceeding.
 - Do not continue committing on a branch whose PR is already merged/closed; create a new branch and PR for additional changes.
@@ -96,7 +107,7 @@
 - Use closing keywords to link PRs to issues: prefer `Closes #ID` for features and `Fixes #ID` for bugs so the issue appears in Development.
 - Keep destructive workflows (apply/destroy) manual-only with explicit confirmation inputs.
 
-### 4.9 Cloud & DevOps Practices (MVP)
+### 4.10 Cloud & DevOps Practices (MVP)
 
 **GitOps & IaC as Source of Truth**:
 - All infrastructure changes via Git + IaC (Terraform for AWS, Kubernetes manifests for k8s)
