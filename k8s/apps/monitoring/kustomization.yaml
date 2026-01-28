@@ -3,7 +3,12 @@ kind: Kustomization
 
 namespace: monitoring
 
+# Prometheus and Grafana monitoring stack
+# Requires K8s Secrets (grafana-admin, prometheus-auth) to be created first
+# These are created automatically by Terraform during infra bootstrap
+
 resources:
   - namespace.yaml
   - prometheus-app.yaml
   - grafana-app.yaml
+  - grafana-ingress.yaml

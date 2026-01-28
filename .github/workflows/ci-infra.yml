@@ -256,6 +256,15 @@ jobs:
             EXTRA_VARS+=("-var=sqlite_backup_bucket_name=${BACKUP_BUCKET_NAME}")
           fi
 
+          # Add monitoring passwords from GitHub Secrets
+          if [[ -n "${{ secrets.GRAFANA_ADMIN_PASSWORD }}" ]]; then
+            EXTRA_VARS+=("-var=grafana_admin_password=${{ secrets.GRAFANA_ADMIN_PASSWORD }}")
+          fi
+
+          if [[ -n "${{ secrets.PROMETHEUS_AUTH_PASSWORD }}" ]]; then
+            EXTRA_VARS+=("-var=prometheus_auth_password=${{ secrets.PROMETHEUS_AUTH_PASSWORD }}")
+          fi
+
           terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" plan -input=false -no-color -var-file=terraform.tfvars \
             "${EXTRA_VARS[@]}"
 
@@ -301,6 +310,15 @@ jobs:
 
           if [[ "${{ inputs.environment }}" == "dev" && -n "${BACKUP_BUCKET_NAME}" ]]; then
             EXTRA_VARS+=("-var=sqlite_backup_bucket_name=${BACKUP_BUCKET_NAME}")
+          fi
+
+          # Add monitoring passwords from GitHub Secrets
+          if [[ -n "${{ secrets.GRAFANA_ADMIN_PASSWORD }}" ]]; then
+            EXTRA_VARS+=("-var=grafana_admin_password=${{ secrets.GRAFANA_ADMIN_PASSWORD }}")
+          fi
+
+          if [[ -n "${{ secrets.PROMETHEUS_AUTH_PASSWORD }}" ]]; then
+            EXTRA_VARS+=("-var=prometheus_auth_password=${{ secrets.PROMETHEUS_AUTH_PASSWORD }}")
           fi
 
           terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" apply -input=false -auto-approve -var-file=terraform.tfvars \

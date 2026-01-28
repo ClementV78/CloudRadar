@@ -40,7 +40,7 @@ All features and fixes are tracked as GitHub Issues and delivered through an ite
 | Kustomize | Compose Kubernetes manifests | Reuse and consistency across apps | Implemented |
 | Helm | Manage charts via ArgoCD (e.g., EBS CSI) | Standard packaging for add-ons | Implemented (via ArgoCD) |
 | k3s | Lightweight Kubernetes on EC2 | Low-cost, production-like K8s | Implemented |
-| Prometheus + Grafana | Metrics collection and dashboards | Monitoring & observability by design | Implemented (2d retention MVP, ~$0.50/month) |
+| Prometheus + Grafana | Metrics collection and dashboards | Monitoring & observability by design | Implemented (7d retention, 5GB PVC, ~$0.50/month, auto-deployed via ArgoCD) |
 | SSM Parameter Store + IAM OIDC | Secure parameters and CI access | Fewer static creds, better auditability | Implemented |
 
 ## 🧩 DevOps Skills Demonstrated

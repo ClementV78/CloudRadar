@@ -9,4 +9,5 @@ resources:
   - ingester
   - processor
   - redis
+  - monitoring
   - storageclass-gp3.yaml

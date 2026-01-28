@@ -5,31 +5,145 @@
 Prometheus scrapes metrics from all k3s services. Grafana provides dashboards for ingestion/processing health monitoring.
 
 **Stack**: Prometheus (7d retention, 5GB PVC) + Grafana (stateless, no persistence)  
-**Cost**: ~$0.50/month (Prometheus PVC only)
+**Cost**: ~$0.50/month (Prometheus PVC only)  
+**Deployment**: Automatic via ArgoCD (GitOps) once k3s cluster is ready  
+**Internet Access**: Grafana exposed via Ingress through edge Nginx reverse proxy
+
+## Deployment & Bootstrap
+
+### Deployment Flow
+
+1. **Terraform Phase** (`terraform apply`)
+   - Generates random Grafana admin and Prometheus auth passwords (or uses provided values from GitHub Secrets / .env)
+   - Stores passwords in AWS SSM Parameter Store (`/cloudradar/grafana/admin-password`, `/cloudradar/prometheus/auth-password`)
+   - Outputs passwords for display/use
+   - **Does NOT create K8s Secrets** (cluster access happens after bootstrap)
+
+2. **Bootstrap ArgoCD Phase** (`scripts/bootstrap-argocd.sh`)
+   - Installs ArgoCD on k3s server
+   - Sets up GitOps root Application pointing to `k8s/apps`
+   - ArgoCD discovers monitoring Applications in `k8s/apps/monitoring/`
+   - **Waits for K8s Secrets before syncing Grafana**
+
+3. **Manual K8s Secrets Creation** (one-time, after terraform apply)
+   - Retrieve passwords from SSM Parameter Store
+   - Create K8s Secrets in monitoring namespace
+   - After this, ArgoCD syncs monitoring stack
+
+### Step-by-Step Manual Setup
+
+#### 1. After `terraform apply` completes
+
+```bash
+# Get outputs
+cd infra/aws/live/dev
+GRAFANA_PASSWORD=$(terraform output -raw grafana_admin_password)
+PROMETHEUS_PASSWORD=$(terraform output -raw prometheus_auth_password)
+
+# Verify they're in SSM
+aws ssm get-parameter --name /cloudradar/grafana/admin-password --with-decryption --query 'Parameter.Value'
+aws ssm get-parameter --name /cloudradar/prometheus/auth-password --with-decryption --query 'Parameter.Value'
+```
+
+#### 2. Get kubeconfig and connect to k3s
+
+```bash
+# Download kubeconfig from k3s server via SSM
+bash scripts/get-aws-kubeconfig.sh
+
+# Verify cluster access
+kubectl get nodes
+```
+
+#### 3. Create K8s Secrets
+
+```bash
+# Create monitoring namespace (if not already created)
+kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+# Create Grafana admin secret
+kubectl create secret generic grafana-admin \
+  -n monitoring \
+  --from-literal=admin-password="$GRAFANA_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Create Prometheus auth secret (for future use)
+kubectl create secret generic prometheus-auth \
+  -n monitoring \
+  --from-literal=auth-password="$PROMETHEUS_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
+
+# Verify secrets exist
+kubectl get secrets -n monitoring
+```
+
+#### 4. ArgoCD auto-syncs monitoring stack
+
+Once K8s Secrets exist:
+- ArgoCD detects changes in `k8s/apps/` (monitoring folder)
+- Prometheus Application syncs first (creates namespace, deploys Prometheus)
+- Grafana Application syncs (references grafana-admin Secret, deploys Grafana)
+- Ingress rule created (Traefik ingress controller routes traffic)
+
+Check sync status:
+```bash
+# Port-forward to ArgoCD server
+kubectl port-forward -n argocd svc/argocd-server 8080:443
+
+# Or check via CLI
+argocd app list
+argocd app get monitoring/prometheus
+argocd app get monitoring/grafana
+```
+
+#### 5. Verify deployments
+
+```bash
+# Check pods
+kubectl get pods -n monitoring
+
+# Check Grafana is ready
+kubectl rollout status deployment/grafana -n monitoring
+
+# Check Prometheus is ready
+kubectl rollout status statefulset/prometheus-kube-prometheus-prometheus -n monitoring
+```
+
+### Automated Setup (Future: v1.1)
+
+In Sprint 2, consider:
+- Using External Secrets Operator to auto-sync SSM → K8s Secrets
+- Creating a post-bootstrap hook in bootstrap-argocd.sh
+- Using ArgoCD pre-sync hooks to verify Secrets exist
+
+For now (MVP), the manual approach ensures we don't over-engineer the bootstrap flow.
 
 ## Access
 
-### Grafana
+### Grafana (Internet-Accessible)
 
-Port-forward to Grafana:
+**Via Internet** (through edge Nginx reverse proxy):
+```
+https://grafana.cloudradar.local/
+User: admin
+Password: (check AWS SSM `/cloudradar/grafana/admin-password`)
+```
+
+**Via Port-Forward** (local development):
 ```bash
 kubectl port-forward -n monitoring svc/grafana 3000:80
+# Open http://localhost:3000
 ```
 
-Then open http://localhost:3000
+### Prometheus (Internal Only - via Grafana datasource)
 
-**Default credentials:**
-- User: `admin`
-- Password: `admin` (change in production)
+Prometheus is accessible only from within the cluster (internal datasource for Grafana).
 
-### Prometheus
-
-Port-forward to Prometheus:
+**For debugging via port-forward:**
 ```bash
 kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
+# Open http://localhost:9090
 ```
-
-Then open http://localhost:9090
 
 ## Components
 
@@ -49,13 +163,51 @@ Then open http://localhost:9090
 ### Grafana
 
 - **Chart**: `grafana/grafana` v7.6.10
-- **Admin password**: Hardcoded `admin` for MVP (change in production)
+- **Admin password**: Retrieved from K8s Secret `grafana-admin` (set by Terraform)
 - **Datasource**: Auto-configured to Prometheus
 - **Dashboards**: Starter dashboards for cluster + application health
 - **Persistence**: Disabled (stateless, data loss on redeploy acceptable for MVP)
 - **Resource allocation**:
   - Requests: CPU 50m, Memory 128 Mi
   - Limits: CPU 200m, Memory 256 Mi
+
+## Password Management
+
+### Grafana Admin Password
+
+**Stored in**:
+- AWS SSM Parameter Store: `/cloudradar/grafana/admin-password` (SecureString)
+- K8s Secret: `monitoring/grafana-admin` (created by Terraform)
+
+**To retrieve**:
+```bash
+# From AWS
+aws ssm get-parameter --name /cloudradar/grafana/admin-password --with-decryption --query 'Parameter.Value'
+
+# From Kubernetes
+kubectl get secret grafana-admin -n monitoring -o jsonpath='{.data.admin-password}' | base64 -d
+```
+
+**To change**:
+1. Update in AWS SSM:
+   ```bash
+   aws ssm put-parameter --name /cloudradar/grafana/admin-password --value "newpassword" --type SecureString --overwrite
+   ```
+
+2. Update K8s Secret:
+   ```bash
+   kubectl delete secret grafana-admin -n monitoring
+   kubectl create secret generic grafana-admin -n monitoring --from-literal=admin-password="newpassword"
+   ```
+
+3. Restart Grafana pods:
+   ```bash
+   kubectl rollout restart deployment/grafana -n monitoring
+   ```
+
+### Prometheus Auth Password
+
+Stored in AWS SSM (`/cloudradar/prometheus/auth-password`) for future use (e.g., if basic auth is added at edge).
 
 ## Metrics
 
