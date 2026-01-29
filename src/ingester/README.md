@@ -21,7 +21,7 @@ flowchart LR
 - `com.cloudradar.ingester.IngesterApplication`  
   Spring Boot entrypoint with scheduling enabled.
 - `com.cloudradar.ingester.config.*`  
-  Configuration records and shared beans (HTTP client, SSM client).
+  Configuration records and shared beans (HTTP client, OpenSkyProperties).
 - `com.cloudradar.ingester.opensky.*`  
   OAuth2 token handling, API client, and data mapping into `FlightState`.
 - `com.cloudradar.ingester.redis.RedisPublisher`  
@@ -40,23 +40,18 @@ classDiagram
   class FlightIngestJob
   class OpenSkyClient
   class OpenSkyTokenService
-  class OpenSkyCredentialsProvider
   class RedisPublisher
   class IngesterProperties
   class OpenSkyProperties
-  class AwsProperties
   class FlightState
 
   IngesterApplication --> FlightIngestJob : schedules
   FlightIngestJob --> OpenSkyClient : fetch states
   FlightIngestJob --> RedisPublisher : push events
   OpenSkyClient --> OpenSkyTokenService : bearer token
-  OpenSkyTokenService --> OpenSkyCredentialsProvider : credentials
+  OpenSkyTokenService --> OpenSkyProperties : credentials + URLs
   OpenSkyClient --> FlightState : maps
   OpenSkyClient ..> IngesterProperties : bbox + refresh
-  OpenSkyTokenService ..> OpenSkyProperties : token URL
-  OpenSkyCredentialsProvider ..> OpenSkyProperties : config/SSM keys
-  OpenSkyCredentialsProvider ..> AwsProperties : region
 ```
 
 </div>
@@ -93,8 +88,12 @@ mvn -q spring-boot:run
 - `INGESTER_REFRESH_MS` (default: 10000)
 - `INGESTER_REDIS_KEY` (default: `cloudradar:ingest:queue`)
 - `OPENSKY_LAT_MIN`, `OPENSKY_LAT_MAX`, `OPENSKY_LON_MIN`, `OPENSKY_LON_MAX`
-- `OPENSKY_BASE_URL`, `OPENSKY_TOKEN_URL`
-- `OPENSKY_BASE_URL_SSM`, `OPENSKY_TOKEN_URL_SSM`
+- `OPENSKY_BASE_URL` (from K8s Secret, set by ExternalSecret)
+- `OPENSKY_TOKEN_URL` (from K8s Secret, set by ExternalSecret)
+- `OPENSKY_CLIENT_ID` (from K8s Secret, set by ExternalSecret)
+- `OPENSKY_CLIENT_SECRET` (from K8s Secret, set by ExternalSecret)
+
+> All OpenSky configuration is injected via K8s Secret created by External Secrets Operator (ESO) from AWS SSM Parameter Store (`/cloudradar/opensky/*`). See [ESO runbook](../../docs/runbooks/external-secrets-operator.md).
 
 ## Health & metrics
 - `GET /healthz`

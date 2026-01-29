@@ -35,9 +35,15 @@ spec:
                   name: opensky-secret
                   key: client-secret
             - name: OPENSKY_BASE_URL
-              value: "https://opensky-network.org/api"
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: base-url
             - name: OPENSKY_TOKEN_URL
-              value: "https://opensky-network.org/api/v1/authentication/openid/auth"
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: token-url
             - name: OPENSKY_LAT_MIN
               value: "47.9557"
             - name: OPENSKY_LAT_MAX
