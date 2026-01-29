@@ -19,7 +19,7 @@ public class OpenSkyTokenService {
   private static final Logger log = LoggerFactory.getLogger(OpenSkyTokenService.class);
 
   private final OpenSkyEndpointProvider endpointProvider;
-  private final OpenSkyCredentialsProvider credentialsProvider;
+  private final OpenSkyProperties properties;
   private final HttpClient httpClient;
   private final ObjectMapper objectMapper;
 
@@ -28,11 +28,11 @@ public class OpenSkyTokenService {
 
   public OpenSkyTokenService(
       OpenSkyEndpointProvider endpointProvider,
-      OpenSkyCredentialsProvider credentialsProvider,
+      OpenSkyProperties properties,
       HttpClient httpClient,
       ObjectMapper objectMapper) {
     this.endpointProvider = endpointProvider;
-    this.credentialsProvider = credentialsProvider;
+    this.properties = properties;
     this.httpClient = httpClient;
     this.objectMapper = objectMapper;
   }
@@ -44,37 +44,45 @@ public class OpenSkyTokenService {
     }
 
     try {
-      OpenSkyCredentials creds = credentialsProvider.get();
+      String clientId = properties.clientId();
+      String clientSecret = properties.clientSecret();
+      
+      if (clientId == null || clientId.isBlank() || clientSecret == null || clientSecret.isBlank()) {
+        throw new IllegalStateException("OpenSky credentials missing (OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET)");
+      }
+      
       String tokenUrl = endpointProvider.tokenUrl();
       if (tokenUrl == null || tokenUrl.isBlank()) {
         throw new IllegalStateException("OpenSky token URL is missing.");
       }
-      String form = "grant_type=client_credentials"
-          + "&client_id=" + urlEncode(creds.clientId())
-          + "&client_secret=" + urlEncode(creds.clientSecret());
+
+      // OAuth2 token request
+      String body = "grant_type=client_credentials&client_id=" + URLEncoder.encode(clientId, StandardCharsets.UTF_8) +
+          "&client_secret=" + URLEncoder.encode(clientSecret, StandardCharsets.UTF_8);
+
       HttpRequest request = HttpRequest.newBuilder()
           .uri(URI.create(tokenUrl))
           .header("Content-Type", "application/x-www-form-urlencoded")
-          .POST(HttpRequest.BodyPublishers.ofString(form))
+          .POST(HttpRequest.BodyPublishers.ofString(body))
           .build();
 
       HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-      if (response.statusCode() >= 400) {
-        throw new IllegalStateException("OpenSky token request failed: " + response.statusCode());
+
+      if (response.statusCode() != 200) {
+        throw new RuntimeException("Failed to get token from " + tokenUrl + ": " + response.statusCode());
       }
 
-      JsonNode node = objectMapper.readTree(response.body());
-      accessToken = node.path("access_token").asText();
-      long expiresIn = node.path("expires_in").asLong(300);
+      JsonNode json = objectMapper.readTree(response.body());
+      accessToken = json.get("access_token").asText();
+      long expiresIn = json.get("expires_in").asLong();
       expiry = Instant.now().plusSeconds(expiresIn);
-      return accessToken;
-    } catch (Exception ex) {
-      log.error("Failed to obtain OpenSky token", ex);
-      throw new IllegalStateException("OpenSky token acquisition failed", ex);
-    }
-  }
 
-  private String urlEncode(String value) {
-    return URLEncoder.encode(value, StandardCharsets.UTF_8);
+      log.info("OpenSky token refreshed, expires in {} seconds", expiresIn);
+      return accessToken;
+
+    } catch (Exception e) {
+      log.error("Failed to get OpenSky token", e);
+      throw new RuntimeException("Token refresh failed: " + e.getMessage(), e);
+    }
   }
 }
