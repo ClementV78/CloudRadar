@@ -65,15 +65,16 @@ Pods (env vars + mounts)
 
 ### Pre-Deployment
 
-- [ ] AWS SSM parameters created:
+- [ ] AWS SSM parameters created (see runbook for commands):
   ```
-  /cloudradar/opensky/client-id
-  /cloudradar/opensky/client-secret
-  /cloudradar/grafana-admin-password
-  /cloudradar/prometheus-password
-  /cloudradar/prometheus-htpasswd (format: username:bcrypt_hash)
+  /cloudradar/opensky/client-id ✓ (exists)
+  /cloudradar/opensky/client-secret ✓ (exists)
+  /cloudradar/opensky/base_url ✓ (exists)
+  /cloudradar/opensky/token_url ✓ (exists)
+  /cloudradar/grafana-admin-password (create)
+  /cloudradar/prometheus-password (create)
   ```
-  (See [aws-account-bootstrap.md](./aws-account-bootstrap.md) for bootstrap commands)
+  Note: `/cloudradar/prometheus-htpasswd` is generated automatically by `ci-infra` workflow
 
 - [ ] Terraform applied: `terraform apply` in `infra/aws/live/dev`
 - [ ] k3s cluster running with updated IAM role
@@ -81,14 +82,26 @@ Pods (env vars + mounts)
 
 ### Deployment Order
 
-1. **Terraform** (IAM setup)
+1. **Create SSM Parameters** (manual)
+   ```bash
+   aws ssm put-parameter --name /cloudradar/grafana-admin-password --value "..." --type SecureString
+   aws ssm put-parameter --name /cloudradar/prometheus-password --value "..." --type SecureString
+   ```
+
+2. **Run ci-infra workflow** (GitHub Actions)
+   - Triggers `setup-eso-secrets` job after `tf-apply`
+   - Generates `/cloudradar/prometheus-htpasswd` automatically
+   - Creates `.htpasswd` format: `admin:bcrypt_hash`
+
+3. **Terraform** (IAM setup)
    ```bash
    cd infra/aws/live/dev
    terraform plan -var-file=terraform.tfvars
    terraform apply -var-file=terraform.tfvars
    ```
+   Workflow handles this via `workflow_dispatch`
 
-2. **ArgoCD Application: external-secrets** (Helm deployment)
+4. **ArgoCD Application: external-secrets** (Helm deployment)
    ```bash
    git push  # Trigger ArgoCD sync
    # OR manually sync: argocd app sync external-secrets
@@ -98,19 +111,19 @@ Pods (env vars + mounts)
    kubectl rollout status deployment/external-secrets -n external-secrets
    ```
 
-3. **SecretStore** (ArgoCD auto-syncs via app)
+5. **SecretStore** (ArgoCD auto-syncs via app)
    ```bash
    kubectl get secretstore -n external-secrets
    # Should show "Valid"
    ```
 
-4. **ExternalSecrets** (ArgoCD auto-syncs)
+6. **ExternalSecrets** (ArgoCD auto-syncs)
    ```bash
    kubectl get externalsecret -A
    # Should show "SecretSynced" status for all 3
    ```
 
-5. **Apps deployment** (no changes needed; apps updated to use ExternalSecret)
+7. **Apps deployment** (no changes needed; apps updated to use ExternalSecret)
    - Ingester: Uses env vars from `opensky-secret`
    - Grafana: Uses env var from `grafana-secret`
    - Prometheus: Uses credentials from `prometheus-secret` (via proxy)
