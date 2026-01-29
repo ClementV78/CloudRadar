@@ -2,6 +2,13 @@
 
 This page is the entry point for all runbooks and describes the recommended execution order.
 
+## 0) GitHub Workflow & Project Management (foundational)
+
+Purpose: understand issue/PR templates, metadata requirements, and automated checks.
+
+- Reference: `docs/runbooks/github-workflow.md`
+- Covers: templates, automated metadata verification, best practices for issues and PRs
+
 ## 1) AWS account bootstrap (required)
 
 Purpose: establish IAM baseline, MFA, budgets, and the GitHub OIDC provider + Terraform role.

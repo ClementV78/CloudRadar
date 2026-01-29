@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/ClementV78/CloudRadar/tree/main/docs
+    about: Check docs, ADRs, and runbooks before creating issues
+  - name: Architecture Decisions
+    url: https://github.com/ClementV78/CloudRadar/tree/main/docs/architecture/decisions
+    about: Review ADRs for design decisions
+  - name: Issue Log
+    url: https://github.com/ClementV78/CloudRadar/blob/main/docs/runbooks/issue-log.md
+    about: Check past issues for similar problems

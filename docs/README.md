@@ -9,6 +9,18 @@ For agent guidance, see [AGENTS.md](../AGENTS.md) (project management & workflow
 
 ## 📍 Where to Find What
 
+### 💻 **GitHub Workflow & Project Management**
+
+If you're creating issues or PRs, start here:
+
+- **[GitHub Workflow Guide](runbooks/github-workflow.md)** — Issue/PR templates, metadata requirements, automated checks
+  - How to create issues and PRs correctly
+  - What metadata is required and why
+  - How the automated metadata verification workflow works
+  - Best practices and complete examples
+
+---
+
 ### 🏗️ **Understanding the Architecture**
 
 Start here if you're new to the project or want to understand how components fit together:
