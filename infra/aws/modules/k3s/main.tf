@@ -5,6 +5,10 @@ locals {
   backup_bucket_arn = var.backup_bucket_name != null ? "arn:aws:s3:::${var.backup_bucket_name}" : null
 }
 
+data "aws_caller_identity" "current" {}
+
+data "aws_region" "current" {}
+
 data "aws_ami" "al2023" {
   most_recent = true
   owners      = ["amazon"]
@@ -82,6 +86,43 @@ resource "aws_iam_role_policy_attachment" "ebs_csi_driver" {
 
   role       = aws_iam_role.k3s_nodes.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
+
+data "aws_iam_policy_document" "ssm_secrets_access" {
+  statement {
+    actions = [
+      "ssm:GetParameter",
+      "ssm:GetParameters"
+    ]
+    resources = [
+      "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/cloudradar/*"
+    ]
+  }
+
+  statement {
+    actions = [
+      "kms:Decrypt"
+    ]
+    resources = [
+      "*"
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["ssm.${data.aws_region.current.name}.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_policy" "ssm_secrets_access" {
+  name_prefix = "${var.name}-ssm-secrets-"
+  policy      = data.aws_iam_policy_document.ssm_secrets_access.json
+  tags        = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_secrets_access" {
+  role       = aws_iam_role.k3s_nodes.name
+  policy_arn = aws_iam_policy.ssm_secrets_access.arn
 }
 
 data "aws_iam_policy_document" "backup_bucket" {
