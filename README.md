@@ -22,7 +22,7 @@
 **Technical Overview:** Terraform provisions AWS (k3s on EC2, IAM, S3, VPC). GitHub Actions runs infra CI; ArgoCD syncs `k8s/apps`. Prometheus/Grafana observability and GHCR app publishing are planned.
 
 **Project Management:**
-All features and fixes are tracked as GitHub Issues and delivered through an iterative, issue-driven workflow. Progress is managed using a GitHub Projects Kanban board, following lightweight agile-inspired practices adapted for a solo project.
+Issues and PRs are tracked in GitHub Projects (Kanban board) using lightweight agile practices adapted for solo development. Templates enforce metadata standards (assignees, labels, milestones, project), and an automated workflow ensures consistency and quality across all tickets and PRs.
 
 **Why this project exists:** provide a concrete, end-to-end DevOps/Cloud Architecture portfolio with real IaC, CI/CD, GitOps, and cost trade-offs.
 
