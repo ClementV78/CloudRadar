@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-basic-auth-proxy
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-proxy
+  template:
+    metadata:
+      labels:
+        app: prometheus-proxy
+    spec:
+      containers:
+      - name: proxy
+        image: nginx:latest
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx
+        - name: htpasswd-secret
+          mountPath: /etc/nginx/.htpasswd
+          subPath: .htpasswd
+      volumes:
+      - name: nginx-config
+        configMap:
+          name: prometheus-proxy-config
+      - name: htpasswd-secret
+        secret:
+          secretName: prometheus-secret
+          items:
+          - key: htpasswd
+            path: .htpasswd
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus-basic-auth-proxy
+  namespace: monitoring
+spec:
+  selector:
+    app: prometheus-proxy
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-proxy-config
+  namespace: monitoring
+data:
+  nginx.conf: |
+    events {
+      worker_connections 1024;
+    }
+    
+    http {
+      upstream prometheus {
+        server prometheus-kube-prometheus-prometheus:9090;
+      }
+      
+      server {
+        listen 8080;
+        server_name _;
+        
+        location / {
+          auth_basic "Prometheus";
+          auth_basic_user_file /etc/nginx/.htpasswd;
+          proxy_pass http://prometheus;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+        }
+      }
+    }
