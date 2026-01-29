@@ -24,14 +24,26 @@ spec:
               value: redis.data.svc.cluster.local
             - name: REDIS_PORT
               value: "6379"
-            - name: OPENSKY_CLIENT_ID_SSM
-              value: "/cloudradar/opensky/client_id"
-            - name: OPENSKY_CLIENT_SECRET_SSM
-              value: "/cloudradar/opensky/client_secret"
-            - name: OPENSKY_BASE_URL_SSM
-              value: "/cloudradar/opensky/base_url"
-            - name: OPENSKY_TOKEN_URL_SSM
-              value: "/cloudradar/opensky/token_url"
+            - name: OPENSKY_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: client-id
+            - name: OPENSKY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: client-secret
+            - name: OPENSKY_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: base-url
+            - name: OPENSKY_TOKEN_URL
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: token-url
             - name: OPENSKY_LAT_MIN
               value: "47.9557"
             - name: OPENSKY_LAT_MAX

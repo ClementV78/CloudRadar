@@ -324,6 +324,52 @@ jobs:
           terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" apply -input=false -auto-approve -var-file=terraform.tfvars \
             "${EXTRA_VARS[@]}"
 
+  setup-eso-secrets:
+    name: Setup ESO Secrets (Prometheus auth)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
+    runs-on: ubuntu-latest
+    needs: tf-apply
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Prometheus basic auth
+        run: |
+          set -euo pipefail
+          
+          echo "Checking for /cloudradar/prometheus-password in SSM..."
+          if ! PASSWORD=$(aws ssm get-parameter \
+            --name /cloudradar/prometheus-password \
+            --query 'Parameter.Value' \
+            --output text \
+            --region ${{ env.AWS_REGION }} 2>/dev/null); then
+            echo "❌ ERROR: /cloudradar/prometheus-password not found in SSM"
+            echo "Please create it first with: aws ssm put-parameter --name /cloudradar/prometheus-password --value '<password>' --type SecureString"
+            exit 1
+          fi
+          
+          echo "✓ Found prometheus password in SSM"
+          echo "Generating bcrypt hash..."
+          
+          # Generate htpasswd format: admin:bcrypt_hash
+          HASH=$(echo -n "$PASSWORD" | openssl passwd -apr1 -stdin)
+          HTPASSWD="admin:$HASH"
+          
+          echo "Creating /cloudradar/prometheus-htpasswd in SSM..."
+          aws ssm put-parameter \
+            --name /cloudradar/prometheus-htpasswd \
+            --value "$HTPASSWD" \
+            --type SecureString \
+            --overwrite \
+            --region ${{ env.AWS_REGION }}
+          
+          echo "✓ Prometheus auth configured in SSM"
+          echo "  - password: /cloudradar/prometheus-password"
+          echo "  - htpasswd: /cloudradar/prometheus-htpasswd (admin:bcrypt_hash)"
+
   tf-outputs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
     runs-on: ubuntu-latest

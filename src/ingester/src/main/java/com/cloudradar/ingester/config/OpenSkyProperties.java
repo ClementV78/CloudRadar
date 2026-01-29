@@ -7,8 +7,4 @@ public record OpenSkyProperties(
     String baseUrl,
     String tokenUrl,
     String clientId,
-    String clientSecret,
-    String clientIdSsm,
-    String clientSecretSsm,
-    String baseUrlSsm,
-    String tokenUrlSsm) {}
+    String clientSecret) {}

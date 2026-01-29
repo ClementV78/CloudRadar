@@ -87,6 +87,15 @@ Post-bootstrap checks (optional):
 - Verify the ArgoCD Application status (Synced/Healthy).
 - Retrieve the initial admin password (if needed).
 
+## 3.2.1) External Secrets Operator (one-time, after ArgoCD)
+
+Purpose: set up External Secrets Operator to sync secrets from AWS SSM Parameter Store into Kubernetes Secrets.
+
+- Runbook: `docs/runbooks/external-secrets-operator.md`
+- Design: [ADR-0016](../architecture/decisions/ADR-0016-2026-01-29-external-secrets-operator.md)
+- Implements: Issue #150
+- Phases: Terraform IAM → ESO Install → SecretStore → ExternalSecrets → Deployment updates
+
 ## 3.3) Edge health endpoint (optional)
 
 Purpose: expose `/healthz` via the edge Nginx to validate end-to-end k3s connectivity.
