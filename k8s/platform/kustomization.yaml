@@ -3,4 +3,4 @@ kind: Kustomization
 
 resources:
   - external-secrets/helmrelease.yaml
-  - external-secrets/secretstore.yaml
+  - external-secrets/config-application.yaml

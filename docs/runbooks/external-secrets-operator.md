@@ -130,14 +130,17 @@ kubectl api-resources | grep external-secrets
 
 ### Option B: Via ArgoCD (Recommended for GitOps)
 
-Create `k8s/platform/external-secrets/helmrelease.yaml`:
+Two ArgoCD Applications are used to respect CRD ordering:
 
+1) **Operator (CRDs + controller)** — `k8s/platform/external-secrets/helmrelease.yaml`
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: external-secrets
+  name: external-secrets-operator
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   project: default
   source:
@@ -147,6 +150,9 @@ spec:
     helm:
       values: |
         installCRDs: true
+        serviceAccount:
+          create: true
+          name: external-secrets-sa
   destination:
     server: https://kubernetes.default.svc
     namespace: external-secrets
@@ -158,17 +164,40 @@ spec:
     - CreateNamespace=true
 ```
 
-**Apply:**
-```bash
-kubectl apply -f k8s/platform/external-secrets/helmrelease.yaml
-# ArgoCD syncs automatically
+2) **Config (SecretStore + ExternalSecrets)** — `k8s/platform/external-secrets/config-application.yaml`
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-secrets-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ClementV78/CloudRadar.git
+    targetRevision: main
+    path: k8s/apps/external-secrets
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
+    - SkipDryRunOnMissingResource=true
 ```
+
+ArgoCD root app (bootstrap) discovers both Applications in `k8s/platform/` and syncs them in wave order (operator first, then config).
 
 ---
 
 ## Phase 3: Create SecretStore
 
-File: `k8s/platform/external-secrets/secretstore.yaml`
+File: `k8s/apps/external-secrets/secretstore.yaml` (applied by the `external-secrets-config` Application)
 
 ```yaml
 apiVersion: external-secrets.io/v1beta1
@@ -181,10 +210,11 @@ spec:
     aws:
       service: ParameterStore
       region: us-east-1
-      auth:
-        jwt:
-          serviceAccountRef:
-            name: external-secrets-sa
+  auth:
+    jwt:
+      serviceAccountRef:
+        name: external-secrets-sa
+        namespace: external-secrets
 ```
 
 **Verify:**

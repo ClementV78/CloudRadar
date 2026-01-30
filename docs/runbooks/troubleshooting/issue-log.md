@@ -2,6 +2,14 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-01-30
+
+### [gitops/argocd] External Secrets sync failed (CRD missing)
+- **Severity:** High
+- **Impact:** ESO Application stuck in retry; SecretStore rejected (CRD absent); no secrets synced or pods deployed.
+- **Analysis:** Single Kustomize rendered both ESO Helm chart and SecretStore. ArgoCD dry-run validated SecretStore before CRDs existed.
+- **Resolution:** Split into two ArgoCD Applications with sync waves: operator (wave 0) installs CRDs; config (wave 1, SkipDryRun) applies SecretStore + ExternalSecrets from `k8s/apps/external-secrets/`. (Refs: issue #191, PR TBD)
+
 ## 2026-01-26
 
 ### [gitops/argocd] App sync failed due to malformed processor manifest
