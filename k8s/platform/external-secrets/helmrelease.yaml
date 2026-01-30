@@ -19,6 +19,13 @@ spec:
           name: external-secrets-sa
         metrics:
           enabled: true
+        nodeSelector:
+          node-role.kubernetes.io/control-plane: "true"
+        tolerations:
+          - key: "dedicated"
+            operator: "Equal"
+            value: "control-plane"
+            effect: "NoSchedule"
   destination:
     server: https://kubernetes.default.svc
     namespace: external-secrets

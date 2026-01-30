@@ -152,6 +152,13 @@ spec:
         serviceAccount:
           create: true
           name: external-secrets-sa
+        nodeSelector:
+          node-role.kubernetes.io/control-plane: "true"
+        tolerations:
+          - key: "dedicated"
+            operator: "Equal"
+            value: "control-plane"
+            effect: "NoSchedule"
   destination:
     server: https://kubernetes.default.svc
     namespace: external-secrets

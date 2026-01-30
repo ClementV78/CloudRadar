@@ -15,6 +15,7 @@ k3s_worker_min_size      = 1
 k3s_worker_desired       = 1
 k3s_worker_max_size      = 3
 k3s_root_volume_size     = 40
+k3s_server_extra_args    = ["--node-taint=dedicated=control-plane:NoSchedule"]
 
 edge_instance_type = "t3.micro"
 # edge_ami_id                        = "ami-xxxxxxxxxxxxxxxxx"
