@@ -12,6 +12,10 @@ spec:
     helm:
       values: |
         prometheus:
+          service:
+            type: NodePort
+            nodePort: 30090
+            port: 9090
           prometheusSpec:
             retention: 7d
             retentionSize: "4GB"
@@ -42,9 +46,7 @@ spec:
         # Basic auth via ESO-managed secret
         grafana:
           enabled: false
-        
-        # Reverse proxy for basic auth (basic-auth-proxy deployment)
-        # References prometheus-secret ExternalSecret for credentials
+        # Exposure: handled at edge (EC2 nginx) + Traefik Ingress; no in-cluster proxy
   
   destination:
     server: https://kubernetes.default.svc

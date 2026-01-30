@@ -98,6 +98,11 @@ variable "admin_upstream_port" {
   type        = number
 }
 
+variable "prometheus_upstream_port" {
+  description = "NodePort (or Traefik entrypoint port) for the Prometheus service."
+  type        = number
+}
+
 variable "enable_http_redirect" {
   description = "Whether to redirect HTTP to HTTPS."
   type        = bool

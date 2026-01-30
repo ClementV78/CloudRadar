@@ -40,6 +40,11 @@ graph TB
     Grafana -->|query| Prometheus
 ```
 
+### Observability Access Path
+- **Edge Nginx (EC2)** is the only public entrypoint and applies Basic Auth. It forwards to K3s nodeports/Ingress.
+- **In-cluster**: Traefik (k3s default) routes HTTP to services (Grafana, Prometheus). No additional in-cluster proxy for Prometheus.
+- **Security**: Secrets for Basic Auth are stored in SSM (surfaced via ESO where needed). Remove duplicate proxies to reduce attack surface.
+
 ---
 
 ## 1. Ingester (Java 17 / Spring Boot)
@@ -525,4 +530,3 @@ python3 app.py
 - **Alerting** (Sprint 2): AlertManager rules for anomalies
 - **Loki** (v2): Log aggregation and analysis
 - **API** (v2): REST/GraphQL interface to aggregates
-
