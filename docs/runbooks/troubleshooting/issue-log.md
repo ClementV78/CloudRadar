@@ -8,7 +8,19 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Severity:** High
 - **Impact:** ESO Application stuck in retry; SecretStore rejected (CRD absent); no secrets synced or pods deployed.
 - **Analysis:** Single Kustomize rendered both ESO Helm chart and SecretStore. ArgoCD dry-run validated SecretStore before CRDs existed.
-- **Resolution:** Split into two ArgoCD Applications with sync waves: operator (wave 0) installs CRDs; config (wave 1, SkipDryRun) applies SecretStore + ExternalSecrets from `k8s/apps/external-secrets/`. (Refs: issue #191, PR TBD)
+- **Resolution:** Split into two ArgoCD Applications with sync waves: operator (wave 0) installs CRDs; config (wave 1, SkipDryRun) applies SecretStore + ExternalSecrets from `k8s/apps/external-secrets/`. (Refs: issue #191, PR #192)
+
+### [gitops/argocd] SecretStore rejected (serviceAccountRef namespace)
+- **Severity:** Medium
+- **Impact:** SecretStore webhook denied apply; ExternalSecrets degraded; no secrets synced.
+- **Analysis:** SecretStore (namespaced) referenced a service account in `external-secrets`. ESO webhook requires serviceAccountRef namespace to match the SecretStore namespace.
+- **Resolution:** Switch to `ClusterSecretStore` and set ExternalSecrets to `secretStoreRef.kind=ClusterSecretStore`. (Refs: issue #195, PR #196)
+
+### [gitops/argocd] Sync blocked when CLI not available locally
+- **Severity:** Low
+- **Impact:** Operators unable to sync ArgoCD apps during bootstrap.
+- **Analysis:** `argocd` CLI not installed locally; TLS prompt in non-interactive shell caused EOF.
+- **Resolution:** Use the ArgoCD CLI inside the `argocd-server` pod with `--grpc-web` and `--insecure`. Documented in `docs/runbooks/bootstrap/argocd-bootstrap.md`. (Refs: issue #195, PR #196)
 
 ## 2026-01-26
 
