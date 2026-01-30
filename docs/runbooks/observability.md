@@ -14,8 +14,8 @@ Prometheus scrapes metrics from all k3s services. Grafana provides dashboards fo
 ### Deployment Flow
 
 1. **Terraform Phase** (`terraform apply`)
-   - Generates random Grafana admin and Prometheus auth passwords (or uses provided values from GitHub Secrets / .env)
-   - Stores passwords in AWS SSM Parameter Store (`/cloudradar/grafana/admin-password`, `/cloudradar/prometheus/auth-password`)
+   - Generates random Grafana admin password (or uses provided values from GitHub Secrets / .env)
+   - Stores passwords in AWS SSM Parameter Store (`/cloudradar/grafana/admin-password`, `/cloudradar/edge/basic-auth`)
    - Outputs passwords for display/use
    - **Does NOT create K8s Secrets** (cluster access happens after bootstrap)
 
@@ -38,11 +38,10 @@ Prometheus scrapes metrics from all k3s services. Grafana provides dashboards fo
 # Get outputs
 cd infra/aws/live/dev
 GRAFANA_PASSWORD=$(terraform output -raw grafana_admin_password)
-PROMETHEUS_PASSWORD=$(terraform output -raw prometheus_auth_password)
 
 # Verify they're in SSM
 aws ssm get-parameter --name /cloudradar/grafana/admin-password --with-decryption --query 'Parameter.Value'
-aws ssm get-parameter --name /cloudradar/prometheus/auth-password --with-decryption --query 'Parameter.Value'
+aws ssm get-parameter --name /cloudradar/edge/basic-auth --with-decryption --query 'Parameter.Value'
 ```
 
 #### 2. Get kubeconfig and connect to k3s
@@ -67,11 +66,7 @@ kubectl create secret generic grafana-admin \
   --from-literal=admin-password="$GRAFANA_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-# Create Prometheus auth secret (for future use)
-kubectl create secret generic prometheus-auth \
-  -n monitoring \
-  --from-literal=auth-password="$PROMETHEUS_PASSWORD" \
-  --dry-run=client -o yaml | kubectl apply -f -
+# Prometheus auth is enforced at the edge (Basic Auth).
 
 # Verify secrets exist
 kubectl get secrets -n monitoring
@@ -207,12 +202,12 @@ kubectl get secret grafana-admin -n monitoring -o jsonpath='{.data.admin-passwor
 
 ### Prometheus Auth Password
 
-Stored in AWS SSM (`/cloudradar/prometheus/auth-password`) for future use (e.g., if basic auth is added at edge).
+Prometheus access uses the **edge Basic Auth** secret (`/cloudradar/edge/basic-auth`). No Prometheus-specific SSM parameters are required.
 
 ### Access Path (Prometheus / Grafana)
-- Public access goes through **edge Nginx (EC2)** which enforces Basic Auth (secrets in SSM).
-- Traffic is then forwarded to K3s via NodePort/Ingress; **Traefik** handles in-cluster routing.
-- There is **no in-cluster proxy** for Prometheus; avoid duplicate proxies to keep the chain simple.
+- Public access goes through **edge Nginx (EC2)** which enforces Basic Auth (SSM: `/cloudradar/edge/basic-auth`).
+- Traffic is forwarded to K3s via NodePort; **Traefik** handles in-cluster routing when used.
+- There is **no in-cluster proxy** for Prometheus or Grafana; keep a single auth layer at the edge.
 
 ## Metrics
 
