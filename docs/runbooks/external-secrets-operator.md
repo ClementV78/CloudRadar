@@ -200,28 +200,22 @@ File: `k8s/apps/external-secrets/secretstore.yaml` (applied by the `external-sec
 
 ```yaml
 apiVersion: external-secrets.io/v1beta1
-kind: SecretStore
+kind: ClusterSecretStore
 metadata:
   name: ssm-parameter-store
-  namespace: default
 spec:
   provider:
     aws:
       service: ParameterStore
       region: us-east-1
-  auth:
-    jwt:
-      serviceAccountRef:
-        name: external-secrets-sa
-        namespace: external-secrets
 ```
 
 **Verify:**
 ```bash
-kubectl get secretstore
+kubectl get clustersecretstore
 # Should show: ssm-parameter-store READY
 
-kubectl describe secretstore ssm-parameter-store
+kubectl describe clustersecretstore ssm-parameter-store
 # Should show no auth errors
 ```
 
@@ -576,3 +570,6 @@ kubectl exec -it <eso-pod> -n external-secrets -- bash
 - **ESO Documentation:** https://external-secrets.io
 - **AWS SecretStore:** https://external-secrets.io/latest/provider/aws-secrets-manager/
 - **Issue #150:** Refactor to use External Secrets Operator
+### Authentication notes (k3s on EC2)
+- ESO uses the **instance profile** credentials from the k3s nodes (IMDS).
+- Do **not** configure `auth.jwt.serviceAccountRef` unless you are on EKS with IRSA.
