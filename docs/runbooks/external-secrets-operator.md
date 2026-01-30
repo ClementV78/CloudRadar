@@ -65,10 +65,9 @@ aws ssm put-parameter --name /cloudradar/opensky/token_url --value "https://open
 aws ssm put-parameter --name /cloudradar/grafana-admin-password --value "your-password" --type SecureString
 ```
 
-**Prometheus** (password only; htpasswd is generated automatically by ci-infra workflow):
-```bash
-aws ssm put-parameter --name /cloudradar/prometheus-password --value "your-password" --type SecureString
-```
+**Prometheus**
+- Prometheus access is protected by **edge Basic Auth** (`/cloudradar/edge/basic-auth`).
+- No Prometheus-specific SSM parameters are required.
 
 After creating these parameters, run the `ci-infra` workflow with `workflow_dispatch` to trigger the setup job that generates the htpasswd file.
 
@@ -201,28 +200,22 @@ File: `k8s/apps/external-secrets/secretstore.yaml` (applied by the `external-sec
 
 ```yaml
 apiVersion: external-secrets.io/v1beta1
-kind: SecretStore
+kind: ClusterSecretStore
 metadata:
   name: ssm-parameter-store
-  namespace: default
 spec:
   provider:
     aws:
       service: ParameterStore
       region: us-east-1
-  auth:
-    jwt:
-      serviceAccountRef:
-        name: external-secrets-sa
-        namespace: external-secrets
 ```
 
 **Verify:**
 ```bash
-kubectl get secretstore
+kubectl get clustersecretstore
 # Should show: ssm-parameter-store READY
 
-kubectl describe secretstore ssm-parameter-store
+kubectl describe clustersecretstore ssm-parameter-store
 # Should show no auth errors
 ```
 
@@ -297,35 +290,13 @@ spec:
 
 ### 3. Prometheus Basic Auth
 
-File: `k8s/apps/external-secrets/prometheus-secret.yaml`
-
-```yaml
-apiVersion: external-secrets.io/v1beta1
-kind: ExternalSecret
-metadata:
-  name: prometheus-auth
-  namespace: default
-spec:
-  refreshInterval: 1h
-  secretStoreRef:
-    name: ssm-parameter-store
-  target:
-    name: prometheus-auth  # K8s Secret name
-    template:
-      engineVersion: v2
-      data:
-        auth-password: "{{ .password }}"
-  data:
-    - secretKey: password
-      remoteRef:
-        key: /cloudradar/prometheus-auth-password
-```
+Prometheus auth is enforced at the edge (`/cloudradar/edge/basic-auth`), so no Prometheus-specific ExternalSecret is required.
 
 **Apply All:**
 ```bash
 kubectl apply -f k8s/apps/external-secrets/
 kubectl get externalsecrets
-# Should see all 3 with READY status
+# Should see all 2 with READY status
 ```
 
 ---
@@ -354,19 +325,6 @@ env:
     secretKeyRef:
       name: grafana-admin  # ← Now from ExternalSecret
       key: admin-password
-```
-
-### Prometheus
-
-Update `k8s/apps/monitoring/prometheus-deployment.yaml`:
-
-```yaml
-env:
-- name: PROMETHEUS_AUTH_PASSWORD
-  valueFrom:
-    secretKeyRef:
-      name: prometheus-auth  # ← Now from ExternalSecret
-      key: auth-password
 ```
 
 ### Ingester (Remove SSM code)
@@ -406,12 +364,10 @@ Delete manual Kubernetes Secrets (replaced by ExternalSecrets):
 
 ```bash
 # Check what's there
-kubectl get secrets | grep -E "grafana-admin|prometheus-auth|opensky"
+kubectl get secrets | grep -E "grafana-admin|opensky"
 
 # Delete old manual secrets (if any)
 kubectl delete secret grafana-admin-old
-kubectl delete secret prometheus-auth-old
-
 # New ones are managed by ExternalSecret now
 ```
 
@@ -489,14 +445,13 @@ kubectl get pod <grafana-pod> -o yaml | grep -A 5 secretKeyRef
 1. **Create SSM Parameters** (manual, one-time)
    ```bash
    aws ssm put-parameter --name /cloudradar/grafana-admin-password --value "..." --type SecureString
-   aws ssm put-parameter --name /cloudradar/prometheus-password --value "..." --type SecureString
+   # Prometheus auth handled at edge; no Prometheus-specific SSM parameters
    ```
 
 2. **Run ci-infra workflow** (GitHub Actions)
    - Dispatches with `environment=dev` to trigger full stack
    - Terraform applies (includes IAM policy)
-   - `setup-eso-secrets` job generates htpasswd from prometheus-password
-   - Note: `/cloudradar/prometheus-htpasswd` is created automatically
+   - Prometheus auth handled at edge; no Prometheus-specific SSM parameters
 
 3. **Push manifests to trigger ArgoCD sync**
    ```bash
@@ -510,7 +465,7 @@ kubectl get pod <grafana-pod> -o yaml | grep -A 5 secretKeyRef
 
 5. **Check SecretStore is ready**
    ```bash
-   kubectl get secretstore -n external-secrets
+   kubectl get clustersecretstore
    # Should show READY=True
    ```
 
@@ -522,8 +477,8 @@ kubectl get pod <grafana-pod> -o yaml | grep -A 5 secretKeyRef
 
 7. **Verify K8s Secrets created**
    ```bash
-   kubectl get secret | grep -E "opensky-secret|grafana-secret|prometheus-secret"
-   # Should list all 3 secrets
+   kubectl get secret | grep -E "opensky-secret|grafana-secret"
+   # Should list both secrets
    ```
 
 ### Post-Deployment Verification
@@ -545,9 +500,7 @@ kubectl logs deployment/ingester -n cloudradar | head -20
 kubectl port-forward svc/grafana 3000:80 -n monitoring
 # Visit http://localhost:3000, login with admin + password
 
-# Test Prometheus auth
-kubectl port-forward svc/prometheus-basic-auth-proxy 8080:80 -n monitoring
-curl -u admin:password http://localhost:8080/api/v1/query?query=up
+# Prometheus is exposed via the edge Nginx (Basic Auth handled at the edge).
 ```
 
 ---
@@ -617,3 +570,6 @@ kubectl exec -it <eso-pod> -n external-secrets -- bash
 - **ESO Documentation:** https://external-secrets.io
 - **AWS SecretStore:** https://external-secrets.io/latest/provider/aws-secrets-manager/
 - **Issue #150:** Refactor to use External Secrets Operator
+### Authentication notes (k3s on EC2)
+- ESO uses the **instance profile** credentials from the k3s nodes (IMDS).
+- Do **not** configure `auth.jwt.serviceAccountRef` unless you are on EKS with IRSA.

@@ -14,8 +14,8 @@ Prometheus scrapes metrics from all k3s services. Grafana provides dashboards fo
 ### Deployment Flow
 
 1. **Terraform Phase** (`terraform apply`)
-   - Generates random Grafana admin and Prometheus auth passwords (or uses provided values from GitHub Secrets / .env)
-   - Stores passwords in AWS SSM Parameter Store (`/cloudradar/grafana/admin-password`, `/cloudradar/prometheus/auth-password`)
+   - Generates random Grafana admin password (or uses provided values from GitHub Secrets / .env)
+   - Stores passwords in AWS SSM Parameter Store (`/cloudradar/grafana/admin-password`, `/cloudradar/edge/basic-auth`)
    - Outputs passwords for display/use
    - **Does NOT create K8s Secrets** (cluster access happens after bootstrap)
 
@@ -38,11 +38,10 @@ Prometheus scrapes metrics from all k3s services. Grafana provides dashboards fo
 # Get outputs
 cd infra/aws/live/dev
 GRAFANA_PASSWORD=$(terraform output -raw grafana_admin_password)
-PROMETHEUS_PASSWORD=$(terraform output -raw prometheus_auth_password)
 
 # Verify they're in SSM
 aws ssm get-parameter --name /cloudradar/grafana/admin-password --with-decryption --query 'Parameter.Value'
-aws ssm get-parameter --name /cloudradar/prometheus/auth-password --with-decryption --query 'Parameter.Value'
+aws ssm get-parameter --name /cloudradar/edge/basic-auth --with-decryption --query 'Parameter.Value'
 ```
 
 #### 2. Get kubeconfig and connect to k3s
@@ -67,11 +66,7 @@ kubectl create secret generic grafana-admin \
   --from-literal=admin-password="$GRAFANA_PASSWORD" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-# Create Prometheus auth secret (for future use)
-kubectl create secret generic prometheus-auth \
-  -n monitoring \
-  --from-literal=auth-password="$PROMETHEUS_PASSWORD" \
-  --dry-run=client -o yaml | kubectl apply -f -
+# Prometheus auth is enforced at the edge (Basic Auth).
 
 # Verify secrets exist
 kubectl get secrets -n monitoring

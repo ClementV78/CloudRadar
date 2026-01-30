@@ -209,10 +209,3 @@ variable "grafana_admin_password" {
   sensitive   = true
   default     = ""
 }
-
-variable "prometheus_auth_password" {
-  description = "Prometheus authentication password. If empty, a random one will be generated."
-  type        = string
-  sensitive   = true
-  default     = ""
-}

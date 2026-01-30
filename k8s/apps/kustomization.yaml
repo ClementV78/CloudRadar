@@ -10,5 +10,4 @@ resources:
   - processor
   - redis
   - monitoring
-  - external-secrets
   - storageclass-gp3.yaml
