@@ -202,12 +202,17 @@ kubectl get secret grafana-admin -n monitoring -o jsonpath='{.data.admin-passwor
 
 ### Prometheus Auth Password
 
-Prometheus access uses the **edge Basic Auth** secret (`/cloudradar/edge/basic-auth`). No Prometheus-specific SSM parameters are required.
+Prometheus access currently uses the **edge Basic Auth** secret (`/cloudradar/edge/basic-auth`).  
+The legacy `/cloudradar/prometheus/auth-password` parameter is not used.
 
 ### Access Path (Prometheus / Grafana)
 - Public access goes through **edge Nginx (EC2)** which enforces Basic Auth (SSM: `/cloudradar/edge/basic-auth`).
 - Traffic is forwarded to K3s via NodePort; **Traefik** handles in-cluster routing when used.
 - There is **no in-cluster proxy** for Prometheus or Grafana; keep a single auth layer at the edge.
+
+**URLs (edge):**
+- Prometheus: `https://<edge-host>/prometheus/`
+- Grafana: `https://<edge-host>/grafana/`
 
 ## Metrics
 

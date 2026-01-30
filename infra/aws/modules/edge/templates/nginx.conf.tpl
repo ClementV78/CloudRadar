@@ -23,6 +23,11 @@ upstream prometheus_upstream {
   server ${upstream_host}:${prometheus_upstream_port};
 }
 
+upstream grafana_upstream {
+  # Grafana service exposed via Traefik/NodePort inside the cluster.
+  server ${upstream_host}:${grafana_upstream_port};
+}
+
 server {
   listen 443 ssl;
   server_name ${server_name};
@@ -81,6 +86,16 @@ server {
   location /prometheus/ {
     # Route Prometheus UI/API through edge; Basic Auth enforced at edge.
     proxy_pass http://prometheus_upstream/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  location /grafana/ {
+    # Route Grafana UI through edge; Basic Auth enforced at edge.
+    proxy_pass http://grafana_upstream/;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;

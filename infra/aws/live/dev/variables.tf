@@ -187,6 +187,11 @@ variable "edge_prometheus_nodeport" {
   type        = number
 }
 
+variable "edge_grafana_nodeport" {
+  description = "NodePort (or Traefik entrypoint port) for the Grafana service."
+  type        = number
+}
+
 variable "edge_enable_http_redirect" {
   description = "Whether to redirect HTTP to HTTPS."
   type        = bool
