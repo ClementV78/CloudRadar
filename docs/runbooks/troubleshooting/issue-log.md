@@ -16,6 +16,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Analysis:** SecretStore (namespaced) referenced a service account in `external-secrets`. ESO webhook requires serviceAccountRef namespace to match the SecretStore namespace.
 - **Resolution:** Switch to `ClusterSecretStore` and set ExternalSecrets to `secretStoreRef.kind=ClusterSecretStore`. (Refs: issue #195, PR #196)
 
+### [gitops/argocd] ClusterSecretStore InvalidProviderConfig (IRSA on k3s)
+- **Severity:** Medium
+- **Impact:** ClusterSecretStore oscillated to `InvalidProviderConfig`; ExternalSecrets synced inconsistently.
+- **Analysis:** `auth.jwt.serviceAccountRef` is IRSA (EKS) specific. k3s on EC2 must use instance profile credentials instead.
+- **Resolution:** Remove `auth.jwt` from the ClusterSecretStore so ESO uses EC2 instance profile credentials. (Refs: issue #197, PR TBD)
+
 ### [gitops/argocd] Sync blocked when CLI not available locally
 - **Severity:** Low
 - **Impact:** Operators unable to sync ArgoCD apps during bootstrap.
