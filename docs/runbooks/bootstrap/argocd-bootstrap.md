@@ -64,6 +64,33 @@ aws ssm send-command \
   --output text
 ```
 
+## Local access (without installing ArgoCD CLI)
+
+When you don't want to install `argocd` locally, use the CLI inside the `argocd-server` pod:
+
+```bash
+export KUBECONFIG=$HOME/k3s.yaml   # adjust to your kubeconfig path
+POD=$(kubectl -n argocd get pod -l app.kubernetes.io/name=argocd-server -o jsonpath='{.items[0].metadata.name}')
+PASS=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d)
+
+printf "y\n" | kubectl -n argocd exec "$POD" -c server -- \
+  /usr/local/bin/argocd login argocd-server.argocd.svc:443 \
+  --insecure --username admin --password "$PASS" --grpc-web
+```
+
+Sync order (ESO):
+```bash
+kubectl -n argocd exec "$POD" -c server -- /usr/local/bin/argocd app sync external-secrets-operator
+kubectl -n argocd exec "$POD" -c server -- /usr/local/bin/argocd app sync external-secrets-config
+kubectl -n argocd exec "$POD" -c server -- /usr/local/bin/argocd app sync cloudradar --prune
+```
+
+Troubleshooting:
+- If `container not found ("server")`, list containers with:
+  `kubectl -n argocd get pod "$POD" -o jsonpath='{.spec.containers[*].name}'`
+- If `connection refused`, wait for the pod to be Ready:
+  `kubectl -n argocd wait --for=condition=Ready pod -l app.kubernetes.io/name=argocd-server --timeout=300s`
+
 ## Script mapping
 - Step 2 runs the Helm-based install:
   - install Helm if missing
