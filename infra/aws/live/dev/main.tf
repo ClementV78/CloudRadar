@@ -20,10 +20,12 @@ locals {
 
   edge_health_nodeport = var.edge_health_nodeport != null ? var.edge_health_nodeport : var.edge_dashboard_nodeport
   edge_nodeport_rules = {
-    dashboard = var.edge_dashboard_nodeport
-    api       = var.edge_api_nodeport
-    health    = local.edge_health_nodeport
-    admin     = var.edge_admin_nodeport
+    dashboard  = var.edge_dashboard_nodeport
+    api        = var.edge_api_nodeport
+    health     = local.edge_health_nodeport
+    admin      = var.edge_admin_nodeport
+    grafana    = var.edge_grafana_nodeport
+    prometheus = var.edge_prometheus_nodeport
   }
   edge_nodeport_rules_filtered = {
     for key, port in local.edge_nodeport_rules : key => port
@@ -105,6 +107,7 @@ module "edge" {
   health_upstream_port           = local.edge_health_nodeport
   admin_upstream_port            = var.edge_admin_nodeport
   prometheus_upstream_port       = var.edge_prometheus_nodeport
+  grafana_upstream_port          = var.edge_grafana_nodeport
   enable_http_redirect           = var.edge_enable_http_redirect
   tags                           = local.tags
 

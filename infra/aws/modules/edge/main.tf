@@ -7,6 +7,7 @@ locals {
     health_upstream_port     = var.health_upstream_port
     admin_upstream_port      = var.admin_upstream_port
     prometheus_upstream_port = var.prometheus_upstream_port
+    grafana_upstream_port    = var.grafana_upstream_port
     enable_http_redirect     = var.enable_http_redirect ? "1" : "0"
   })
 }

@@ -103,6 +103,11 @@ variable "prometheus_upstream_port" {
   type        = number
 }
 
+variable "grafana_upstream_port" {
+  description = "NodePort (or Traefik entrypoint port) for the Grafana service."
+  type        = number
+}
+
 variable "enable_http_redirect" {
   description = "Whether to redirect HTTP to HTTPS."
   type        = bool
