@@ -209,11 +209,6 @@ spec:
     aws:
       service: ParameterStore
       region: us-east-1
-  auth:
-        jwt:
-          serviceAccountRef:
-            name: external-secrets-sa
-            namespace: external-secrets
 ```
 
 **Verify:**
@@ -616,3 +611,6 @@ kubectl exec -it <eso-pod> -n external-secrets -- bash
 - **ESO Documentation:** https://external-secrets.io
 - **AWS SecretStore:** https://external-secrets.io/latest/provider/aws-secrets-manager/
 - **Issue #150:** Refactor to use External Secrets Operator
+### Authentication notes (k3s on EC2)
+- ESO uses the **instance profile** credentials from the k3s nodes (IMDS).
+- Do **not** configure `auth.jwt.serviceAccountRef` unless you are on EKS with IRSA.
