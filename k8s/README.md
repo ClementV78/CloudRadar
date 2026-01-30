@@ -27,7 +27,7 @@ k8s/
 - **ArgoCD root** (bootstrap) watches two sources: `k8s/apps` and `k8s/platform`.
 - **Apps tree**: business/observability workloads and their Applications. Each subfolder should have its own kustomization when it contains multiple resources. External Secrets manifests are managed via the `external-secrets-config` Application (platform), so the `external-secrets` folder is *not* referenced from `k8s/apps/kustomization.yaml`.
 - **Platform tree**: cluster-level operators or shared components (e.g., ESO). Use ArgoCD sync waves/dependsOn when CRDs are involved.
-- **Namespaces**: `apps` for workloads, `monitoring` for Prom/Grafana, `external-secrets` for ESO controllers; SecretStore/ExternalSecrets are under `default` unless specified.
+- **Namespaces**: `apps` for workloads, `monitoring` for Prom/Grafana, `external-secrets` for ESO controllers; SecretStore is cluster-scoped, ExternalSecrets live in `default` unless specified.
 - **Ordering for ESO**: Operator installs CRDs first (wave 0), config applies SecretStore/ExternalSecrets second (wave 1) with `SkipDryRunOnMissingResource=true`.
 
 ## How to add a new app

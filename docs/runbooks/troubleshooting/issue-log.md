@@ -10,6 +10,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Analysis:** Single Kustomize rendered both ESO Helm chart and SecretStore. ArgoCD dry-run validated SecretStore before CRDs existed.
 - **Resolution:** Split into two ArgoCD Applications with sync waves: operator (wave 0) installs CRDs; config (wave 1, SkipDryRun) applies SecretStore + ExternalSecrets from `k8s/apps/external-secrets/`. (Refs: issue #191, PR TBD)
 
+### [gitops/argocd] SecretStore rejected (serviceAccountRef namespace)
+- **Severity:** Medium
+- **Impact:** SecretStore webhook denied apply; ExternalSecrets degraded; no secrets synced.
+- **Analysis:** SecretStore (namespaced) referenced a service account in `external-secrets`. ESO webhook requires serviceAccountRef namespace to match the SecretStore namespace.
+- **Resolution:** Switch to `ClusterSecretStore` and set ExternalSecrets to `secretStoreRef.kind=ClusterSecretStore`. (Refs: issue #195, PR TBD)
+
 ## 2026-01-26
 
 ### [gitops/argocd] App sync failed due to malformed processor manifest

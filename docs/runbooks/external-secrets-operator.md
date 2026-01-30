@@ -201,28 +201,27 @@ File: `k8s/apps/external-secrets/secretstore.yaml` (applied by the `external-sec
 
 ```yaml
 apiVersion: external-secrets.io/v1beta1
-kind: SecretStore
+kind: ClusterSecretStore
 metadata:
   name: ssm-parameter-store
-  namespace: default
 spec:
   provider:
     aws:
       service: ParameterStore
       region: us-east-1
   auth:
-    jwt:
-      serviceAccountRef:
-        name: external-secrets-sa
-        namespace: external-secrets
+        jwt:
+          serviceAccountRef:
+            name: external-secrets-sa
+            namespace: external-secrets
 ```
 
 **Verify:**
 ```bash
-kubectl get secretstore
+kubectl get clustersecretstore
 # Should show: ssm-parameter-store READY
 
-kubectl describe secretstore ssm-parameter-store
+kubectl describe clustersecretstore ssm-parameter-store
 # Should show no auth errors
 ```
 
