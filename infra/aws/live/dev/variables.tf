@@ -182,6 +182,11 @@ variable "edge_admin_nodeport" {
   type        = number
 }
 
+variable "edge_prometheus_nodeport" {
+  description = "NodePort (or Traefik entrypoint port) for the Prometheus service."
+  type        = number
+}
+
 variable "edge_enable_http_redirect" {
   description = "Whether to redirect HTTP to HTTPS."
   type        = bool

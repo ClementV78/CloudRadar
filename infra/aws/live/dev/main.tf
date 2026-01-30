@@ -104,6 +104,7 @@ module "edge" {
   api_upstream_port              = var.edge_api_nodeport
   health_upstream_port           = local.edge_health_nodeport
   admin_upstream_port            = var.edge_admin_nodeport
+  prometheus_upstream_port       = var.edge_prometheus_nodeport
   enable_http_redirect           = var.edge_enable_http_redirect
   tags                           = local.tags
 

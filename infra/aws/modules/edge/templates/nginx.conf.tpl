@@ -18,6 +18,11 @@ upstream admin_upstream {
   server ${upstream_host}:${admin_upstream_port};
 }
 
+upstream prometheus_upstream {
+  # Prometheus service exposed via Traefik/NodePort inside the cluster.
+  server ${upstream_host}:${prometheus_upstream_port};
+}
+
 server {
   listen 443 ssl;
   server_name ${server_name};
@@ -71,6 +76,16 @@ server {
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     # TODO: Re-introduce WebSocket headers if/when the dashboard requires them.
+  }
+
+  location /prometheus/ {
+    # Route Prometheus UI/API through edge; Basic Auth enforced at edge.
+    proxy_pass http://prometheus_upstream/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
   }
 }
 

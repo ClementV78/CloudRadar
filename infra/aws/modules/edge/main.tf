@@ -1,12 +1,13 @@
 locals {
   nginx_conf = templatefile("${path.module}/templates/nginx.conf.tpl", {
-    server_name             = var.server_name
-    upstream_host           = var.upstream_host
-    dashboard_upstream_port = var.dashboard_upstream_port
-    api_upstream_port       = var.api_upstream_port
-    health_upstream_port    = var.health_upstream_port
-    admin_upstream_port     = var.admin_upstream_port
-    enable_http_redirect    = var.enable_http_redirect ? "1" : "0"
+    server_name              = var.server_name
+    upstream_host            = var.upstream_host
+    dashboard_upstream_port  = var.dashboard_upstream_port
+    api_upstream_port        = var.api_upstream_port
+    health_upstream_port     = var.health_upstream_port
+    admin_upstream_port      = var.admin_upstream_port
+    prometheus_upstream_port = var.prometheus_upstream_port
+    enable_http_redirect     = var.enable_http_redirect ? "1" : "0"
   })
 }
 
