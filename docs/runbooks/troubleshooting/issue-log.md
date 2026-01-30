@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-01-30
 
+### [infra/k3s] Control-plane taint missing → workloads scheduled on server (OOM/SSM black screen)
+- **Severity:** High
+- **Impact:** App pods (Java) and Redis scheduled on the k3s server; repeated OOM kills; SSM Session Manager showed a black screen; cluster became unstable.
+- **Analysis:** The control-plane node had **no taints** (`Taints: <none>`). The taint was applied manually previously and **not codified** in IaC. After infra rebuild, the new server booted without a taint, so regular workloads were eligible to run on it.
+- **Resolution:** Re-applied taint `dedicated=control-plane:NoSchedule` and deleted app/redis/ESO pods so they rescheduled to the worker. **Follow-up:** codify the taint in k3s server install (e.g., `K3S_NODE_TAINT` / `--node-taint`) and document the expected taints. (Refs: issue #203)
+
 ### [gitops/argocd] External Secrets sync failed (CRD missing)
 - **Severity:** High
 - **Impact:** ESO Application stuck in retry; SecretStore rejected (CRD absent); no secrets synced or pods deployed.
