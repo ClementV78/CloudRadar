@@ -96,6 +96,8 @@ ARGOCD_APP_REPO="${ARGOCD_APP_REPO:-https://github.com/ClementV78/CloudRadar.git
 ARGOCD_APP_PATH="${ARGOCD_APP_PATH:-k8s/apps}"
 ARGOCD_APP_REVISION="${ARGOCD_APP_REVISION:-main}"
 HELM_VERSION_FLAG=""
+ARGOCD_VALUES_FILE="$(dirname "$0")/argocd-values.yaml"
+ARGOCD_VALUES_CONTENT=""
 
 if [[ -n "${ARGOCD_CHART_VERSION}" ]]; then
   HELM_VERSION_FLAG="--version ${ARGOCD_CHART_VERSION}"
@@ -108,6 +110,13 @@ fi
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "jq is required to build SSM parameters." >&2
+  exit 1
+fi
+
+if [[ -f "${ARGOCD_VALUES_FILE}" ]]; then
+  ARGOCD_VALUES_CONTENT="$(cat "${ARGOCD_VALUES_FILE}")"
+else
+  echo "Missing ${ARGOCD_VALUES_FILE}. Run from the repo root." >&2
   exit 1
 fi
 
@@ -140,6 +149,10 @@ commands=(
   "set -eu"
   # Wait for kubectl to be installed by k3s (SSM may run before cloud-init finishes).
   "i=0; while [ \$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi"
+  # Write the repo-server tuning values to a local file on the instance (SSM doesn't have the repo).
+  "cat <<'EOF' >/tmp/argocd-values.yaml
+${ARGOCD_VALUES_CONTENT}
+EOF"
   # Point kubectl/helm to the k3s kubeconfig on the instance.
   "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml"
   # Install Helm if missing (k3s AMIs might not include it).
@@ -148,7 +161,7 @@ commands=(
   "sudo --preserve-env=KUBECONFIG helm repo add argo https://argoproj.github.io/argo-helm --force-update"
   "sudo --preserve-env=KUBECONFIG helm repo update"
   # Install or upgrade ArgoCD into its namespace.
-  "sudo --preserve-env=KUBECONFIG helm upgrade --install argocd argo/argo-cd --namespace ${ARGOCD_NAMESPACE} --create-namespace ${HELM_VERSION_FLAG} --values scripts/argocd-values.yaml --set-json 'global.nodeSelector={\"node-role.kubernetes.io/control-plane\":\"true\"}' --set-json 'global.tolerations=[{\"key\":\"dedicated\",\"operator\":\"Equal\",\"value\":\"control-plane\",\"effect\":\"NoSchedule\"}]'"
+  "sudo --preserve-env=KUBECONFIG helm upgrade --install argocd argo/argo-cd --namespace ${ARGOCD_NAMESPACE} --create-namespace ${HELM_VERSION_FLAG} --values /tmp/argocd-values.yaml --set-json 'global.nodeSelector={\"node-role.kubernetes.io/control-plane\":\"true\"}' --set-json 'global.tolerations=[{\"key\":\"dedicated\",\"operator\":\"Equal\",\"value\":\"control-plane\",\"effect\":\"NoSchedule\"}]'"
   # Wait for CRDs and ArgoCD server to be ready before creating the Application.
   "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=120s --request-timeout=5s"
   "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} wait --for=condition=Available deployment/argocd-server --timeout=300s --request-timeout=5s"
