@@ -1,0 +1,14 @@
+repoServer:
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1
+      memory: 1Gi
+  livenessProbe:
+    timeoutSeconds: 5
+    failureThreshold: 10
+  readinessProbe:
+    timeoutSeconds: 5
+    failureThreshold: 10

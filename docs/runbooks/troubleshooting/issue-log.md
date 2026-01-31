@@ -10,6 +10,19 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Analysis:** `k3s_nodeports_from_edge` generated an ingress rule for TCP/80 while `k3s_ingress_from_edge` already allows TCP/80 from the edge SG, resulting in `InvalidPermission.Duplicate`.
 - **Resolution:** Filter port 80/443 out of the NodePort rule set so only the explicit ingress rules handle those ports. (Refs: issue #219)
 
+### [k3s/storage] Redis Pending (local-path PV node affinity + taints)
+- **Severity:** High
+- **Impact:** `redis-0` stayed Pending; `processor` and `healthz` CrashLooped due to missing Redis; ArgoCD app remained `Unknown/Progressing`.
+- **Investigation (timeline):**
+  - Context: the worker node was terminated/replaced to change its instance type, which orphaned node-local storage.
+  - Observed `healthz`/`processor` CrashLoop with probe failures and Redis connection errors (`kubectl logs`, `kubectl describe pod`).
+  - Checked `redis-0` status → `Pending` with no endpoints; confirmed Service existed but had no pods (`kubectl get pods,svc`, `kubectl get endpoints`).
+  - `describe pod redis-0` showed scheduling failures: *node affinity mismatch* + *untolerated taint* (`kubectl describe pod`).
+  - `get pvc` showed Redis PVC bound to a PV using `local-path`, which is **node-local** (`kubectl get pvc`).
+  - Confirmed the bound PV was tied to the **old NotReady worker** (`kubectl get nodes -o wide`), so the new worker could not mount it.
+- **Analysis:** Redis PVC uses `local-path`, so the PV was bound to the old NotReady worker. The new worker could not satisfy PV node affinity, and the control-plane was tainted (no toleration), leaving no eligible node to schedule Redis.
+- **Resolution:** Delete the NotReady node from the cluster or recreate the Redis PVC to rebind on the healthy worker. Long term, move Redis to a networked storage class (e.g., `ebs-gp3`) to avoid node affinity lock-in.
+
 ### [obs/monitoring] Grafana/Prometheus missing (Application namespace overridden)
 - **Severity:** Medium
 - **Impact:** Monitoring namespace had no Grafana/Prometheus services or pods; edge `/grafana` and `/prometheus` returned 502.
