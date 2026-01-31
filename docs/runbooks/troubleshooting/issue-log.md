@@ -2,6 +2,20 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-01-31
+
+### [ci/infra] SSM SendCommand intermittently fails (InvalidInstanceId)
+- **Severity:** Low
+- **Impact:** `ci-infra` k3s-ready-check failed once with `InvalidInstanceId`; rerun succeeded.
+- **Analysis:** SSM SendCommand can be issued before the instance transitions to a valid/managed state.
+- **Resolution:** Add preflight SSM PingStatus check and retry SendCommand with backoff in ci-infra workflow. (Refs: issue #205)
+
+### [gitops/argocd] Bootstrap failed (Helm nodeSelector parsed as string)
+- **Severity:** Medium
+- **Impact:** ArgoCD bootstrap job failed; GitOps root Application not created.
+- **Analysis:** Helm `--set` with dotted key for nodeSelector was parsed as a string, causing `json: cannot unmarshal object into Go struct field PodSpec.spec.template.spec.nodeSelector of type string`.
+- **Resolution:** Switch bootstrap to `--set-json` for `global.nodeSelector` and `global.tolerations`. (Refs: issue #206)
+
 ## 2026-01-30
 
 ### [infra/k3s] Control-plane taint missing → workloads scheduled on server (OOM/SSM black screen)
