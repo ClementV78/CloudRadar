@@ -31,7 +31,7 @@ locals {
   }
   edge_nodeport_rules_filtered = {
     for key, port in local.edge_nodeport_rules : key => port
-    if (
+    if(
       (key != "health" || (port != var.edge_dashboard_nodeport && port != var.edge_api_nodeport)) &&
       // Ports 80/443 are handled by dedicated ingress rules below.
       port != 80 &&
