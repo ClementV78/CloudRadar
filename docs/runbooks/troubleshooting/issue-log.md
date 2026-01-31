@@ -4,6 +4,16 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-01-31
 
+### [gitops/argocd] Repo-server CrashLoop (default probes/resources too tight)
+- **Severity:** Medium
+- **Impact:** ArgoCD app status stuck `Unknown/Progressing`; repo-server endpoint had no ready pods; GitOps sync flapped.
+- **Investigation (timeline):**
+  - Noticed `argocd-repo-server` liveness/readiness failing and CrashLooping (`kubectl describe pod`, `kubectl get pods`).
+  - Verified Service had no endpoints for repo-server and app sync showed repo-server connection refused (`kubectl get svc/endpoints`, `kubectl get app`).
+  - Checked chart defaults and live Deployment: repo-server `resources: {}` and probes with `timeoutSeconds: 1` (`helm show values`, `kubectl get deploy -o yaml`).
+- **Analysis:** Default repo-server resources and 1s probe timeouts are too aggressive for this environment, causing repeated liveness/readiness failures under load.
+- **Resolution:** Add explicit repo-server requests/limits and relax probe timeouts in the ArgoCD bootstrap values file; bootstrap uses that file on install/upgrade. (Refs: issue #223)
+
 ### [infra/edge] Terraform apply failed (duplicate SG rule for port 80)
 - **Severity:** Medium
 - **Impact:** `ci-infra`/local apply failed while updating edge routing for Grafana/Prometheus on port 80.
