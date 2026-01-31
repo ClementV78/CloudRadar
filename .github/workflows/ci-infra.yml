@@ -429,6 +429,77 @@ jobs:
           K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
         run: |
           # AWS-RunShellScript executes with /bin/sh; keep SSM commands POSIX-only.
+          wait_for_instance_ready() {
+            local instance_id=$1
+            local max_attempts=12
+            local attempt=1
+            local sleep_seconds=10
+
+            while [ "${attempt}" -le "${max_attempts}" ]; do
+              local state
+              local ping
+              state="$(aws ec2 describe-instance-status \
+                --instance-ids "${instance_id}" \
+                --include-all-instances \
+                --query "InstanceStatuses[0].InstanceState.Name" \
+                --output text 2>/dev/null || true)"
+
+              ping="$(aws ssm describe-instance-information \
+                --filters "Key=InstanceIds,Values=${instance_id}" \
+                --query "InstanceInformationList[0].PingStatus" \
+                --output text 2>/dev/null || true)"
+
+              if [ "${state}" = "running" ] && [ "${ping}" = "Online" ]; then
+                echo "SSM instance is online."
+                return 0
+              fi
+
+              echo "Waiting for SSM instance readiness (state=${state:-unknown} ping=${ping:-unknown})..."
+              sleep "${sleep_seconds}"
+              attempt=$((attempt + 1))
+              sleep_seconds=$((sleep_seconds + 5))
+            done
+
+            echo "SSM instance not ready after ${max_attempts} attempts."
+            return 1
+          }
+
+          send_ssm_command() {
+            local instance_id=$1
+            local params=$2
+            local timeout_seconds=$3
+            local max_attempts=5
+            local attempt=1
+            local sleep_seconds=10
+
+            while [ "${attempt}" -le "${max_attempts}" ]; do
+              echo "SSM send-command attempt ${attempt}/${max_attempts}"
+              local response
+              response="$(aws ssm send-command \
+                --instance-ids "${instance_id}" \
+                --document-name "AWS-RunShellScript" \
+                --parameters "${params}" \
+                --timeout-seconds "${timeout_seconds}" \
+                --query "Command.CommandId" \
+                --output text 2>&1 || true)"
+
+              if [ -n "${response}" ] && [ "${response}" != "None" ] && ! echo "${response}" | grep -qi "InvalidInstanceId"; then
+                echo "${response}"
+                return 0
+              fi
+
+              echo "SendCommand failed: ${response}"
+              if [ "${attempt}" -lt "${max_attempts}" ]; then
+                echo "Retrying in ${sleep_seconds}s..."
+                sleep "${sleep_seconds}"
+                sleep_seconds=$((sleep_seconds + 5))
+              fi
+              attempt=$((attempt + 1))
+            done
+
+            return 1
+          }
+
           params="$(jq -cn \
             --arg c0 "i=0; while [ \$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
             --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
@@ -478,16 +549,12 @@ jobs:
             done
           }
 
+          wait_for_instance_ready "${K3S_SERVER_INSTANCE_ID}"
+
           while [ "${attempt}" -le "${max_attempts}" ]; do
             echo "k3s-ready-check attempt ${attempt}/${max_attempts}"
 
-            command_id="$(aws ssm send-command \
-              --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
-              --document-name "AWS-RunShellScript" \
-              --parameters "${params}" \
-              --timeout-seconds 600 \
-              --query "Command.CommandId" \
-              --output text)"
+            command_id="$(send_ssm_command "${K3S_SERVER_INSTANCE_ID}" "${params}" 600)"
 
             echo "::notice title=SSM::k3s readiness command_id=${command_id} attempt=${attempt}"
 
@@ -544,6 +611,77 @@ jobs:
         env:
           K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
         run: |
+          wait_for_instance_ready() {
+            local instance_id=$1
+            local max_attempts=12
+            local attempt=1
+            local sleep_seconds=10
+
+            while [ "${attempt}" -le "${max_attempts}" ]; do
+              local state
+              local ping
+              state="$(aws ec2 describe-instance-status \
+                --instance-ids "${instance_id}" \
+                --include-all-instances \
+                --query "InstanceStatuses[0].InstanceState.Name" \
+                --output text 2>/dev/null || true)"
+
+              ping="$(aws ssm describe-instance-information \
+                --filters "Key=InstanceIds,Values=${instance_id}" \
+                --query "InstanceInformationList[0].PingStatus" \
+                --output text 2>/dev/null || true)"
+
+              if [ "${state}" = "running" ] && [ "${ping}" = "Online" ]; then
+                echo "SSM instance is online."
+                return 0
+              fi
+
+              echo "Waiting for SSM instance readiness (state=${state:-unknown} ping=${ping:-unknown})..."
+              sleep "${sleep_seconds}"
+              attempt=$((attempt + 1))
+              sleep_seconds=$((sleep_seconds + 5))
+            done
+
+            echo "SSM instance not ready after ${max_attempts} attempts."
+            return 1
+          }
+
+          send_ssm_command() {
+            local instance_id=$1
+            local params=$2
+            local timeout_seconds=$3
+            local max_attempts=5
+            local attempt=1
+            local sleep_seconds=10
+
+            while [ "${attempt}" -le "${max_attempts}" ]; do
+              echo "SSM send-command attempt ${attempt}/${max_attempts}"
+              local response
+              response="$(aws ssm send-command \
+                --instance-ids "${instance_id}" \
+                --document-name "AWS-RunShellScript" \
+                --parameters "${params}" \
+                --timeout-seconds "${timeout_seconds}" \
+                --query "Command.CommandId" \
+                --output text 2>&1 || true)"
+
+              if [ -n "${response}" ] && [ "${response}" != "None" ] && ! echo "${response}" | grep -qi "InvalidInstanceId"; then
+                echo "${response}"
+                return 0
+              fi
+
+              echo "SendCommand failed: ${response}"
+              if [ "${attempt}" -lt "${max_attempts}" ]; then
+                echo "Retrying in ${sleep_seconds}s..."
+                sleep "${sleep_seconds}"
+                sleep_seconds=$((sleep_seconds + 5))
+              fi
+              attempt=$((attempt + 1))
+            done
+
+            return 1
+          }
+
           params="$(jq -cn \
             --arg c0 "i=0; while [ \$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
             --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
@@ -589,13 +727,8 @@ jobs:
             done
           }
 
-          command_id="$(aws ssm send-command \
-            --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
-            --document-name "AWS-RunShellScript" \
-            --parameters "${params}" \
-            --timeout-seconds 600 \
-            --query "Command.CommandId" \
-            --output text)"
+          wait_for_instance_ready "${K3S_SERVER_INSTANCE_ID}"
+          command_id="$(send_ssm_command "${K3S_SERVER_INSTANCE_ID}" "${params}" 600)"
 
           echo "::notice title=SSM::argocd app sync command_id=${command_id}"
 
@@ -608,6 +741,77 @@ jobs:
           EDGE_BASIC_AUTH_USER: ${{ needs.tf-outputs.outputs.edge_basic_auth_user }}
           EDGE_BASIC_AUTH_SSM_PARAMETER_NAME: ${{ needs.tf-outputs.outputs.edge_basic_auth_ssm_parameter_name }}
         run: |
+          wait_for_instance_ready() {
+            local instance_id=$1
+            local max_attempts=12
+            local attempt=1
+            local sleep_seconds=10
+
+            while [ "${attempt}" -le "${max_attempts}" ]; do
+              local state
+              local ping
+              state="$(aws ec2 describe-instance-status \
+                --instance-ids "${instance_id}" \
+                --include-all-instances \
+                --query "InstanceStatuses[0].InstanceState.Name" \
+                --output text 2>/dev/null || true)"
+
+              ping="$(aws ssm describe-instance-information \
+                --filters "Key=InstanceIds,Values=${instance_id}" \
+                --query "InstanceInformationList[0].PingStatus" \
+                --output text 2>/dev/null || true)"
+
+              if [ "${state}" = "running" ] && [ "${ping}" = "Online" ]; then
+                echo "SSM instance is online."
+                return 0
+              fi
+
+              echo "Waiting for SSM instance readiness (state=${state:-unknown} ping=${ping:-unknown})..."
+              sleep "${sleep_seconds}"
+              attempt=$((attempt + 1))
+              sleep_seconds=$((sleep_seconds + 5))
+            done
+
+            echo "SSM instance not ready after ${max_attempts} attempts."
+            return 1
+          }
+
+          send_ssm_command() {
+            local instance_id=$1
+            local params=$2
+            local timeout_seconds=$3
+            local max_attempts=5
+            local attempt=1
+            local sleep_seconds=10
+
+            while [ "${attempt}" -le "${max_attempts}" ]; do
+              echo "SSM send-command attempt ${attempt}/${max_attempts}"
+              local response
+              response="$(aws ssm send-command \
+                --instance-ids "${instance_id}" \
+                --document-name "AWS-RunShellScript" \
+                --parameters "${params}" \
+                --timeout-seconds "${timeout_seconds}" \
+                --query "Command.CommandId" \
+                --output text 2>&1 || true)"
+
+              if [ -n "${response}" ] && [ "${response}" != "None" ] && ! echo "${response}" | grep -qi "InvalidInstanceId"; then
+                echo "${response}"
+                return 0
+              fi
+
+              echo "SendCommand failed: ${response}"
+              if [ "${attempt}" -lt "${max_attempts}" ]; then
+                echo "Retrying in ${sleep_seconds}s..."
+                sleep "${sleep_seconds}"
+                sleep_seconds=$((sleep_seconds + 5))
+              fi
+              attempt=$((attempt + 1))
+            done
+
+            return 1
+          }
+
           params="$(jq -cn \
             --arg c0 "i=0; while [ \$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
             --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
@@ -653,13 +857,8 @@ jobs:
             done
           }
 
-          command_id="$(aws ssm send-command \
-            --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
-            --document-name "AWS-RunShellScript" \
-            --parameters "${params}" \
-            --timeout-seconds 600 \
-            --query "Command.CommandId" \
-            --output text)"
+          wait_for_instance_ready "${K3S_SERVER_INSTANCE_ID}"
+          command_id="$(send_ssm_command "${K3S_SERVER_INSTANCE_ID}" "${params}" 600)"
 
           echo "::notice title=SSM::healthz rollout command_id=${command_id}"
 
@@ -672,6 +871,77 @@ jobs:
           EDGE_BASIC_AUTH_USER: ${{ needs.tf-outputs.outputs.edge_basic_auth_user }}
           EDGE_BASIC_AUTH_SSM_PARAMETER_NAME: ${{ needs.tf-outputs.outputs.edge_basic_auth_ssm_parameter_name }}
         run: |
+          wait_for_instance_ready() {
+            local instance_id=$1
+            local max_attempts=12
+            local attempt=1
+            local sleep_seconds=10
+
+            while [ "${attempt}" -le "${max_attempts}" ]; do
+              local state
+              local ping
+              state="$(aws ec2 describe-instance-status \
+                --instance-ids "${instance_id}" \
+                --include-all-instances \
+                --query "InstanceStatuses[0].InstanceState.Name" \
+                --output text 2>/dev/null || true)"
+
+              ping="$(aws ssm describe-instance-information \
+                --filters "Key=InstanceIds,Values=${instance_id}" \
+                --query "InstanceInformationList[0].PingStatus" \
+                --output text 2>/dev/null || true)"
+
+              if [ "${state}" = "running" ] && [ "${ping}" = "Online" ]; then
+                echo "SSM instance is online."
+                return 0
+              fi
+
+              echo "Waiting for SSM instance readiness (state=${state:-unknown} ping=${ping:-unknown})..."
+              sleep "${sleep_seconds}"
+              attempt=$((attempt + 1))
+              sleep_seconds=$((sleep_seconds + 5))
+            done
+
+            echo "SSM instance not ready after ${max_attempts} attempts."
+            return 1
+          }
+
+          send_ssm_command() {
+            local instance_id=$1
+            local params=$2
+            local timeout_seconds=$3
+            local max_attempts=5
+            local attempt=1
+            local sleep_seconds=10
+
+            while [ "${attempt}" -le "${max_attempts}" ]; do
+              echo "SSM send-command attempt ${attempt}/${max_attempts}"
+              local response
+              response="$(aws ssm send-command \
+                --instance-ids "${instance_id}" \
+                --document-name "AWS-RunShellScript" \
+                --parameters "${params}" \
+                --timeout-seconds "${timeout_seconds}" \
+                --query "Command.CommandId" \
+                --output text 2>&1 || true)"
+
+              if [ -n "${response}" ] && [ "${response}" != "None" ] && ! echo "${response}" | grep -qi "InvalidInstanceId"; then
+                echo "${response}"
+                return 0
+              fi
+
+              echo "SendCommand failed: ${response}"
+              if [ "${attempt}" -lt "${max_attempts}" ]; then
+                echo "Retrying in ${sleep_seconds}s..."
+                sleep "${sleep_seconds}"
+                sleep_seconds=$((sleep_seconds + 5))
+              fi
+              attempt=$((attempt + 1))
+            done
+
+            return 1
+          }
+
           params="$(jq -cn \
             --arg c0 'set -euo pipefail' \
             --arg c1 'nginx_status=$(systemctl is-active nginx || true); echo "nginx_status=${nginx_status}"' \
@@ -718,15 +988,10 @@ jobs:
             done
           }
 
+          wait_for_instance_ready "${EDGE_INSTANCE_ID}"
           i=0
           while [ $i -lt 3 ]; do
-            command_id="$(aws ssm send-command \
-              --instance-ids "${EDGE_INSTANCE_ID}" \
-              --document-name "AWS-RunShellScript" \
-              --parameters "${params}" \
-              --timeout-seconds 120 \
-              --query "Command.CommandId" \
-              --output text)"
+            command_id="$(send_ssm_command "${EDGE_INSTANCE_ID}" "${params}" 120)"
 
             echo "::notice title=SSM::edge nginx check attempt=$((i+1)) command_id=${command_id}"
 

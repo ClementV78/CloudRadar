@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-01-31
 
+### [ci/infra] SSM SendCommand intermittently fails (InvalidInstanceId)
+- **Severity:** Low
+- **Impact:** `ci-infra` k3s-ready-check failed once with `InvalidInstanceId`; rerun succeeded.
+- **Analysis:** SSM SendCommand can be issued before the instance transitions to a valid/managed state.
+- **Resolution:** Add preflight SSM PingStatus check and retry SendCommand with backoff in ci-infra workflow. (Refs: issue #205)
+
 ### [gitops/argocd] Bootstrap failed (Helm nodeSelector parsed as string)
 - **Severity:** Medium
 - **Impact:** ArgoCD bootstrap job failed; GitOps root Application not created.
