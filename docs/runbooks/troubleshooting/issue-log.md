@@ -2,6 +2,14 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-01-31
+
+### [gitops/argocd] Bootstrap failed (Helm nodeSelector parsed as string)
+- **Severity:** Medium
+- **Impact:** ArgoCD bootstrap job failed; GitOps root Application not created.
+- **Analysis:** Helm `--set` with dotted key for nodeSelector was parsed as a string, causing `json: cannot unmarshal object into Go struct field PodSpec.spec.template.spec.nodeSelector of type string`.
+- **Resolution:** Switch bootstrap to `--set-json` for `global.nodeSelector` and `global.tolerations`. (Refs: issue #206)
+
 ## 2026-01-30
 
 ### [infra/k3s] Control-plane taint missing → workloads scheduled on server (OOM/SSM black screen)
