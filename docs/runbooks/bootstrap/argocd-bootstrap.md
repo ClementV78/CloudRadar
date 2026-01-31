@@ -10,6 +10,7 @@ Purpose: install ArgoCD in the k3s cluster so GitOps can manage k8s apps.
   - `ssm:GetCommandInvocation`
   - `ssm:DescribeInstanceInformation`
 - `scripts/bootstrap-argocd.sh` is executable.
+- Repo-server resources and probe timeouts are tuned via `scripts/argocd-values.yaml` (used by the bootstrap script).
 - If using `--env`, instances must be tagged with:
   - `Role=k3s-server`
   - `Environment=<env>`

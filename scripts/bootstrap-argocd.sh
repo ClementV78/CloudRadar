@@ -148,7 +148,7 @@ commands=(
   "sudo --preserve-env=KUBECONFIG helm repo add argo https://argoproj.github.io/argo-helm --force-update"
   "sudo --preserve-env=KUBECONFIG helm repo update"
   # Install or upgrade ArgoCD into its namespace.
-  "sudo --preserve-env=KUBECONFIG helm upgrade --install argocd argo/argo-cd --namespace ${ARGOCD_NAMESPACE} --create-namespace ${HELM_VERSION_FLAG} --set-json 'global.nodeSelector={\"node-role.kubernetes.io/control-plane\":\"true\"}' --set-json 'global.tolerations=[{\"key\":\"dedicated\",\"operator\":\"Equal\",\"value\":\"control-plane\",\"effect\":\"NoSchedule\"}]'"
+  "sudo --preserve-env=KUBECONFIG helm upgrade --install argocd argo/argo-cd --namespace ${ARGOCD_NAMESPACE} --create-namespace ${HELM_VERSION_FLAG} --values scripts/argocd-values.yaml --set-json 'global.nodeSelector={\"node-role.kubernetes.io/control-plane\":\"true\"}' --set-json 'global.tolerations=[{\"key\":\"dedicated\",\"operator\":\"Equal\",\"value\":\"control-plane\",\"effect\":\"NoSchedule\"}]'"
   # Wait for CRDs and ArgoCD server to be ready before creating the Application.
   "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait --for=condition=Established crd/applications.argoproj.io --timeout=120s --request-timeout=5s"
   "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n ${ARGOCD_NAMESPACE} wait --for=condition=Available deployment/argocd-server --timeout=300s --request-timeout=5s"

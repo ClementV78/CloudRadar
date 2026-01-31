@@ -237,6 +237,7 @@ See [docs/runbooks/observability.md](../runbooks/observability.md) for operation
 - Implemented (IaC, dev): SSM/KMS interface endpoints are temporarily disabled to reduce cost; edge uses HTTPS egress for SSM.
 - Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery, Redis buffer in the data namespace, EBS CSI driver + `ebs-gp3` StorageClass.
 - Implemented (Observability): Prometheus + Grafana stack (7d retention, 5GB PVC, $0.50/month), auto-deployed via ArgoCD, manual K8s Secret setup.
+- Planned: migrate Redis PVC off `local-path` to resilient storage (`ebs-gp3`) to avoid node affinity lock-in (issue #221).
 - Planned: additional network hardening, AlertManager rules (Sprint 2).
 
 ## Notes
