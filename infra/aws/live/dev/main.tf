@@ -18,7 +18,9 @@ locals {
     "kms"
   ]
 
+  // Health port defaults to dashboard unless explicitly set.
   edge_health_nodeport = var.edge_health_nodeport != null ? var.edge_health_nodeport : var.edge_dashboard_nodeport
+  // Edge -> k3s allowed NodePorts (filtered below to avoid duplicates).
   edge_nodeport_rules = {
     dashboard  = var.edge_dashboard_nodeport
     api        = var.edge_api_nodeport
@@ -29,7 +31,12 @@ locals {
   }
   edge_nodeport_rules_filtered = {
     for key, port in local.edge_nodeport_rules : key => port
-    if key != "health" || (port != var.edge_dashboard_nodeport && port != var.edge_api_nodeport)
+    if (
+      (key != "health" || (port != var.edge_dashboard_nodeport && port != var.edge_api_nodeport)) &&
+      // Ports 80/443 are handled by dedicated ingress rules below.
+      port != 80 &&
+      port != 443
+    )
   }
 
   sqlite_backup_bucket_name = var.sqlite_backup_bucket_name != null ? var.sqlite_backup_bucket_name : "${var.project}-${var.environment}-${data.aws_caller_identity.current.account_id}-sqlite-backups"

@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-01-31
 
+### [infra/edge] Terraform apply failed (duplicate SG rule for port 80)
+- **Severity:** Medium
+- **Impact:** `ci-infra`/local apply failed while updating edge routing for Grafana/Prometheus on port 80.
+- **Analysis:** `k3s_nodeports_from_edge` generated an ingress rule for TCP/80 while `k3s_ingress_from_edge` already allows TCP/80 from the edge SG, resulting in `InvalidPermission.Duplicate`.
+- **Resolution:** Filter port 80/443 out of the NodePort rule set so only the explicit ingress rules handle those ports. (Refs: issue #219)
+
 ### [obs/monitoring] Grafana/Prometheus missing (Application namespace overridden)
 - **Severity:** Medium
 - **Impact:** Monitoring namespace had no Grafana/Prometheus services or pods; edge `/grafana` and `/prometheus` returned 502.
