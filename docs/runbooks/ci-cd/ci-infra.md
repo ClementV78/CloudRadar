@@ -101,6 +101,7 @@ flowchart TB
 - The smoke test verifies edge Nginx via SSM (3 retries with 10s delay) before running the external `/healthz` curl.
   - On failure, it prints `systemctl status nginx`, recent `journalctl` logs, and the 443 listen check to speed up diagnostics.
 - The workflow now waits for **SSM PingStatus=Online** before sending commands, and retries `send-command` on transient `InvalidInstanceId` errors.
+- SSM retry logs are sent to stderr so only the command ID is parsed.
 
 ## Post-apply smoke tests (optional)
 
