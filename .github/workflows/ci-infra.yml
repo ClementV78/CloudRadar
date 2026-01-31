@@ -473,7 +473,7 @@ jobs:
             local sleep_seconds=10
 
             while [ "${attempt}" -le "${max_attempts}" ]; do
-              echo "SSM send-command attempt ${attempt}/${max_attempts}"
+              echo "SSM send-command attempt ${attempt}/${max_attempts}" >&2
               local response
               response="$(aws ssm send-command \
                 --instance-ids "${instance_id}" \
@@ -488,9 +488,9 @@ jobs:
                 return 0
               fi
 
-              echo "SendCommand failed: ${response}"
+              echo "SendCommand failed: ${response}" >&2
               if [ "${attempt}" -lt "${max_attempts}" ]; then
-                echo "Retrying in ${sleep_seconds}s..."
+                echo "Retrying in ${sleep_seconds}s..." >&2
                 sleep "${sleep_seconds}"
                 sleep_seconds=$((sleep_seconds + 5))
               fi
@@ -655,7 +655,7 @@ jobs:
             local sleep_seconds=10
 
             while [ "${attempt}" -le "${max_attempts}" ]; do
-              echo "SSM send-command attempt ${attempt}/${max_attempts}"
+              echo "SSM send-command attempt ${attempt}/${max_attempts}" >&2
               local response
               response="$(aws ssm send-command \
                 --instance-ids "${instance_id}" \
@@ -670,9 +670,9 @@ jobs:
                 return 0
               fi
 
-              echo "SendCommand failed: ${response}"
+              echo "SendCommand failed: ${response}" >&2
               if [ "${attempt}" -lt "${max_attempts}" ]; then
-                echo "Retrying in ${sleep_seconds}s..."
+                echo "Retrying in ${sleep_seconds}s..." >&2
                 sleep "${sleep_seconds}"
                 sleep_seconds=$((sleep_seconds + 5))
               fi
@@ -785,7 +785,7 @@ jobs:
             local sleep_seconds=10
 
             while [ "${attempt}" -le "${max_attempts}" ]; do
-              echo "SSM send-command attempt ${attempt}/${max_attempts}"
+              echo "SSM send-command attempt ${attempt}/${max_attempts}" >&2
               local response
               response="$(aws ssm send-command \
                 --instance-ids "${instance_id}" \
@@ -800,9 +800,9 @@ jobs:
                 return 0
               fi
 
-              echo "SendCommand failed: ${response}"
+              echo "SendCommand failed: ${response}" >&2
               if [ "${attempt}" -lt "${max_attempts}" ]; then
-                echo "Retrying in ${sleep_seconds}s..."
+                echo "Retrying in ${sleep_seconds}s..." >&2
                 sleep "${sleep_seconds}"
                 sleep_seconds=$((sleep_seconds + 5))
               fi
