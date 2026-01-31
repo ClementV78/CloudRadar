@@ -30,8 +30,8 @@ edge_dashboard_nodeport             = 30080
 edge_api_nodeport                   = 30081
 edge_health_nodeport                = 32736
 edge_admin_nodeport                 = 32737
-edge_prometheus_nodeport            = 30090
-edge_grafana_nodeport               = 30091
+edge_prometheus_nodeport            = 80
+edge_grafana_nodeport               = 80
 edge_enable_http_redirect           = true
 edge_ssm_vpc_endpoints_enabled      = false
 

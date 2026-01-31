@@ -1,8 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-namespace: monitoring
-
 # Prometheus and Grafana monitoring stack
 # Requires the Grafana admin Secret to exist (grafana-admin)
 # Prometheus auth is enforced at the edge (no in-cluster Prometheus secret)
@@ -10,5 +8,6 @@ namespace: monitoring
 resources:
   - namespace.yaml
   - prometheus-app.yaml
+  - prometheus-ingress.yaml
   - grafana-app.yaml
   - grafana-ingress.yaml
