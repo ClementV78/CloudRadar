@@ -216,7 +216,7 @@ Prod values are currently aligned with module defaults and may be overridden lat
 | **Storage** | 5GB gp3 EBS (Prometheus PVC) | Provisioned via EBS CSI + gp3 StorageClass |
 | **Retention** | 7 days (or when 4GB limit hit) | Configurable in Prometheus Helm values |
 | **Datasource** | Prometheus → Grafana (internal DNS) | Auto-configured, cluster-local |
-| **Ingress** | Traefik ingress controller (k3s default) | `grafana.cloudradar.local` via edge |
+| **Ingress** | Traefik ingress controller (k3s default) | `grafana.cloudradar.local` + `prometheus.cloudradar.local` via edge (host rewrite) |
 | **Authentication** | K8s Secret `grafana-admin` (password) | Created manually post-bootstrap (see runbook) |
 | **Password Storage** | AWS SSM Parameter Store | `/cloudradar/grafana/admin-password` |
 | **Cost** | ~$0.50/month (PVC only) | 5GB gp3 @ $0.10/GB/month |
@@ -227,7 +227,7 @@ Prod values are currently aligned with module defaults and may be overridden lat
 2. Manual: create K8s Secrets in monitoring namespace (post-bootstrap)
 3. ArgoCD detects `k8s/apps/monitoring/` and syncs Applications
 4. Prometheus starts, scrapes metrics; Grafana connects as datasource
-5. Edge Nginx routes `grafana.cloudradar.local` to k3s Ingress
+5. Edge Nginx routes `/grafana` and `/prometheus` to k3s Ingress and rewrites Host to `grafana.cloudradar.local` / `prometheus.cloudradar.local`
 
 See [docs/runbooks/observability.md](../runbooks/observability.md) for operational details and setup steps.
 

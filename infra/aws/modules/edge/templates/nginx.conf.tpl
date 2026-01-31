@@ -87,7 +87,7 @@ server {
     # Route Prometheus UI/API through edge; Basic Auth enforced at edge.
     proxy_pass http://prometheus_upstream/;
     proxy_http_version 1.1;
-    proxy_set_header Host $host;
+    proxy_set_header Host prometheus.cloudradar.local;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
@@ -97,7 +97,7 @@ server {
     # Route Grafana UI through edge; Basic Auth enforced at edge.
     proxy_pass http://grafana_upstream/;
     proxy_http_version 1.1;
-    proxy_set_header Host $host;
+    proxy_set_header Host grafana.cloudradar.local;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;

@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-01-31
 
+### [obs/monitoring] Grafana/Prometheus missing (Application namespace overridden)
+- **Severity:** Medium
+- **Impact:** Monitoring namespace had no Grafana/Prometheus services or pods; edge `/grafana` and `/prometheus` returned 502.
+- **Analysis:** `k8s/apps/monitoring/kustomization.yaml` set `namespace: monitoring`, which forced ArgoCD Application CRs into the monitoring namespace. ArgoCD only watches Applications in the argocd namespace, so the apps were never created.
+- **Resolution:** Remove the namespace transformer from the monitoring kustomization and keep namespaces explicitly on non-Application resources. Align edge routing with Traefik host-based Ingress by rewriting Host headers and add a Prometheus Ingress for parity. (Refs: issue #214)
+
 ### [ci/infra] SSM SendCommand intermittently fails (InvalidInstanceId)
 - **Severity:** Low
 - **Impact:** `ci-infra` k3s-ready-check failed once with `InvalidInstanceId`; rerun succeeded.

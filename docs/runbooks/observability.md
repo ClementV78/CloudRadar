@@ -7,7 +7,7 @@ Prometheus scrapes metrics from all k3s services. Grafana provides dashboards fo
 **Stack**: Prometheus (7d retention, 5GB PVC) + Grafana (stateless, no persistence)  
 **Cost**: ~$0.50/month (Prometheus PVC only)  
 **Deployment**: Automatic via ArgoCD (GitOps) once k3s cluster is ready  
-**Internet Access**: Grafana exposed via Ingress through edge Nginx reverse proxy
+**Internet Access**: Grafana and Prometheus exposed via edge Nginx reverse proxy (Basic Auth at edge)
 
 ## Deployment & Bootstrap
 
@@ -78,7 +78,7 @@ Once K8s Secrets exist:
 - ArgoCD detects changes in `k8s/apps/` (monitoring folder)
 - Prometheus Application syncs first (creates namespace, deploys Prometheus)
 - Grafana Application syncs (references grafana-admin Secret, deploys Grafana)
-- Ingress rule created (Traefik ingress controller routes traffic)
+   - Ingress rules created (Traefik routes traffic based on host headers)
 
 Check sync status:
 ```bash
@@ -87,8 +87,8 @@ kubectl port-forward -n argocd svc/argocd-server 8080:443
 
 # Or check via CLI
 argocd app list
-argocd app get monitoring/prometheus
-argocd app get monitoring/grafana
+argocd app get prometheus
+argocd app get grafana
 ```
 
 #### 5. Verify deployments
@@ -119,7 +119,7 @@ For now (MVP), the manual approach ensures we don't over-engineer the bootstrap 
 
 **Via Internet** (through edge Nginx reverse proxy):
 ```
-https://grafana.cloudradar.local/
+https://<edge-host>/grafana/
 User: admin
 Password: (check AWS SSM `/cloudradar/grafana/admin-password`)
 ```
@@ -130,9 +130,16 @@ kubectl port-forward -n monitoring svc/grafana 3000:80
 # Open http://localhost:3000
 ```
 
-### Prometheus (Internal Only - via Grafana datasource)
+### Prometheus (Internet-Accessible)
 
-Prometheus is accessible only from within the cluster (internal datasource for Grafana).
+Prometheus is exposed via edge Nginx with Basic Auth (same edge credentials as Grafana).
+
+**Via Internet** (through edge Nginx reverse proxy):
+```
+https://<edge-host>/prometheus/
+User: cloudradar
+Password: (check AWS SSM `/cloudradar/edge/basic-auth`)
+```
 
 **For debugging via port-forward:**
 ```bash
@@ -207,12 +214,26 @@ The legacy `/cloudradar/prometheus/auth-password` parameter is not used.
 
 ### Access Path (Prometheus / Grafana)
 - Public access goes through **edge Nginx (EC2)** which enforces Basic Auth (SSM: `/cloudradar/edge/basic-auth`).
-- Traffic is forwarded to K3s via NodePort; **Traefik** handles in-cluster routing when used.
+- Traffic is forwarded to K3s via NodePort; **Traefik** handles in-cluster routing by **host header**.
+- Edge Nginx rewrites the Host header to match the internal Ingress hosts (`grafana.cloudradar.local`, `prometheus.cloudradar.local`).
+- Edge upstream ports for Grafana/Prometheus should target the Traefik entrypoint (port 80) when using host-based Ingress routing.
 - There is **no in-cluster proxy** for Prometheus or Grafana; keep a single auth layer at the edge.
 
 **URLs (edge):**
 - Prometheus: `https://<edge-host>/prometheus/`
 - Grafana: `https://<edge-host>/grafana/`
+
+**Internal Hostnames (Traefik match):**
+- `grafana.cloudradar.local`
+- `prometheus.cloudradar.local`
+
+```mermaid
+flowchart LR
+  user[User / Browser] -->|/grafana or /prometheus| edge[Edge Nginx]
+  edge -->|Host rewrite| traefik[Traefik Ingress]
+  traefik -->|Host-based routing| grafana[Grafana Service]
+  traefik -->|Host-based routing| prom[Prometheus Service]
+```
 
 ## Metrics
 
