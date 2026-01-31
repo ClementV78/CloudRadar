@@ -161,7 +161,7 @@ Values come from `infra/aws/live/dev/terraform.tfvars` unless overridden per env
 | Component | Default instance type | Notes |
 | --- | --- | --- |
 | k3s server | `t3.small` | Private subnet (dev). |
-| k3s workers | `t3.micro` | Auto Scaling Group (dev). |
+| k3s workers | `t3a.medium` | Auto Scaling Group (dev). |
 | edge | `t3.micro` | Public subnet (dev). |
 | NAT instance | `t3.nano` | Public subnet (dev). |
 

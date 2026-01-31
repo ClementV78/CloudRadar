@@ -10,7 +10,7 @@ nat_instance_type    = "t3.nano"
 nat_root_volume_size = 8
 
 k3s_server_instance_type = "t3.small"
-k3s_worker_instance_type = "t3.micro"
+k3s_worker_instance_type = "t3a.medium"
 k3s_worker_min_size      = 1
 k3s_worker_desired       = 1
 k3s_worker_max_size      = 3
