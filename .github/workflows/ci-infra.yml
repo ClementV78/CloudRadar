@@ -483,7 +483,7 @@ jobs:
                 --query "Command.CommandId" \
                 --output text 2>&1 || true)"
 
-              if [ -n "${response}" ] && [ "${response}" != "None" ] && ! echo "${response}" | grep -qi "InvalidInstanceId"; then
+              if echo "${response}" | grep -Eq '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'; then
                 echo "${response}"
                 return 0
               fi
@@ -498,6 +498,10 @@ jobs:
             done
 
             return 1
+          }
+
+          is_uuid() {
+            echo "$1" | grep -Eq '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'
           }
 
           params="$(jq -cn \
@@ -555,6 +559,17 @@ jobs:
             echo "k3s-ready-check attempt ${attempt}/${max_attempts}"
 
             command_id="$(send_ssm_command "${K3S_SERVER_INSTANCE_ID}" "${params}" 600)"
+
+            if ! is_uuid "${command_id}"; then
+              echo "Invalid SSM command id: ${command_id:-empty}" >&2
+              if [ "${attempt}" -lt "${max_attempts}" ]; then
+                echo "Retrying in ${sleep_seconds}s..." >&2
+                sleep "${sleep_seconds}"
+              fi
+              attempt=$((attempt + 1))
+              sleep_seconds=$((sleep_seconds + 5))
+              continue
+            fi
 
             echo "::notice title=SSM::k3s readiness command_id=${command_id} attempt=${attempt}"
 
@@ -665,7 +680,7 @@ jobs:
                 --query "Command.CommandId" \
                 --output text 2>&1 || true)"
 
-              if [ -n "${response}" ] && [ "${response}" != "None" ] && ! echo "${response}" | grep -qi "InvalidInstanceId"; then
+              if echo "${response}" | grep -Eq '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'; then
                 echo "${response}"
                 return 0
               fi
@@ -680,6 +695,10 @@ jobs:
             done
 
             return 1
+          }
+
+          is_uuid() {
+            echo "$1" | grep -Eq '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'
           }
 
           params="$(jq -cn \
@@ -729,6 +748,11 @@ jobs:
 
           wait_for_instance_ready "${K3S_SERVER_INSTANCE_ID}"
           command_id="$(send_ssm_command "${K3S_SERVER_INSTANCE_ID}" "${params}" 600)"
+
+          if ! is_uuid "${command_id}"; then
+            echo "Invalid SSM command id: ${command_id:-empty}" >&2
+            exit 1
+          fi
 
           echo "::notice title=SSM::argocd app sync command_id=${command_id}"
 
@@ -795,7 +819,7 @@ jobs:
                 --query "Command.CommandId" \
                 --output text 2>&1 || true)"
 
-              if [ -n "${response}" ] && [ "${response}" != "None" ] && ! echo "${response}" | grep -qi "InvalidInstanceId"; then
+              if echo "${response}" | grep -Eq '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'; then
                 echo "${response}"
                 return 0
               fi
@@ -810,6 +834,10 @@ jobs:
             done
 
             return 1
+          }
+
+          is_uuid() {
+            echo "$1" | grep -Eq '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'
           }
 
           params="$(jq -cn \
@@ -859,6 +887,11 @@ jobs:
 
           wait_for_instance_ready "${K3S_SERVER_INSTANCE_ID}"
           command_id="$(send_ssm_command "${K3S_SERVER_INSTANCE_ID}" "${params}" 600)"
+
+          if ! is_uuid "${command_id}"; then
+            echo "Invalid SSM command id: ${command_id:-empty}" >&2
+            exit 1
+          fi
 
           echo "::notice title=SSM::healthz rollout command_id=${command_id}"
 
@@ -915,7 +948,7 @@ jobs:
             local sleep_seconds=10
 
             while [ "${attempt}" -le "${max_attempts}" ]; do
-              echo "SSM send-command attempt ${attempt}/${max_attempts}"
+              echo "SSM send-command attempt ${attempt}/${max_attempts}" >&2
               local response
               response="$(aws ssm send-command \
                 --instance-ids "${instance_id}" \
@@ -925,14 +958,14 @@ jobs:
                 --query "Command.CommandId" \
                 --output text 2>&1 || true)"
 
-              if [ -n "${response}" ] && [ "${response}" != "None" ] && ! echo "${response}" | grep -qi "InvalidInstanceId"; then
+              if echo "${response}" | grep -Eq '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'; then
                 echo "${response}"
                 return 0
               fi
 
-              echo "SendCommand failed: ${response}"
+              echo "SendCommand failed: ${response}" >&2
               if [ "${attempt}" -lt "${max_attempts}" ]; then
-                echo "Retrying in ${sleep_seconds}s..."
+                echo "Retrying in ${sleep_seconds}s..." >&2
                 sleep "${sleep_seconds}"
                 sleep_seconds=$((sleep_seconds + 5))
               fi
@@ -940,6 +973,10 @@ jobs:
             done
 
             return 1
+          }
+
+          is_uuid() {
+            echo "$1" | grep -Eq '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'
           }
 
           params="$(jq -cn \
@@ -992,6 +1029,18 @@ jobs:
           i=0
           while [ $i -lt 3 ]; do
             command_id="$(send_ssm_command "${EDGE_INSTANCE_ID}" "${params}" 120)"
+
+            if ! is_uuid "${command_id}"; then
+              echo "Invalid SSM command id: ${command_id:-empty}" >&2
+              i=$((i+1))
+              if [ $i -lt 3 ]; then
+                echo "Edge nginx check retrying in 10s..." >&2
+                sleep 10
+                continue
+              fi
+              echo "Edge nginx check failed due to invalid command id." >&2
+              exit 1
+            fi
 
             echo "::notice title=SSM::edge nginx check attempt=$((i+1)) command_id=${command_id}"
 

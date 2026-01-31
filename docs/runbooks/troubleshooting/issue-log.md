@@ -7,8 +7,8 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 ### [ci/infra] SSM SendCommand intermittently fails (InvalidInstanceId)
 - **Severity:** Low
 - **Impact:** `ci-infra` k3s-ready-check failed once with `InvalidInstanceId`; rerun succeeded.
-- **Analysis:** SSM SendCommand can be issued before the instance transitions to a valid/managed state.
-- **Resolution:** Add preflight SSM PingStatus check and retry SendCommand with backoff in ci-infra workflow. (Refs: issue #205)
+- **Analysis:** SSM SendCommand can be issued before the instance transitions to a valid/managed state. A second failure mode was identified later: a `send_ssm_command` log line printed to stdout, which polluted the returned CommandId and caused `ValidationException` on `GetCommandInvocation`.
+- **Resolution:** Add preflight SSM PingStatus check and retry SendCommand with backoff in ci-infra workflow. Route all send-command logs to stderr and validate the CommandId against UUID format before polling. (Refs: issue #205, issue #210)
 
 ### [gitops/argocd] Bootstrap failed (Helm nodeSelector parsed as string)
 - **Severity:** Medium
