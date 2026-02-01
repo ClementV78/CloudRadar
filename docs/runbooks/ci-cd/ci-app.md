@@ -26,7 +26,7 @@ The workflow uses a **matrix strategy** to build all services in **parallel**:
 
 1. **ingester** (Java 17 + Spring Boot) → `src/ingester/Dockerfile`
 2. **processor** (Java 17 + Spring Boot) → `src/processor/Dockerfile`
-3. **health** (Python Flask) → `src/health/Dockerfile`
+3. **health** (Python) → `src/health/Dockerfile`
 4. **admin-scale** (Python) → `src/admin-scale/Dockerfile`
 
 Note: `dashboard` (React/Vite) is currently a frontend-only build target, not containerized yet.
@@ -59,15 +59,15 @@ Tags are **explicit and context-aware** for clarity and traceability.
 | PR | `pr-173`, `85591c6` | ✅ PR number visible | Test image from PR #173 |
 | Branch | `feature-xyz`, `feature-xyz-85591c6` | ✅ Branch name visible | Feature branch builds |
 | Main | `main`, `latest`, `main-85591c6` | ✅ Latest release | Stable builds |
-| Tag (semver) | `v1.0.0`, `85591c6` | ✅ Release version | Release-pinned versions |
+| Tag (semver) | `1.0.0`, `85591c6` | ✅ Release version | Release-pinned versions |
 
 ### Examples per context
 
 #### On pull requests
 
 ```
-ghcr.io/clementv78/cloudradar/ingester:pr-173
-ghcr.io/clementv78/cloudradar/ingester:85591c6
+ghcr.io/clementv78/cloudradar-ingester:pr-173
+ghcr.io/clementv78/cloudradar-ingester:85591c6
 ```
 
 **Use case**: Test image from a specific PR without affecting main.
@@ -75,8 +75,8 @@ ghcr.io/clementv78/cloudradar/ingester:85591c6
 #### On branches (e.g., `feature/prometheus-exporter`)
 
 ```
-ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter
-ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter-85591c6
+ghcr.io/clementv78/cloudradar-ingester:feature-prometheus-exporter
+ghcr.io/clementv78/cloudradar-ingester:feature-prometheus-exporter-85591c6
 ```
 
 **Use case**: Build and test from feature branches before merge.
@@ -84,9 +84,9 @@ ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter-85591c6
 #### On main (default branch)
 
 ```
-ghcr.io/clementv78/cloudradar/ingester:main
-ghcr.io/clementv78/cloudradar/ingester:latest
-ghcr.io/clementv78/cloudradar/ingester:main-85591c6
+ghcr.io/clementv78/cloudradar-ingester:main
+ghcr.io/clementv78/cloudradar-ingester:latest
+ghcr.io/clementv78/cloudradar-ingester:main-85591c6
 ```
 
 **Use case**: Stable release images; `latest` points to main.
@@ -94,8 +94,8 @@ ghcr.io/clementv78/cloudradar/ingester:main-85591c6
 #### On tags (e.g., `v1.0.0`)
 
 ```
-ghcr.io/clementv78/cloudradar/ingester:v1.0.0
-ghcr.io/clementv78/cloudradar/ingester:85591c6
+ghcr.io/clementv78/cloudradar-ingester:1.0.0
+ghcr.io/clementv78/cloudradar-ingester:85591c6
 ```
 
 **Use case**: Release-pinned versions.
@@ -107,14 +107,14 @@ ghcr.io/clementv78/cloudradar/ingester:85591c6
 All images are pushed to **GitHub Container Registry (GHCR)**:
 
 ```
-ghcr.io/{owner}/{repo}/{service}:{tag}
+ghcr.io/{owner}/cloudradar-{service}:{tag}
 ```
 
 Example:
 ```
-ghcr.io/clementv78/cloudradar/ingester:latest
-ghcr.io/clementv78/cloudradar/ingester:main-5f3a2c1d
-ghcr.io/clementv78/cloudradar/processor:v1.0.0
+ghcr.io/clementv78/cloudradar-ingester:latest
+ghcr.io/clementv78/cloudradar-ingester:main-5f3a2c1d
+ghcr.io/clementv78/cloudradar-processor:1.0.0
 ```
 
 ## Accessing GHCR images
