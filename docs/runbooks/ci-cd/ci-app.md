@@ -18,6 +18,34 @@ To avoid unnecessary builds, the workflow only runs when:
 
 This ensures docs/infra/runbook updates don't trigger builds.
 
+## Versioning and release flow
+
+This workflow supports two distinct behaviors:
+
+1. **Main builds** (not a release):
+   - Trigger: push to `main` with app changes.
+   - Tags produced: `main`, `latest`, `main-<sha>`.
+   - Use case: continuous delivery for dev/testing.
+
+2. **Release builds** (versioned):
+   - Trigger: push a Git tag like `v0.1.2`.
+   - Tags produced: `<version>`, `<sha>` (example: `0.1.2`, `5f3a2c1`).
+   - Use case: immutable, versioned images for deployments.
+
+### Recommended release steps
+
+1. Merge changes to `main`.
+2. Create a version tag and push it:
+   ```bash
+   git checkout main
+   git pull
+   git tag v0.1.2
+   git push origin v0.1.2
+   ```
+3. Update Kubernetes manifests to use the versioned tag:
+   - Example: `ghcr.io/clementv78/CloudRadar/health:0.1.2`
+4. Let ArgoCD sync the new image.
+
 ## What happens
 
 The workflow uses a **matrix strategy** to build all services in **parallel**:
@@ -109,6 +137,8 @@ All images are pushed to **GitHub Container Registry (GHCR)**:
 ```
 ghcr.io/{owner}/{repo}/{service}:{tag}
 ```
+
+Note: We use **repo-scoped** package paths (not user-scoped) to keep permissions consistent with the source repository.
 
 Example:
 ```
