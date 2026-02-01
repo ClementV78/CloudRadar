@@ -61,7 +61,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/cloudradar-${{ matrix.service }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}
           tags: |
             type=ref,event=pr
             type=ref,event=branch
