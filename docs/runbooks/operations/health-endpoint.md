@@ -1,6 +1,6 @@
 # Health Endpoint (edge -> k3s)
 
-Purpose: expose a `/healthz` endpoint through the edge Nginx to validate end-to-end connectivity and return non-sensitive cluster aggregates.
+Purpose: expose a `/healthz` endpoint through the edge Nginx to validate end-to-end connectivity and return non-sensitive cluster aggregates. The pod also exposes `/readyz` for liveness/readiness probes.
 
 ## Prerequisites
 - ArgoCD is installed and synced.
@@ -82,6 +82,7 @@ flowchart LR
 - If the Kubernetes API is unreachable, the endpoint returns `status=degraded` with error details.
 - If Metrics Server is missing, health stays `ok` but `metrics.available=false`.
 - The service is designed for **end-to-end validation** (edge → k3s → API) rather than deep diagnostics.
+- Liveness/readiness probes use `/readyz` so cluster slowness does not crash the pod.
 
 ## Notes
 - `/healthz` is protected by the edge Basic Auth.
