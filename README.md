@@ -15,7 +15,7 @@
 
 ## 📌 Project Overview
 
-**CloudRadar** is a **DevOps & Cloud Architecture showcase**: a lightweight AWS platform that runs a **queue-driven telemetry pipeline** (ingester → Redis list → consumers) on a minimal k3s stack. It emphasizes cost-efficient infrastructure choices, GitOps delivery, and operational readiness.
+**CloudRadar** is a **DevOps & Cloud Architecture showcase**: a lightweight AWS platform that runs a **queue-driven telemetry pipeline** (ingester → Redis list → consumers) on a minimal k3s stack. It focuses on cost-efficient infrastructure choices, GitOps delivery, and operational readiness.
 
 **Functional Overview:** Ingest live flight telemetry from OpenSky, aggregate events, and expose data for a map dashboard with alertable zones.
 
@@ -124,7 +124,7 @@ ArgoCD syncs everything under `k8s/apps` automatically.
 
 | App | Role | Namespace | Status |
 | --- | --- | --- | --- |
-| `health` | Minimal `/healthz` endpoint | `cloudradar` | Implemented |
+| `health` | Minimal `/healthz` endpoint + `/readyz` probe | `cloudradar` | Implemented |
 | `redis` | Event buffer | `data` | Implemented |
 | `ingester` | OpenSky ingestion | `cloudradar` | Implemented |
 | `processor` | Redis aggregates | `cloudradar` | Implemented |

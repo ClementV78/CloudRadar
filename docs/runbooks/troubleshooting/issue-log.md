@@ -2,6 +2,18 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-01
+
+### [app/health] healthz CrashLoop blocks ArgoCD sync (probes coupled to cluster metrics)
+- **Severity:** Medium
+- **Impact:** `cloudradar` Application stayed `Progressing`; bootstrap/smoke-test waits failed; edge `/healthz` returned 503 while the pod restarted.
+- **Investigation (timeline):**
+  - Observed `healthz` in CrashLoopBackOff and ArgoCD waiting for `apps/Deployment/healthz` (`kubectl -n cloudradar get pods`, `kubectl -n argocd get app cloudradar -o yaml`).
+  - `kubectl describe deployment/healthz` showed liveness/readiness failures on `/healthz` with timeouts/refused connections.
+  - `healthz` logs showed BrokenPipe during early probes; `metrics-server` initially reported “no metrics to serve” before stabilizing.
+- **Analysis:** `/healthz` is a cluster status endpoint (API + metrics). Using it for liveness/readiness made the pod fail during cluster warmup, which blocked ArgoCD sync.
+- **Resolution:** Add `/readyz` endpoint for probes and update the `healthz` Deployment to use `/readyz` with relaxed timeouts.
+
 ## 2026-01-31
 
 ### [gitops/argocd] Repo-server CrashLoop (default probes/resources too tight)

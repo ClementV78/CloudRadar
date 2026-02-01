@@ -265,7 +265,7 @@ Lightweight health check endpoint for the edge load balancer and general cluster
 ```mermaid
 flowchart LR
     Client["Edge Nginx<br/>(load balancer)"]
-    HealthApp["Health Endpoint<br/>(:8080/healthz)"]
+    HealthApp["Health Endpoint<br/>(:8080/healthz, /readyz)"]
     K8sAPI["k3s API Server<br/>(authenticated)"]
     
     Client -->|GET /healthz| HealthApp
@@ -277,8 +277,8 @@ flowchart LR
 
 | Endpoint | Method | Response | Purpose |
 |----------|--------|----------|---------|
-| `/healthz` | GET | 200 OK (if cluster healthy) | General health status |
-| `/health` | GET | JSON health details | Extended health info |
+| `/readyz` | GET | 200 OK | Process readiness for probes |
+| `/healthz` | GET | 200 OK (if cluster healthy) | Cluster health status |
 
 ### Configuration (Environment Variables)
 
@@ -475,7 +475,7 @@ k8s/apps/
 
 Each service:
 - Runs in the `cloudradar` namespace (by default)
-- Exposes `/healthz` for liveness probes
+- Exposes `/healthz` for health checks; the health app also exposes `/readyz` for probes
 - Exposes `/metrics` or `/metrics/prometheus` for Prometheus scraping
 - Has defined resource requests/limits (CPU, memory)
 
