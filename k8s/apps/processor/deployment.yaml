@@ -20,7 +20,7 @@ spec:
         runAsUser: 10001
       containers:
         - name: processor
-          image: ghcr.io/clementv78/cloudradar-processor:0.1.0
+          image: ghcr.io/clementv78/CloudRadar/processor:0.1.0
           imagePullPolicy: IfNotPresent
           env:
             - name: REDIS_HOST
