@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - namespace.yaml
+  - external-secrets
   - ebs-csi-application.yaml
   - admin-scale
   - health
