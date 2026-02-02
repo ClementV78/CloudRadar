@@ -35,6 +35,8 @@ locals {
     // Ports 80/443 are handled by dedicated ingress rules below.
     if port != null && port != 80 && port != 443
   ])
+  // for_each only accepts sets of strings, so stringify ports for iteration.
+  edge_nodeport_port_keys = toset([for port in local.edge_nodeport_ports : tostring(port)])
 
   sqlite_backup_bucket_name = var.sqlite_backup_bucket_name != null ? var.sqlite_backup_bucket_name : "${var.project}-${var.environment}-${data.aws_caller_identity.current.account_id}-sqlite-backups"
 }
@@ -208,12 +210,12 @@ resource "aws_vpc_endpoint" "s3_gateway" {
 
 // Allow edge access to unique k3s NodePorts referenced by edge upstreams.
 resource "aws_security_group_rule" "k3s_nodeports_from_edge" {
-  for_each = toset(local.edge_nodeport_ports)
+  for_each = local.edge_nodeport_port_keys
 
   type                     = "ingress"
   security_group_id        = module.k3s.k3s_security_group_id
-  from_port                = each.value
-  to_port                  = each.value
+  from_port                = tonumber(each.value)
+  to_port                  = tonumber(each.value)
   protocol                 = "tcp"
   source_security_group_id = module.edge.edge_security_group_id
   description              = "Allow edge access to k3s nodeport ${each.value}"
