@@ -18,9 +18,9 @@ locals {
     "kms"
   ]
 
-  // Health port defaults to dashboard unless explicitly set.
+  // Health port defaults to the dashboard port unless explicitly set.
   edge_health_nodeport = var.edge_health_nodeport != null ? var.edge_health_nodeport : var.edge_dashboard_nodeport
-  // Edge -> k3s allowed NodePorts (de-duplicated).
+  // Edge -> k3s allowed NodePorts, collected from edge upstream ports.
   edge_nodeport_rules = {
     dashboard  = var.edge_dashboard_nodeport
     api        = var.edge_api_nodeport
@@ -29,8 +29,10 @@ locals {
     grafana    = var.edge_grafana_nodeport
     prometheus = var.edge_prometheus_nodeport
   }
+  // De-duplicate NodePorts so we don't create duplicate SG rules (e.g., Traefik shared ports).
   edge_nodeport_ports = distinct([
     for _, port in local.edge_nodeport_rules : port
+    // Ports 80/443 are handled by dedicated ingress rules below.
     if port != null && port != 80 && port != 443
   ])
 
@@ -204,6 +206,7 @@ resource "aws_vpc_endpoint" "s3_gateway" {
   })
 }
 
+// Allow edge access to unique k3s NodePorts referenced by edge upstreams.
 resource "aws_security_group_rule" "k3s_nodeports_from_edge" {
   for_each = toset(local.edge_nodeport_ports)
 
