@@ -124,6 +124,10 @@ User: admin
 Password: (check AWS SSM `/cloudradar/grafana/admin-password`)
 ```
 
+Notes:
+- Grafana is served under `/grafana` (subpath). The edge proxy must keep the `/grafana` prefix.
+- Grafana should run **HTTP internally** (Traefik/probes), while edge terminates HTTPS.
+
 **Via Port-Forward** (local development):
 ```bash
 kubectl port-forward -n monitoring svc/grafana 3000:80
@@ -164,7 +168,7 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 
 ### Grafana
 
-- **Chart**: `grafana/grafana` v7.6.10
+- **Chart**: `grafana/grafana` v10.5.15 (repo: `grafana-community/helm-charts`)
 - **Admin password**: Retrieved from K8s Secret `grafana-admin` (set by Terraform)
 - **Datasource**: Auto-configured to Prometheus
 - **Dashboards**: Starter dashboards for cluster + application health
