@@ -43,13 +43,6 @@ spec:
               options:
                 path: /var/lib/grafana/dashboards/default
         
-        dashboards:
-          default:
-            cloudradar-ingester:
-              url: https://raw.githubusercontent.com/prometheus-community/helm-charts/main/charts/kube-prometheus-stack/dashboards/kubernetes-apps.json
-            cloudradar-processor:
-              url: https://raw.githubusercontent.com/prometheus-community/helm-charts/main/charts/kube-prometheus-stack/dashboards/kubernetes-cluster.json
-        
         persistence:
           enabled: false
         
