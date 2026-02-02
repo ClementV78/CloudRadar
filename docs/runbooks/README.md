@@ -140,7 +140,8 @@ Purpose: deploy Prometheus (metrics collection) and Grafana (dashboards) for clu
 
 Short, running log of issues encountered and how they were resolved.
 
-- Journal: `docs/runbooks/issue-log.md`
+- Guide: `docs/runbooks/troubleshooting/troubleshooting-guide.md`
+- Journal: `docs/runbooks/troubleshooting/issue-log.md`
 
 ## Reference diagrams
 

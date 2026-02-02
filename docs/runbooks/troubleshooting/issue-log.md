@@ -4,6 +4,26 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-02
 
+### [obs/edge] Grafana redirect loop (subpath + HTTPS mismatch)
+- **Severity:** High
+- **Impact:** `/grafana` returned `ERR_TOO_MANY_REDIRECTS` and edge showed 502; Grafana pods failed readiness due to HTTP/HTTPS mismatch.
+- **Investigation (timeline):**
+  - Edge returned `301` from `/grafana/login` to itself.
+  - Grafana logs showed `TLS handshake error: client sent an HTTP request to an HTTPS server`.
+  - Readiness/Liveness probes failed with 400 and connection refused.
+- **Analysis:** Edge stripped `/grafana` by using `proxy_pass .../` and didn’t send `X-Forwarded-Prefix`, so Grafana redirected back to `/grafana` indefinitely. Grafana was also forced to HTTPS while Traefik/probes use HTTP.
+- **Resolution:** Keep `/grafana` prefix in the edge proxy (`proxy_pass` without trailing slash) and add `X-Forwarded-Prefix /grafana`, `X-Forwarded-Host`, `X-Forwarded-Proto https`. Set Grafana to HTTP internally while keeping external `root_url` HTTPS.
+
+### [infra/edge] Edge 502 after control-plane taint (Traefik NodePort target mismatch)
+- **Severity:** High
+- **Impact:** Edge `/grafana` and `/prometheus` returned 502 even though services were healthy in-cluster.
+- **Investigation (timeline):**
+  - Verified Grafana/Prometheus pods were Running and Services had endpoints.
+  - Confirmed Traefik Service exposes NodePorts and Ingresses were present.
+  - Edge Nginx upstreams still pointed to `control-plane:80`.
+- **Analysis:** This setup previously worked because Grafana ran on the control-plane node. After adding a control-plane taint, Grafana moved to the worker while Traefik continued serving on a NodePort. Edge upstreams still targeted the control-plane on port 80, so traffic never reached Traefik/Ingress.
+- **Resolution:** Route edge upstreams to the Traefik NodePort on a k3s node and open the NodePort in the k3s worker SG. Avoid hardcoding control-plane IP for Ingress traffic; use the NodePort target instead.
+
 ### [obs/monitoring] Grafana chart repo migration (old chart version missing)
 - **Severity:** Medium
 - **Impact:** ArgoCD reported `ComparisonError` and failed to generate manifests for Grafana; app remained `Unknown` and sync stalled.
