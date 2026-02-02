@@ -20,7 +20,7 @@ locals {
 
   // Health port defaults to dashboard unless explicitly set.
   edge_health_nodeport = var.edge_health_nodeport != null ? var.edge_health_nodeport : var.edge_dashboard_nodeport
-  // Edge -> k3s allowed NodePorts (filtered below to avoid duplicates).
+  // Edge -> k3s allowed NodePorts (de-duplicated).
   edge_nodeport_rules = {
     dashboard  = var.edge_dashboard_nodeport
     api        = var.edge_api_nodeport
@@ -29,15 +29,10 @@ locals {
     grafana    = var.edge_grafana_nodeport
     prometheus = var.edge_prometheus_nodeport
   }
-  edge_nodeport_rules_filtered = {
-    for key, port in local.edge_nodeport_rules : key => port
-    if(
-      (key != "health" || (port != var.edge_dashboard_nodeport && port != var.edge_api_nodeport)) &&
-      // Ports 80/443 are handled by dedicated ingress rules below.
-      port != 80 &&
-      port != 443
-    )
-  }
+  edge_nodeport_ports = distinct([
+    for _, port in local.edge_nodeport_rules : port
+    if port != null && port != 80 && port != 443
+  ])
 
   sqlite_backup_bucket_name = var.sqlite_backup_bucket_name != null ? var.sqlite_backup_bucket_name : "${var.project}-${var.environment}-${data.aws_caller_identity.current.account_id}-sqlite-backups"
 }
@@ -210,7 +205,7 @@ resource "aws_vpc_endpoint" "s3_gateway" {
 }
 
 resource "aws_security_group_rule" "k3s_nodeports_from_edge" {
-  for_each = local.edge_nodeport_rules_filtered
+  for_each = toset(local.edge_nodeport_ports)
 
   type                     = "ingress"
   security_group_id        = module.k3s.k3s_security_group_id
@@ -218,7 +213,7 @@ resource "aws_security_group_rule" "k3s_nodeports_from_edge" {
   to_port                  = each.value
   protocol                 = "tcp"
   source_security_group_id = module.edge.edge_security_group_id
-  description              = "Allow edge access to k3s ${each.key} nodeport"
+  description              = "Allow edge access to k3s nodeport ${each.value}"
 }
 # Allow edge to access k3s Ingress Controller (port 80)
 resource "aws_security_group_rule" "k3s_ingress_from_edge" {
