@@ -155,7 +155,7 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 
 ### Prometheus
 
-- **Chart**: `prometheus-community/kube-prometheus-stack` v60.0.2
+- **Chart**: `prometheus-community/kube-prometheus-stack` v81.4.2
 - **Namespace**: `monitoring`
 - **Retention**: 7 days (MVP, data-flexible: if accumulation < 4 GB will keep all 7 days)
 - **Storage**: 5 GB gp3 EBS
@@ -165,6 +165,7 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
   - Requests: CPU 100m, Memory 512 Mi
   - Limits: CPU 500m, Memory 1 Gi
 - **Alerting**: AlertManager included in chart but disabled (enable in Sprint 2 if needed)
+- **CRDs**: Installed/updated by chart (`crds.enabled` + CRD upgrade job enabled) to avoid ArgoCD sync failures.
 
 ### Grafana
 

@@ -38,6 +38,9 @@ flowchart TB
   storage -->|No| storagefix[StorageClass / CSI / affinity]
   storage -->|Yes| argocd{ArgoCD sync OK?}
   argocd -->|No| gitopsfix[ArgoCD / repo / chart]
+  gitopsfix --> crds{CRDs missing?}
+  crds -->|Yes| crdsfix[Install/upgrade CRDs]
+  crds -->|No| gitopsfix2[Repo / values / path / auth]
   argocd -->|Yes| done([Monitor / close incident])
 ```
 
@@ -59,8 +62,20 @@ kubectl get ingress -A
 kubectl -n kube-system get pods -l app.kubernetes.io/name=traefik -o wide
 kubectl -n kube-system get svc -l app.kubernetes.io/name=traefik -o wide
 
+# Critical namespaces
+kubectl get pods -n argocd -o wide
+kubectl get pods -n monitoring -o wide
+kubectl get pods -n external-secrets -o wide
+
+# Recent cluster events
+kubectl get events -A --sort-by=.lastTimestamp | tail -n 50
+
 # ArgoCD app health
 kubectl -n argocd get applications
+
+# Services with no endpoints
+kubectl get svc -A -o wide | awk 'NR==1 || $5=="<none>"'
+kubectl get endpoints -A | awk 'NR==1 || $2=="<none>"'
 ```
 
 ---
@@ -86,7 +101,22 @@ ssh <node> 'sudo journalctl -u k3s -n 200'
 
 ---
 
-### 3.2 Scheduling / Taints / Tolerations
+### 3.2 Environment Teardown / No Nodes
+
+**Symptoms**: `kubectl get nodes` returns nothing, API errors, edge endpoints all down.
+
+**Checks**
+```bash
+kubectl get nodes
+terraform -chdir=infra/aws/live/dev output edge_public_ip
+```
+
+**Likely causes & fixes**
+- **Terraform destroy was run** -> re-apply infra and re-bootstrap ArgoCD before app debugging.
+
+---
+
+### 3.3 Scheduling / Taints / Tolerations
 
 **Symptoms**: pods stuck `Pending`, `0/1 nodes available`, taint errors.
 
@@ -183,7 +213,30 @@ kubectl -n argocd logs -l app.kubernetes.io/name=argocd-repo-server --tail=200
 
 ---
 
-### 5.2 Image Build / GHCR / CI Permissions
+### 5.2 Prometheus CRDs Missing (kube-prometheus-stack)
+
+**Symptoms**: ArgoCD `SyncFailed` on `Prometheus`/`Alertmanager` resources, `/prometheus` returns `503`, CRDs absent.
+
+**Checks**
+```bash
+# ArgoCD sync failures
+kubectl -n argocd get application prometheus -o jsonpath='{.status.operationState.syncResult.resources[*].kind}{"\n"}' | tr ' ' '\n' | sort -u
+
+# CRDs expected by Prometheus Operator
+kubectl get crd | grep -E 'prometheuses|alertmanagers|prometheusagents|thanosrulers'
+```
+
+**Root causes**
+- CRDs not installed (or not upgraded) by the chart
+- ArgoCD sync applied CRs before CRDs existed
+
+**Fix**
+- Ensure `crds.enabled: true` and enable the CRD upgrade job in the chart values.
+- Re-sync the Prometheus application after CRDs exist.
+
+---
+
+### 5.3 Image Build / GHCR / CI Permissions
 
 **Symptoms**: CI build fails to push images, pulls denied.
 
