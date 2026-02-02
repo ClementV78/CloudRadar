@@ -4,6 +4,16 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-02
 
+### [obs/monitoring] Prometheus stuck OutOfSync (missing CRDs)
+- **Severity:** High
+- **Impact:** `/prometheus` returned `503` and ArgoCD stayed `OutOfSync/Progressing`; no Prometheus/Alertmanager CRs applied.
+- **Investigation (timeline):**
+  - ArgoCD sync results showed `SyncFailed` for `Prometheus`/`Alertmanager` CRs.
+  - `kubectl get crd | grep -E 'prometheuses|alertmanagers|prometheusagents|thanosrulers'` returned empty.
+  - Node exporter and operator resources were present, but core CRDs were missing.
+- **Analysis:** Prometheus Operator CRDs were not installed/updated, so ArgoCD could not apply `Prometheus` and `Alertmanager` resources.
+- **Resolution:** Upgrade to `kube-prometheus-stack` `81.4.2` and enable CRD install/upgrade in chart values (`crds.enabled=true`, `crds.upgradeJob.enabled=true`), then re-sync the app.
+
 ### [obs/edge] Grafana redirect loop (subpath + HTTPS mismatch)
 - **Severity:** High
 - **Impact:** `/grafana` returned `ERR_TOO_MANY_REDIRECTS` and edge showed 502; Grafana pods failed readiness due to HTTP/HTTPS mismatch.
