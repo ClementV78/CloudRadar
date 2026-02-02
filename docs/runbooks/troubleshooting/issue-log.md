@@ -4,12 +4,6 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-02
 
-### [ops/note] Environment teardown (terraform destroy)
-- **Severity:** N/A (planned)
-- **Impact:** Cluster and edge were intentionally removed; services/ingress unavailable.
-- **Context:** Planned shutdown while away for several hours (cost control).
-- **Resolution:** Re-apply Terraform and re-bootstrap ArgoCD before troubleshooting app-level symptoms.
-
 ### [obs/monitoring] Prometheus stuck OutOfSync (missing CRDs)
 - **Severity:** High
 - **Impact:** `/prometheus` returned `503` and ArgoCD stayed `OutOfSync/Progressing`; no Prometheus/Alertmanager CRs applied.
