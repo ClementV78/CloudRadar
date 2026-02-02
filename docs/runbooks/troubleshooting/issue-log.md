@@ -2,6 +2,17 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-02
+
+### [obs/monitoring] Grafana chart repo migration (old chart version missing)
+- **Severity:** Medium
+- **Impact:** ArgoCD reported `ComparisonError` and failed to generate manifests for Grafana; app remained `Unknown` and sync stalled.
+- **Investigation (timeline):**
+  - `kubectl -n argocd describe application grafana` showed manifest generation failures.
+  - `argocd-repo-server` logs showed `helm pull ... grafana` failing for version `7.6.10` in `https://grafana.github.io/helm-charts`.
+- **Analysis:** The Grafana Helm chart moved to `grafana-community/helm-charts`. The old repo no longer served the pinned version.
+- **Resolution:** Switch `repoURL` to `https://grafana-community.github.io/helm-charts` and update `targetRevision` to a valid release (e.g., `10.5.15`).
+
 ## 2026-02-01
 
 ### [app/health] healthz CrashLoop blocks ArgoCD sync (probes coupled to cluster metrics)
