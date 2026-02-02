@@ -6,9 +6,9 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://grafana.github.io/helm-charts
+    repoURL: https://grafana-community.github.io/helm-charts
     chart: grafana
-    targetRevision: "7.6.10"
+    targetRevision: "10.5.15"
     helm:
       values: |
         admin:
