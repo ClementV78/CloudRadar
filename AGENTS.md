@@ -149,6 +149,7 @@
 - Use milestones `v1-mvp`, `v1.1`, and `v2` aligned with scope labels (`feat(v2)` -> `v2`).
 - Tooling issues do not require a milestone.
 - Sprint Goals live as draft items inside the GitHub Project.
+- GHCR image paths must be lowercase (Docker image refs do not allow uppercase in repository names).
 
 ## 7. Commit Conventions
 - Use the same `type(scope): message` format as issues.
