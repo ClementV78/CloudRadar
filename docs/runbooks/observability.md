@@ -221,7 +221,7 @@ The legacy `/cloudradar/prometheus/auth-password` parameter is not used.
 - Public access goes through **edge Nginx (EC2)** which enforces Basic Auth (SSM: `/cloudradar/edge/basic-auth`).
 - Traffic is forwarded to K3s via the **Traefik NodePort**; Traefik handles in-cluster routing by **host header**.
 - Edge Nginx rewrites the Host header to match the internal Ingress hosts (`grafana.cloudradar.local`, `prometheus.cloudradar.local`).
-- Edge upstream ports for Grafana/Prometheus should target the Traefik **HTTP NodePort** (default `30353` in k3s) when using host-based Ingress routing.
+- Edge upstream ports for Grafana/Prometheus should target the Traefik **HTTP NodePort** (pinned to `30080`).
 - Terraform inputs: `edge_grafana_nodeport` and `edge_prometheus_nodeport` must match the Traefik NodePort.
 - There is **no in-cluster proxy** for Prometheus or Grafana; keep a single auth layer at the edge.
 
