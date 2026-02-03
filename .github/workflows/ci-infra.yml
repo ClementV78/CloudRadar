@@ -1120,8 +1120,10 @@ jobs:
             local attempt=1
             local sleep_seconds=10
             local status_code=""
+            local curl_exit=0
 
             while [ "${attempt}" -le "${max_attempts}" ]; do
+              set +e
               status_code="$(curl -k -s -o /dev/null -w '%{http_code}' \
                 --connect-timeout 5 \
                 --max-time 10 \
@@ -1130,8 +1132,15 @@ jobs:
                 --retry-all-errors \
                 -u "${EDGE_BASIC_AUTH_USER}:${edge_basic_auth_password}" \
                 "https://${EDGE_PUBLIC_IP}${path}")"
+              curl_exit=$?
+              set -e
 
-              echo "HTTP ${status_code} for ${path} (attempt ${attempt}/${max_attempts})"
+              if [ "${curl_exit}" -ne 0 ]; then
+                echo "curl_exit=${curl_exit} for ${path} (attempt ${attempt}/${max_attempts})"
+                status_code="${status_code:-000}"
+              fi
+
+              echo "HTTP ${status_code} for ${path} (attempt ${attempt}/${max_attempts}, curl_exit=${curl_exit})"
 
               case "${status_code}" in
                 200|301|302)
