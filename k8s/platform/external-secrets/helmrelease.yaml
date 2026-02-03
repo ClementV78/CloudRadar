@@ -22,9 +22,8 @@ spec:
         nodeSelector:
           node-role.kubernetes.io/control-plane: "true"
         tolerations:
-          - key: "dedicated"
-            operator: "Equal"
-            value: "control-plane"
+          - key: "node-role.kubernetes.io/control-plane"
+            operator: "Exists"
             effect: "NoSchedule"
   destination:
     server: https://kubernetes.default.svc
