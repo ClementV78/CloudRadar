@@ -13,8 +13,8 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 ### [infra/edge] Edge 502 after rebuild (Traefik NodePort drift)
 - **Severity:** High
 - **Impact:** `/grafana` and `/prometheus` returned 502 from the edge even though monitoring pods were healthy.
-- **Analysis:** After a destroy/recreate, Traefik NodePorts changed (e.g., web `30382`), while Terraform edge config still targeted the old NodePort (`30353`), so Nginx proxied to a closed port.
-- **Resolution:** Pin Traefik NodePorts via k3s HelmChartConfig (web `30080`, websecure `30443`) and align edge `edge_grafana_nodeport` / `edge_prometheus_nodeport` to `30080`. (Refs: issue #286)
+- **Analysis:** The k3s HelmChartConfig used `service.spec.ports`, which the Traefik chart ignores. NodePort pinning never applied, so NodePorts drifted after rebuilds and the edge still targeted the old port.
+- **Resolution:** Fix HelmChartConfig keys to `ports.web.nodePort` and `ports.websecure.nodePort` and keep edge `edge_grafana_nodeport` / `edge_prometheus_nodeport` aligned to `30080`. (Refs: issue #286, #294)
 
 ### [obs/monitoring] Prometheus sync failed (annotations too long)
 - **Severity:** High

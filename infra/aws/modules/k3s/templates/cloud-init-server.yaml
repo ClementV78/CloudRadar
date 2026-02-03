@@ -31,14 +31,10 @@ runcmd:
         namespace: kube-system
       spec:
         valuesContent: |
-          service:
-            spec:
-              ports:
-                - name: web
-                  port: 80
-                  nodePort: 30080
-                - name: websecure
-                  port: 443
-                  nodePort: 30443
+          ports:
+            web:
+              nodePort: 30080
+            websecure:
+              nodePort: 30443
       EOF
   - curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server --secrets-encryption${server_args}" K3S_TOKEN="${k3s_token}" sh -
