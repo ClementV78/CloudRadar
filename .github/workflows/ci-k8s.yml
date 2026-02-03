@@ -1,0 +1,24 @@
+name: ci-k8s
+
+on:
+  pull_request:
+    paths:
+      - "k8s/**"
+      - ".github/workflows/ci-k8s.yml"
+  workflow_dispatch:
+
+jobs:
+  lint-ghcr-lowercase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check GHCR image refs are lowercase
+        run: |
+          set -euo pipefail
+          if rg -n "ghcr.io/[^[:space:]]*[A-Z]" k8s; then
+            echo "Uppercase GHCR image references found. GHCR repos must be lowercase." >&2
+            exit 1
+          fi
+          echo "OK: no uppercase GHCR references."
