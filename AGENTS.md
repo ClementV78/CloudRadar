@@ -40,6 +40,7 @@
 - When appropriate, offer to let the user run commands themselves.
 - When sharing logs or metrics, call out the key signals and explicit conclusions.
 - When running commands on Amazon Linux minimal/light images, prefer `grep`/`awk` over `rg` (ripgrep may be unavailable).
+- When building SSM command strings with `set -u`, escape `$VAR` so expansion happens on the instance, not locally.
 - Ensure runbooks and ADRs link to related issues, and issues link back to those docs.
 - If there is a conflict between speed of delivery and perfect structure, prefer a reasonable, explicit trade-off and document it briefly.
 - Minimize manual changes in AWS Console/UI. Prefer IaC and pipelines: Terraform for AWS infra, ArgoCD for Kubernetes, and CI/CD to execute and audit changes. Any exception must be justified and documented.
