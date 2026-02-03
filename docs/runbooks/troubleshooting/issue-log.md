@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-03
 
+### [infra/edge] Edge 502 after rebuild (Traefik NodePort drift)
+- **Severity:** High
+- **Impact:** `/grafana` and `/prometheus` returned 502 from the edge even though monitoring pods were healthy.
+- **Analysis:** After a destroy/recreate, Traefik NodePorts changed (e.g., web `30382`), while Terraform edge config still targeted the old NodePort (`30353`), so Nginx proxied to a closed port.
+- **Resolution:** Pin Traefik NodePorts via k3s HelmChartConfig (web `30080`, websecure `30443`) and align edge `edge_grafana_nodeport` / `edge_prometheus_nodeport` to `30080`. (Refs: issue #286)
+
 ### [obs/monitoring] Prometheus sync failed (annotations too long)
 - **Severity:** High
 - **Impact:** Prometheus app stayed `Degraded`; ArgoCD sync failed with ConfigMap annotation size errors.
