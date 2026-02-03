@@ -56,8 +56,8 @@ spec:
             httpGet:
               path: /healthz
               port: http
-            failureThreshold: 30
-            periodSeconds: 2
+            failureThreshold: 36
+            periodSeconds: 10
           resources:
             requests:
               cpu: 50m
