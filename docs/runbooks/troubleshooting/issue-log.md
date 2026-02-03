@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-03
 
+### [infra/k3s] CoreDNS Pending after rebuild (worker not joined)
+- **Severity:** High
+- **Impact:** DNS unavailable; ArgoCD `cloudradar-platform` stayed `Sync=Unknown` and ESO apps/CRDs never created; bootstrap failed.
+- **Analysis:** Worker k3s-agent still pointed to the previous server IP after rebuild, so it never joined. With only the tainted control-plane node available, CoreDNS could not schedule (no matching toleration), which broke DNS and repo-server resolution.
+- **Resolution:** Use the official control-plane taint (`node-role.kubernetes.io/control-plane:NoSchedule`) and align tolerations for platform components (ArgoCD/ESO). Ensure worker `K3S_URL` targets the current server IP after rebuild. (Refs: issue #290)
+
 ### [infra/edge] Edge 502 after rebuild (Traefik NodePort drift)
 - **Severity:** High
 - **Impact:** `/grafana` and `/prometheus` returned 502 from the edge even though monitoring pods were healthy.
@@ -158,7 +164,7 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Severity:** High
 - **Impact:** App pods (Java) and Redis scheduled on the k3s server; repeated OOM kills; SSM Session Manager showed a black screen; cluster became unstable.
 - **Analysis:** The control-plane node had **no taints** (`Taints: <none>`). The taint was applied manually previously and **not codified** in IaC. After infra rebuild, the new server booted without a taint, so regular workloads were eligible to run on it.
-- **Resolution:** Re-applied taint `dedicated=control-plane:NoSchedule` and deleted app/redis/ESO pods so they rescheduled to the worker. **Follow-up:** codify the taint in k3s server install (e.g., `K3S_NODE_TAINT` / `--node-taint`) and document the expected taints. (Refs: issue #203)
+- **Resolution:** Re-applied taint `dedicated=control-plane:NoSchedule` and deleted app/redis/ESO pods so they rescheduled to the worker. **Follow-up:** switch to the official control-plane taint and document tolerations. (Refs: issue #203, #290)
 
 ### [gitops/argocd] External Secrets sync failed (CRD missing)
 - **Severity:** High

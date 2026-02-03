@@ -132,6 +132,29 @@ kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
 
 ---
 
+### 3.4 CoreDNS Pending / ArgoCD Sync Unknown
+
+**Symptoms**: `coredns` stuck `Pending`, `cloudradar-platform` shows `Sync=Unknown` with repo-server DNS errors, ESO apps/CRDs never created.
+
+**Checks**
+```bash
+kubectl get nodes -o wide
+kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide
+kubectl -n kube-system describe pod -l k8s-app=kube-dns | tail -n 50
+kubectl -n argocd describe app cloudradar-platform | tail -n 50
+```
+
+**Likely causes**
+- Worker did not join the cluster (only control-plane node is Ready).
+- Control-plane taint blocks CoreDNS from scheduling.
+
+**Fix**
+- Ensure the worker points to the current server IP (`K3S_URL`) and valid token, then restart `k3s-agent`.
+- Use the official control-plane taint `node-role.kubernetes.io/control-plane:NoSchedule` and align tolerations for ArgoCD/ESO.
+- If you must recover quickly, patch CoreDNS with a matching toleration and restart the deployment.
+
+---
+
 ## 4) Networking & Traffic
 
 ### 4.1 Networking / DNS / CNI

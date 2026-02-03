@@ -4,7 +4,7 @@ Purpose: install ArgoCD in the k3s cluster so GitOps can manage k8s apps.
 
 ## Prerequisites
 - k3s server is running and reachable via SSM.
-- Control-plane taint is enforced (`dedicated=control-plane:NoSchedule`) so only platform pods (ArgoCD/ESO/kube-system) schedule on the server.
+- Control-plane taint is enforced (`node-role.kubernetes.io/control-plane:NoSchedule`) so only platform pods (ArgoCD/ESO/kube-system) schedule on the server.
 - AWS CLI configured with permissions to run SSM commands:
   - `ssm:SendCommand`
   - `ssm:GetCommandInvocation`
