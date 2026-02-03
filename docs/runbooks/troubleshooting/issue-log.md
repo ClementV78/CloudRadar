@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-03
 
+### [app/k8s] Pods fail with InvalidImageName (GHCR uppercase)
+- **Severity:** High
+- **Impact:** `admin-scale`, `healthz`, and `processor` pods failed to start; app health stayed `Progressing`.
+- **Analysis:** GHCR repository name in manifests used `CloudRadar` (uppercase), which is invalid for image references.
+- **Resolution:** Update all GHCR image references to lowercase `ghcr.io/clementv78/cloudradar/...`.
+
 ### [ci/infra] CRD wait failed (NotFound before creation)
 - **Severity:** Medium
 - **Impact:** `argocd-platform` job failed while waiting for ESO CRDs; bootstrap blocked.
