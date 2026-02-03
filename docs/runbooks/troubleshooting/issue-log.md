@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-03
 
+### [obs/monitoring] Prometheus sync failed (annotations too long)
+- **Severity:** High
+- **Impact:** Prometheus app stayed `Degraded`; ArgoCD sync failed with ConfigMap annotation size errors.
+- **Analysis:** `prometheus-crds-upgrade` ConfigMap is large; client-side apply adds `last-applied-configuration` annotation exceeding 256KiB.
+- **Resolution:** Enable ArgoCD Server-Side Apply for the Prometheus application.
+
 ### [app/k8s] Pods fail with InvalidImageName (GHCR uppercase)
 - **Severity:** High
 - **Impact:** `admin-scale`, `healthz`, and `processor` pods failed to start; app health stayed `Progressing`.
