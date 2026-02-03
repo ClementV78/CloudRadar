@@ -1114,16 +1114,39 @@ jobs:
 
           echo "::add-mask::${edge_basic_auth_password}"
 
-          status_code="$(curl -k -s -o /dev/null -w '%{http_code}' \
-            --connect-timeout 5 \
-            --max-time 10 \
-            --retry 2 \
-            --retry-delay 2 \
-            --retry-all-errors \
-            -u "${EDGE_BASIC_AUTH_USER}:${edge_basic_auth_password}" \
-            "https://${EDGE_PUBLIC_IP}/healthz")"
+          check_edge_path() {
+            local path=$1
+            local max_attempts=${2:-6}
+            local attempt=1
+            local sleep_seconds=10
+            local status_code=""
 
-          if [[ "${status_code}" != "200" ]]; then
-            echo "Expected 200 from /healthz, got ${status_code}."
-            exit 1
-          fi
+            while [ "${attempt}" -le "${max_attempts}" ]; do
+              status_code="$(curl -k -s -o /dev/null -w '%{http_code}' \
+                --connect-timeout 5 \
+                --max-time 10 \
+                --retry 2 \
+                --retry-delay 2 \
+                --retry-all-errors \
+                -u "${EDGE_BASIC_AUTH_USER}:${edge_basic_auth_password}" \
+                "https://${EDGE_PUBLIC_IP}${path}")"
+
+              echo "HTTP ${status_code} for ${path} (attempt ${attempt}/${max_attempts})"
+
+              case "${status_code}" in
+                200|301|302)
+                  return 0
+                  ;;
+              esac
+
+              sleep "${sleep_seconds}"
+              attempt=$((attempt + 1))
+            done
+
+            echo "Expected 200/301/302 from ${path}, got ${status_code}."
+            return 1
+          }
+
+          check_edge_path "/healthz" 3
+          check_edge_path "/grafana/" 6
+          check_edge_path "/prometheus/" 6
