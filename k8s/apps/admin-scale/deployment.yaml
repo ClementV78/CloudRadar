@@ -45,6 +45,12 @@ spec:
             httpGet:
               path: /healthz
               port: http
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            failureThreshold: 36
+            periodSeconds: 10
           resources:
             requests:
               cpu: 50m
