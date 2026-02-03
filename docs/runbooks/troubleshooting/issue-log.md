@@ -2,6 +2,18 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-03
+
+### [gitops/argocd] Root app sync failed (ESO CRDs missing)
+- **Severity:** High
+- **Impact:** `cloudradar` Application sync failed with `SyncError`; namespaces/apps were not created.
+- **Investigation (timeline):**
+  - `kubectl -n argocd describe app cloudradar` showed `ExternalSecret`/`ClusterSecretStore` resources invalid.
+  - `kubectl get crd | grep -i external-secrets` returned empty.
+  - ESO Applications were not present, so CRDs never installed.
+- **Analysis:** ArgoCD root app synced `k8s/apps` before `k8s/platform`, so External Secrets resources applied before ESO CRDs existed.
+- **Resolution:** Split bootstrap into platform-first then apps, create separate root apps (`cloudradar-platform`, `cloudradar`), and remove `external-secrets` from `k8s/apps/kustomization.yaml`.
+
 ## 2026-02-02
 
 ### [obs/monitoring] Prometheus stuck OutOfSync (missing CRDs)

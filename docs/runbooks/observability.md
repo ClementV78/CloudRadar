@@ -19,9 +19,9 @@ Prometheus scrapes metrics from all k3s services. Grafana provides dashboards fo
    - Outputs passwords for display/use
    - **Does NOT create K8s Secrets** (cluster access happens after bootstrap)
 
-2. **Bootstrap ArgoCD Phase** (`scripts/bootstrap-argocd.sh`)
+2. **Bootstrap ArgoCD Phase** (`scripts/bootstrap-argocd-install.sh` + `scripts/bootstrap-argocd-app.sh`)
    - Installs ArgoCD on k3s server
-   - Sets up GitOps root Application pointing to `k8s/apps`
+   - Creates `cloudradar-platform` (k8s/platform) then `cloudradar` (k8s/apps)
    - ArgoCD discovers monitoring Applications in `k8s/apps/monitoring/`
    - **Waits for K8s Secrets before syncing Grafana**
 
@@ -108,7 +108,7 @@ kubectl rollout status statefulset/prometheus-kube-prometheus-prometheus -n moni
 
 In Sprint 2, consider:
 - Using External Secrets Operator to auto-sync SSM → K8s Secrets
-- Creating a post-bootstrap hook in bootstrap-argocd.sh
+- Creating a post-bootstrap hook in bootstrap-argocd-app.sh
 - Using ArgoCD pre-sync hooks to verify Secrets exist
 
 For now (MVP), the manual approach ensures we don't over-engineer the bootstrap flow.
