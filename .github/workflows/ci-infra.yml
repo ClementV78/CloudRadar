@@ -590,7 +590,7 @@ jobs:
           echo "k3s-ready-check failed after ${max_attempts} attempts"
           exit 1
 
-  argocd-bootstrap:
+  argocd-install:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
     runs-on: ubuntu-latest
     needs:
@@ -606,14 +606,62 @@ jobs:
           role-to-assume: ${{ env.TF_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Bootstrap ArgoCD via SSM
-        run: scripts/bootstrap-argocd.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
+      - name: Install ArgoCD via SSM
+        run: scripts/bootstrap-argocd-install.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
+
+  argocd-platform:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
+    runs-on: ubuntu-latest
+    needs:
+      - argocd-install
+      - tf-outputs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Bootstrap platform app via SSM
+        env:
+          WAIT_CRDS: externalsecrets.external-secrets.io,clustersecretstores.external-secrets.io,secretstores.external-secrets.io
+          ARGOCD_APP_NAME: cloudradar-platform
+          ARGOCD_APP_NAMESPACE: argocd
+          ARGOCD_APP_PATH: k8s/platform
+        run: scripts/bootstrap-argocd-app.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
+
+  argocd-apps:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
+    runs-on: ubuntu-latest
+    needs:
+      - argocd-platform
+      - tf-outputs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Bootstrap apps app via SSM
+        env:
+          IGNORE_INGESTER_REPLICAS: "true"
+          ARGOCD_APP_NAME: cloudradar
+          ARGOCD_APP_NAMESPACE: cloudradar
+          ARGOCD_APP_PATH: k8s/apps
+        run: scripts/bootstrap-argocd-app.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
 
   smoke-tests:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.run_smoke_tests == 'true' }}
     runs-on: ubuntu-latest
     needs:
-      - argocd-bootstrap
+      - argocd-apps
       - tf-outputs
     steps:
       - name: Configure AWS credentials

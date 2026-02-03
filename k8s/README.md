@@ -1,6 +1,6 @@
 # Kubernetes manifests layout
 
-This folder is split between **applications** and **platform** concerns. ArgoCD tracks both trees from the root Application created by the bootstrap script.
+This folder is split between **applications** and **platform** concerns. ArgoCD tracks both trees using two root Applications created by the bootstrap scripts.
 
 ## Structure (v1)
 ```
@@ -15,7 +15,7 @@ k8s/
 │   ├── processor/       # Java processor service
 │   ├── redis/           # Redis buffer
 │   ├── monitoring/      # Prometheus/Grafana Applications
-│   └── external-secrets/# SecretStore + ExternalSecrets (SSM -> K8s Secrets)
+│   └── external-secrets/# SecretStore + ExternalSecrets (SSM -> K8s Secrets, managed by platform app)
 └── platform/            # Shared platform components managed by ArgoCD
     ├── kustomization.yaml
     └── external-secrets/
@@ -24,7 +24,7 @@ k8s/
 ```
 
 ## Conventions
-- **ArgoCD root** (bootstrap) watches two sources: `k8s/apps` and `k8s/platform`.
+- **ArgoCD roots** (bootstrap) create two Applications: `cloudradar-platform` (k8s/platform) and `cloudradar` (k8s/apps).
 - **Apps tree**: business/observability workloads and their Applications. Each subfolder should have its own kustomization when it contains multiple resources. External Secrets manifests are managed via the `external-secrets-config` Application (platform), so the `external-secrets` folder is *not* referenced from `k8s/apps/kustomization.yaml`.
 - **Platform tree**: cluster-level operators or shared components (e.g., ESO). Use ArgoCD sync waves/dependsOn when CRDs are involved.
 - **Namespaces**: `apps` for workloads, `monitoring` for Prom/Grafana, `external-secrets` for ESO controllers; SecretStore is cluster-scoped, ExternalSecrets live in `default` unless specified.

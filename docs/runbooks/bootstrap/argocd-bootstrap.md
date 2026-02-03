@@ -9,7 +9,7 @@ Purpose: install ArgoCD in the k3s cluster so GitOps can manage k8s apps.
   - `ssm:SendCommand`
   - `ssm:GetCommandInvocation`
   - `ssm:DescribeInstanceInformation`
-- `scripts/bootstrap-argocd.sh` is executable.
+- `scripts/bootstrap-argocd-install.sh` and `scripts/bootstrap-argocd-app.sh` are executable.
 - Repo-server resources and probe timeouts are tuned via `scripts/argocd-values.yaml` (used by the bootstrap script).
 - If using `--env`, instances must be tagged with:
   - `Role=k3s-server`
@@ -25,29 +25,50 @@ aws ec2 describe-instances \
   --output text
 ```
 
-2) Run the bootstrap script (uses SSM):
+2) Install ArgoCD (uses SSM):
 ```bash
-scripts/bootstrap-argocd.sh <instance-id> us-east-1
+scripts/bootstrap-argocd-install.sh <instance-id> us-east-1
 ```
 
 Optional: resolve the instance by tags instead of passing an ID:
 ```bash
-scripts/bootstrap-argocd.sh --env <env> --project cloudradar --region us-east-1
+scripts/bootstrap-argocd-install.sh --env <env> --project cloudradar --region us-east-1
 ```
 
 Optional overrides (all have defaults):
 ```bash
 ARGOCD_NAMESPACE=argocd \
-ARGOCD_APP_NAME=cloudradar \
-ARGOCD_APP_NAMESPACE=cloudradar \
-ARGOCD_APP_REPO=https://github.com/ClementV78/CloudRadar.git \
-ARGOCD_APP_PATH=k8s/apps \
-ARGOCD_APP_REVISION=main \
 ARGOCD_CHART_VERSION=9.3.4 \
-scripts/bootstrap-argocd.sh <instance-id> us-east-1
+scripts/bootstrap-argocd-install.sh <instance-id> us-east-1
 ```
 
-3) Fetch the ArgoCD admin password (optional):
+3) Create the platform root Application (ESO + platform components):
+```bash
+WAIT_CRDS=externalsecrets.external-secrets.io,clustersecretstores.external-secrets.io,secretstores.external-secrets.io \
+ARGOCD_APP_NAME=cloudradar-platform \
+ARGOCD_APP_NAMESPACE=argocd \
+ARGOCD_APP_PATH=k8s/platform \
+scripts/bootstrap-argocd-app.sh <instance-id> us-east-1
+```
+
+4) Create the apps root Application (workloads):
+```bash
+IGNORE_INGESTER_REPLICAS=true \
+ARGOCD_APP_NAME=cloudradar \
+ARGOCD_APP_NAMESPACE=cloudradar \
+ARGOCD_APP_PATH=k8s/apps \
+scripts/bootstrap-argocd-app.sh <instance-id> us-east-1
+```
+
+Optional overrides (all have defaults):
+```bash
+ARGOCD_NAMESPACE=argocd \
+ARGOCD_APP_REPO=https://github.com/ClementV78/CloudRadar.git \
+ARGOCD_APP_REVISION=main \
+scripts/bootstrap-argocd-app.sh <instance-id> us-east-1
+```
+
+5) Fetch the ArgoCD admin password (optional):
 ```bash
 aws ssm send-command \
   --instance-ids <instance-id> \
@@ -57,7 +78,7 @@ aws ssm send-command \
 ```
 The admin credential is stored in the `argocd-initial-admin-secret` Secret (namespace `argocd`).
 
-4) Check the ArgoCD Application status (optional):
+6) Check the ArgoCD Application status (optional):
 ```bash
 aws ssm send-command \
   --instance-ids <instance-id> \
@@ -94,19 +115,23 @@ Troubleshooting:
   `kubectl -n argocd wait --for=condition=Ready pod -l app.kubernetes.io/name=argocd-server --timeout=300s`
 
 ## Script mapping
-- Step 2 runs the Helm-based install:
+- Step 2 (`bootstrap-argocd-install.sh`) runs the Helm-based install:
   - install Helm if missing
   - `helm upgrade --install` ArgoCD (optionally pinned chart version)
   - apply tolerations/nodeSelector so ArgoCD can run on the tainted control-plane
   - wait for Application CRD to be established
   - wait for `argocd-server` deployment
   - list pods for quick verification
-  - create ArgoCD Application `cloudradar` (repo `k8s/apps` -> namespace `cloudradar`)
+- Step 3 (`bootstrap-argocd-app.sh` with `k8s/platform`) creates `cloudradar-platform`
+  - installs ESO (CRDs via sync wave 0)
+  - applies ESO config (sync wave 1)
+- Step 4 (`bootstrap-argocd-app.sh` with `k8s/apps`) creates `cloudradar`
+  - includes optional ignoreDifferences for ingester replicas
 
 Note: the script exports `KUBECONFIG=/etc/rancher/k3s/k3s.yaml` and preserves it when running `sudo`.
 
 ## Replica overrides for ingester
-The bootstrap script configures ArgoCD to ignore `spec.replicas` for the `ingester` deployment.
+The apps bootstrap can configure ArgoCD to ignore `spec.replicas` for the `ingester` deployment.
 This allows the admin scale API to change replicas without ArgoCD reverting them.
 
 If the Application already exists, you can patch it manually:
