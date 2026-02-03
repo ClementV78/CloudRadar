@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-03
 
+### [ci/infra] argocd-platform job failed (unbound variable)
+- **Severity:** Medium
+- **Impact:** `ci-infra` failed during `argocd-platform` with `crd: unbound variable`, blocking bootstrap flow.
+- **Analysis:** `bootstrap-argocd-app.sh` interpolated `${crd}` locally with `set -u`, so the SSM command failed before execution.
+- **Resolution:** Escape `$crd` in the SSM command so it evaluates on the instance.
+
 ### [gitops/argocd] Root app sync failed (ESO CRDs missing)
 - **Severity:** High
 - **Impact:** `cloudradar` Application sync failed with `SyncError`; namespaces/apps were not created.

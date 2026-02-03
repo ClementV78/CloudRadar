@@ -150,7 +150,7 @@ commands=(
 if [[ -n "${WAIT_CRDS}" ]]; then
   wait_list="${WAIT_CRDS//,/ }"
   commands+=(
-    "for crd in ${wait_list}; do echo \"Waiting for CRD ${crd}...\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait --for=condition=Established crd/${crd} --timeout=300s --request-timeout=5s; done"
+    "for crd in ${wait_list}; do echo \"Waiting for CRD \\${crd}...\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait --for=condition=Established crd/\\${crd} --timeout=300s --request-timeout=5s; done"
   )
 fi
 
