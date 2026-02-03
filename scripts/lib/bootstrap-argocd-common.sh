@@ -64,7 +64,11 @@ ensure_instance_id() {
     exit 1
   fi
 
-  echo "${resolved}"
+  set -- ${resolved}
+  if [[ "$#" -gt 1 ]]; then
+    echo "Warning: multiple k3s server instances found (${resolved}); using ${1}." >&2
+  fi
+  echo "${1}"
 }
 
 wait_for_ssm_command() {

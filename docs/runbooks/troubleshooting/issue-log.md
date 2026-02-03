@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-03
 
+### [ci/infra] CRD wait failed (NotFound before creation)
+- **Severity:** Medium
+- **Impact:** `argocd-platform` job failed while waiting for ESO CRDs; bootstrap blocked.
+- **Analysis:** `kubectl wait crd/<name>` fails if the CRD does not exist yet. The platform app was created but CRDs had not been registered.
+- **Resolution:** Poll for CRD existence first, then wait for `Established`, with a 5 min total timeout.
+
 ### [ci/infra] argocd-platform job failed (unbound variable)
 - **Severity:** Medium
 - **Impact:** `ci-infra` failed during `argocd-platform` with `crd: unbound variable`, blocking bootstrap flow.
