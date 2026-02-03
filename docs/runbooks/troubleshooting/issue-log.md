@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-03
 
+### [ci/registry] ImagePullBackOff (GHCR tags missing)
+- **Severity:** High
+- **Impact:** app pods stayed Pending/BackOff because images under `ghcr.io/clementv78/cloudradar/*` were missing.
+- **Analysis:** build workflow pushed images using the mixed-case repo name; manifests reference lowercase GHCR paths, so tags were not found.
+- **Resolution:** Update build-and-push workflow to use lowercase repo and rebuild/push images.
+
 ### [app/k8s] Pods fail with InvalidImageName (GHCR uppercase)
 - **Severity:** High
 - **Impact:** `admin-scale`, `healthz`, and `processor` pods failed to start; app health stayed `Progressing`.
