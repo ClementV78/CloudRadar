@@ -140,7 +140,7 @@ commands=(
   # SSM runs commands via /bin/sh; keep syntax POSIX-compatible.
   "set -eu"
   # Wait for kubectl to be installed by k3s (SSM may run before cloud-init finishes).
-  "i=0; while [ \$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi"
+  "i=0; while [ \$i -lt 36 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 360s\"; exit 1; fi"
   # Point kubectl to the k3s kubeconfig on the instance.
   "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml"
   # Apply the Application manifest.
@@ -150,8 +150,8 @@ commands=(
 if [[ -n "${WAIT_CRDS}" ]]; then
   wait_list="${WAIT_CRDS//,/ }"
   commands+=(
-    "for crd in ${wait_list}; do echo \"Waiting for CRD \\${crd}...\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait --for=condition=Established crd/\\${crd} --timeout=300s --request-timeout=5s; done"
+    "crd_timeout=300; crd_poll=10; for crd in ${wait_list}; do echo \"Waiting for CRD \${crd}...\"; elapsed=0; while ! sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" >/dev/null 2>&1; do if [ \${elapsed} -ge \${crd_timeout} ]; then echo \"CRD \${crd} not found after \${crd_timeout}s\"; exit 1; fi; sleep \${crd_poll}; elapsed=\$((elapsed + crd_poll)); done; remaining=\$((crd_timeout - elapsed)); if [ \${remaining} -le 0 ]; then echo \"CRD \${crd} not established within \${crd_timeout}s\"; exit 1; fi; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait --for=condition=Established \"crd/\${crd}\" --timeout=\"\${remaining}s\" --request-timeout=5s; done"
   )
 fi
 
-ssm_run_commands "${REGION}" "${INSTANCE_ID}" 900 "argocd app ${ARGOCD_APP_NAME}" commands
+ssm_run_commands "${REGION}" "${INSTANCE_ID}" 360 "argocd app ${ARGOCD_APP_NAME}" commands
