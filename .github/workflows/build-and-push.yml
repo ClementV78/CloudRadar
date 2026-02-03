@@ -46,6 +46,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set lowercase repository name
+        run: echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -61,7 +64,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}
+          images: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/${{ matrix.service }}
           tags: |
             type=ref,event=pr
             type=ref,event=branch
@@ -84,6 +87,6 @@ jobs:
         run: |
           echo "✅ Image built and pushed for ${{ matrix.service }}"
           echo "Registry: ${{ env.REGISTRY }}"
-          echo "Repository: ${{ github.repository }}"
+          echo "Repository: ${{ env.REPO_LOWER }}"
           echo "Tags:"
           echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n' | sed 's/^/  - /'
