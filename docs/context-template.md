@@ -11,6 +11,10 @@ Generated: YYYY-MM-DD hh:mm
 ## Project management
 - 
 
+## Issue metadata reminders (UI)
+- After each issue creation, update Project + Project Status in the GitHub UI (required; no API/CLI).
+- List any issues still missing Project/Status here.
+
 ## Branching & environments
 - 
 
