@@ -114,6 +114,17 @@ Infra CI is live; app CI/CD is planned. Application workloads on k3s are reconci
 
 ---
 
+## 🧪 CI Guardrails (K8s)
+
+To prevent deployment regressions, a dedicated workflow validates Kubernetes manifests on every PR that touches `k8s/**`.
+
+- Workflow: `ci-k8s`
+- Check: fail if any `ghcr.io/...` image reference contains uppercase characters (GHCR requires lowercase repository names).
+
+Status: Implemented.
+
+---
+
 ## ☸️ Kubernetes Architecture (k3s)
 
 The k3s cluster runs a **control plane** and **worker node(s)** on EC2, hosting all application workloads and platform components. ArgoCD manages workloads declaratively via GitOps.
