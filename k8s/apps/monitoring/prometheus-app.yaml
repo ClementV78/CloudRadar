@@ -15,7 +15,8 @@ spec:
         crds:
           enabled: true
           upgradeJob:
-            enabled: true
+            # Disabled to avoid oversized annotations in the CRD upgrade hook ConfigMap.
+            enabled: false
 
         prometheus:
           service:
