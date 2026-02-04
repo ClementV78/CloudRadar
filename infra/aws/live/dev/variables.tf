@@ -54,7 +54,7 @@ variable "nat_root_volume_size" {
 variable "k3s_server_instance_type" {
   description = "Instance type for the k3s server."
   type        = string
-  default     = "t3.small"
+  default     = "t3a.medium"
 }
 
 variable "k3s_worker_instance_type" {
