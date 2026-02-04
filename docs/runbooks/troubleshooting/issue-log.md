@@ -76,7 +76,8 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
   - Grafana logs showed `TLS handshake error: client sent an HTTP request to an HTTPS server`.
   - Readiness/Liveness probes failed with 400 and connection refused.
 - **Analysis:** Edge stripped `/grafana` by using `proxy_pass .../` and didn’t send `X-Forwarded-Prefix`, so Grafana redirected back to `/grafana` indefinitely. Grafana was also forced to HTTPS while Traefik/probes use HTTP.
-- **Resolution:** Keep `/grafana` prefix in the edge proxy (`proxy_pass` without trailing slash) and add `X-Forwarded-Prefix /grafana`, `X-Forwarded-Host`, `X-Forwarded-Proto https`. Set Grafana to HTTP internally while keeping external `root_url` HTTPS.
+- **Resolution:** Keep `/grafana` prefix in the edge proxy (`proxy_pass` without trailing slash) and add `X-Forwarded-Prefix /grafana`, `X-Forwarded-Host`, `X-Forwarded-Proto https`. Set Grafana to HTTP internally while keeping external `root_url` HTTPS. Ensure Grafana serves from the subpath by setting `grafana.ini.server.root_url` to `https://grafana.cloudradar.local/grafana/` and `serve_from_sub_path=true`.
+- **Refs:** issue #296.
 
 ### [infra/edge] Edge 502 after control-plane taint (Traefik NodePort target mismatch)
 - **Severity:** High

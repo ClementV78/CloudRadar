@@ -126,6 +126,7 @@ Password: (check AWS SSM `/cloudradar/grafana/admin-password`)
 
 Notes:
 - Grafana is served under `/grafana` (subpath). The edge proxy must keep the `/grafana` prefix.
+- Grafana must serve from the subpath (`grafana.ini.server.root_url` includes `/grafana/` and `serve_from_sub_path=true` in `k8s/apps/monitoring/grafana-app.yaml`).
 - Grafana should run **HTTP internally** (Traefik/probes), while edge terminates HTTPS.
 
 **Via Port-Forward** (local development):
