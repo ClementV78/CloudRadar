@@ -254,7 +254,11 @@ kubectl get crd | grep -E 'prometheuses|alertmanagers|prometheusagents|thanosrul
 - ArgoCD sync applied CRs before CRDs existed
 
 **Fix**
-- Ensure `crds.enabled: true` and enable the CRD upgrade job in the chart values.
+- Apply Prometheus CRDs before ArgoCD using server-side apply:
+  ```bash
+  PROMETHEUS_CRD_TIMEOUT=300s \
+  scripts/bootstrap-prometheus-crds.sh <instance-id> us-east-1
+  ```
 - Re-sync the Prometheus application after CRDs exist.
 
 ---

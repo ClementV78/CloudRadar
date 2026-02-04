@@ -2,6 +2,14 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-04
+
+### [obs/monitoring] Prometheus CRDs missing (server-side apply timeouts)
+- **Severity:** High
+- **Impact:** `/prometheus` returned `503`; Prometheus pods absent; smoke-tests failed.
+- **Analysis:** CRD upgrade job disabled (annotation size issue). After rebuild, core Prometheus CRDs were missing and API timeouts on `t3.small` made manual apply flaky.
+- **Resolution:** Version Prometheus CRDs under `k8s/platform/crds/prometheus` and apply them **before ArgoCD** via CI using server-side apply (`--force-conflicts --validate=false --request-timeout=300s`). Increase control-plane size to `t3a.medium` to reduce API timeouts. (Refs: issue #299, #298)
+
 ## 2026-02-03
 
 ### [infra/k3s] CoreDNS Pending after rebuild (worker not joined)

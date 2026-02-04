@@ -166,7 +166,7 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
   - Requests: CPU 100m, Memory 512 Mi
   - Limits: CPU 500m, Memory 1 Gi
 - **Alerting**: AlertManager included in chart but disabled (enable in Sprint 2 if needed)
-- **CRDs**: Installed/updated by chart (`crds.enabled` + CRD upgrade job enabled) to avoid ArgoCD sync failures.
+- **CRDs**: Applied pre-ArgoCD from `k8s/platform/crds/prometheus/` via server-side apply (CI + bootstrap script).
 
 ### Grafana
 
