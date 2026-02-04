@@ -951,6 +951,7 @@ jobs:
           EDGE_PUBLIC_IP: ${{ needs.tf-outputs.outputs.edge_public_ip }}
           EDGE_BASIC_AUTH_USER: ${{ needs.tf-outputs.outputs.edge_basic_auth_user }}
           EDGE_BASIC_AUTH_SSM_PARAMETER_NAME: ${{ needs.tf-outputs.outputs.edge_basic_auth_ssm_parameter_name }}
+          K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
         run: |
           wait_for_instance_ready() {
             local instance_id=$1
@@ -1073,6 +1074,53 @@ jobs:
             done
           }
 
+          run_cluster_diagnostics() {
+            local failed_path=$1
+
+            if [ -z "${K3S_SERVER_INSTANCE_ID:-}" ]; then
+              echo "K3S_SERVER_INSTANCE_ID not set; skipping diagnostics for ${failed_path}."
+              return 0
+            fi
+
+            echo "---"
+            echo "Running k3s diagnostics for ${failed_path}..."
+
+            set +e
+            trap 'set -e' RETURN
+
+            if ! wait_for_instance_ready "${K3S_SERVER_INSTANCE_ID}"; then
+              echo "K3S instance not ready; skipping diagnostics."
+              return 0
+            fi
+
+            local diag_params
+            diag_params="$(jq -cn \
+              --arg c0 "i=0; while [ \$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
+              --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
+              --arg c2 "set -e" \
+              --arg c3 "echo \"Nodes:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s get nodes -o wide || true" \
+              --arg c4 "echo \"Pods cloudradar:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get pods -o wide || true" \
+              --arg c5 "echo \"Pods monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get pods -o wide || true" \
+              --arg c6 "echo \"Services monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get svc grafana prometheus-kube-prometheus-prometheus -o wide || true" \
+              --arg c7 "echo \"Endpoints monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get endpoints grafana prometheus-kube-prometheus-prometheus -o wide || true" \
+              --arg c8 "echo \"Ingress monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get ingress grafana prometheus -o wide || true" \
+              --arg c9 "echo \"Services cloudradar:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get svc healthz -o wide || true" \
+              --arg c10 "echo \"Endpoints cloudradar:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get endpoints healthz -o wide || true" \
+              --arg c11 "echo \"Traefik NodePort checks (localhost:30080):\"; curl -sS -o /dev/null -w \"grafana=http %{http_code}\\n\" -H \"Host: grafana.cloudradar.local\" http://127.0.0.1:30080/ || true; curl -sS -o /dev/null -w \"prometheus=http %{http_code}\\n\" -H \"Host: prometheus.cloudradar.local\" http://127.0.0.1:30080/ || true" \
+              --arg c12 "health_nodeport=\"\$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get svc healthz -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || true)\"; if [ -n \"\${health_nodeport}\" ]; then echo \"Healthz NodePort check (localhost:\${health_nodeport}):\"; curl -sS -o /dev/null -w \"healthz=http %{http_code}\\n\" \"http://127.0.0.1:\${health_nodeport}/healthz\" || true; else echo \"Healthz NodePort not found\"; fi" \
+              '{commands: [$c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8, $c9, $c10, $c11, $c12]}')"
+
+            local diag_command_id
+            diag_command_id="$(send_ssm_command "${K3S_SERVER_INSTANCE_ID}" "${diag_params}" 300)"
+            if ! is_uuid "${diag_command_id}"; then
+              echo "Invalid SSM command id for diagnostics: ${diag_command_id:-empty}" >&2
+              return 0
+            fi
+
+            echo "::notice title=SSM::k3s diagnostics path=${failed_path} command_id=${diag_command_id}"
+            poll_ssm_command "${diag_command_id}" "${K3S_SERVER_INSTANCE_ID}" 300 || true
+          }
+
           wait_for_instance_ready "${EDGE_INSTANCE_ID}"
           i=0
           while [ $i -lt 3 ]; do
@@ -1124,7 +1172,7 @@ jobs:
 
             while [ "${attempt}" -le "${max_attempts}" ]; do
               set +e
-              status_code="$(curl -k -s -o /dev/null -w '%{http_code}' \
+              status_code="$(curl -k -sS -o /dev/null -w '%{http_code}' \
                 --connect-timeout 5 \
                 --max-time 10 \
                 --retry 2 \
@@ -1153,6 +1201,7 @@ jobs:
             done
 
             echo "Expected 200/301/302 from ${path}, got ${status_code}."
+            run_cluster_diagnostics "${path}"
             return 1
           }
 

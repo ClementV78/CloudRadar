@@ -15,6 +15,13 @@ spec:
           existingSecret: grafana-admin
           existingSecretPasswordKey: admin-password
 
+        grafana.ini:
+          server:
+            domain: grafana.cloudradar.local
+            root_url: https://grafana.cloudradar.local/grafana/
+            serve_from_sub_path: true
+            protocol: http
+
         service:
           type: NodePort
           nodePort: 30091
