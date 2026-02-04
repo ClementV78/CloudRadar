@@ -22,7 +22,7 @@ variable "k3s_server_subnet_id" {
 variable "server_instance_type" {
   description = "Instance type for the k3s server."
   type        = string
-  default     = "t3.small"
+  default     = "t3a.medium"
 }
 
 variable "worker_instance_type" {
