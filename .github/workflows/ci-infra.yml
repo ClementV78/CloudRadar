@@ -590,12 +590,34 @@ jobs:
           echo "k3s-ready-check failed after ${max_attempts} attempts"
           exit 1
 
-  argocd-install:
+  prometheus-crds:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
     runs-on: ubuntu-latest
     needs:
       - tf-outputs
       - k3s-ready-check
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Apply Prometheus CRDs before ArgoCD
+        env:
+          PROMETHEUS_CRD_REPO: ${{ github.repository }}
+          PROMETHEUS_CRD_REVISION: ${{ github.sha }}
+        run: scripts/bootstrap-prometheus-crds.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
+
+  argocd-install:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
+    runs-on: ubuntu-latest
+    needs:
+      - tf-outputs
+      - prometheus-crds
     steps:
       - name: Checkout
         uses: actions/checkout@v4
