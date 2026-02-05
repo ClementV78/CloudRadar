@@ -1120,17 +1120,25 @@ jobs:
               --arg c0 "i=0; while [ \$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
               --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
               --arg c2 "set -e" \
-              --arg c3 "echo \"Nodes:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s get nodes -o wide || true" \
-              --arg c4 "echo \"Pods cloudradar:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get pods -o wide || true" \
-              --arg c5 "echo \"Pods monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get pods -o wide || true" \
-              --arg c6 "echo \"Services monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get svc grafana prometheus-kube-prometheus-prometheus -o wide || true" \
-              --arg c7 "echo \"Endpoints monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get endpoints grafana prometheus-kube-prometheus-prometheus -o wide || true" \
-              --arg c8 "echo \"Ingress monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get ingress grafana prometheus -o wide || true" \
-              --arg c9 "echo \"Services cloudradar:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get svc healthz -o wide || true" \
-              --arg c10 "echo \"Endpoints cloudradar:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get endpoints healthz -o wide || true" \
-              --arg c11 "echo \"Traefik NodePort checks (localhost:30080):\"; curl -sS -o /dev/null -w \"grafana=http %{http_code}\\n\" -H \"Host: grafana.cloudradar.local\" http://127.0.0.1:30080/ || true; curl -sS -o /dev/null -w \"prometheus=http %{http_code}\\n\" -H \"Host: prometheus.cloudradar.local\" http://127.0.0.1:30080/ || true" \
-              --arg c12 "health_nodeport=\"\$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get svc healthz -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || true)\"; if [ -n \"\${health_nodeport}\" ]; then echo \"Healthz NodePort check (localhost:\${health_nodeport}):\"; curl -sS -o /dev/null -w \"healthz=http %{http_code}\\n\" \"http://127.0.0.1:\${health_nodeport}/healthz\" || true; else echo \"Healthz NodePort not found\"; fi" \
-              '{commands: [$c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8, $c9, $c10, $c11, $c12]}')"
+              --arg c3 "echo \"ArgoCD apps:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n argocd get application cloudradar prometheus -o wide || true" \
+              --arg c4 "echo \"ArgoCD app details (cloudradar):\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n argocd get application cloudradar -o yaml | grep -nE \"sync|health|message|reason|status\" || true" \
+              --arg c5 "echo \"ArgoCD app details (prometheus):\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n argocd get application prometheus -o yaml | grep -nE \"sync|health|message|reason|status\" || true" \
+              --arg c6 "echo \"Nodes:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s get nodes -o wide || true" \
+              --arg c7 "echo \"Pods cloudradar:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get pods -o wide || true" \
+              --arg c8 "echo \"Pods monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get pods -o wide || true" \
+              --arg c9 "echo \"StatefulSets monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get sts -o wide || true" \
+              --arg c10 "echo \"PVCs monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get pvc -o wide || true" \
+              --arg c11 "echo \"Prometheus CRs:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get prometheus -o wide || true" \
+              --arg c12 "echo \"Services monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get svc grafana prometheus-kube-prometheus-prometheus -o wide || true" \
+              --arg c13 "echo \"Endpoints monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get endpoints grafana prometheus-kube-prometheus-prometheus -o wide || true" \
+              --arg c14 "echo \"Ingress monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get ingress grafana prometheus -o wide || true" \
+              --arg c15 "echo \"Services cloudradar:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get svc healthz -o wide || true" \
+              --arg c16 "echo \"Endpoints cloudradar:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get endpoints healthz -o wide || true" \
+              --arg c17 "echo \"Recent events monitoring:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n monitoring get events --sort-by=.lastTimestamp | tail -n 30 || true" \
+              --arg c18 "echo \"Recent events cloudradar:\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get events --sort-by=.lastTimestamp | tail -n 30 || true" \
+              --arg c19 "echo \"Traefik NodePort checks (localhost:30080):\"; curl -sS -o /dev/null -w \"grafana=http %{http_code}\\n\" -H \"Host: grafana.cloudradar.local\" http://127.0.0.1:30080/ || true; curl -sS -o /dev/null -w \"prometheus=http %{http_code}\\n\" -H \"Host: prometheus.cloudradar.local\" http://127.0.0.1:30080/ || true" \
+              --arg c20 "health_nodeport=\"\$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl --request-timeout=5s -n cloudradar get svc healthz -o jsonpath='{.spec.ports[0].nodePort}' 2>/dev/null || true)\"; if [ -n \"\${health_nodeport}\" ]; then echo \"Healthz NodePort check (localhost:\${health_nodeport}):\"; curl -sS -o /dev/null -w \"healthz=http %{http_code}\\n\" \"http://127.0.0.1:\${health_nodeport}/healthz\" || true; else echo \"Healthz NodePort not found\"; fi" \
+              '{commands: [$c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7, $c8, $c9, $c10, $c11, $c12, $c13, $c14, $c15, $c16, $c17, $c18, $c19, $c20]}')"
 
             local diag_command_id
             diag_command_id="$(send_ssm_command "${K3S_SERVER_INSTANCE_ID}" "${diag_params}" 300)"
