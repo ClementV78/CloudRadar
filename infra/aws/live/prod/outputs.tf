@@ -22,3 +22,18 @@ output "private_route_table_id" {
   description = "Private route table ID."
   value       = module.vpc.private_route_table_id
 }
+
+output "dns_zone_id" {
+  description = "Route53 hosted zone ID for delegated subdomain (if created)."
+  value       = try(aws_route53_zone.cloudradar[0].zone_id, "")
+}
+
+output "dns_zone_name" {
+  description = "Route53 hosted zone name for delegated subdomain (if created)."
+  value       = try(aws_route53_zone.cloudradar[0].name, "")
+}
+
+output "dns_zone_name_servers" {
+  description = "Name servers for the delegated subdomain (if created)."
+  value       = try(aws_route53_zone.cloudradar[0].name_servers, [])
+}

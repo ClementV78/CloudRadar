@@ -9,10 +9,9 @@ metadata:
 spec:
   ingressClassName: traefik
   rules:
-  - host: prometheus.cloudradar.local
-    http:
+  - http:
       paths:
-      - path: /
+      - path: /prometheus
         pathType: Prefix
         backend:
           service:

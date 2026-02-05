@@ -147,6 +147,7 @@ flowchart LR
 - NAT instance (public subnet) with private route table default route.
 - Interface VPC endpoints for SSM/KMS services.
 - Gateway VPC endpoint for S3 (public + private route tables).
+- Route53 hosted zone for delegated subdomain (optional; used for Grafana/Prometheus FQDNs).
 
 ### Compute
 - k3s server EC2 instance (private subnet, AL2023 minimal AMI with SSM agent installed via cloud-init).

@@ -24,6 +24,9 @@ Jobs run in CI to validate Terraform safely (no apply):
 - `auto_approve`: must be `true` to run apply.
 - `run_smoke_tests`: when `true`, runs post-apply readiness and health checks (k3s, ArgoCD, healthz).
 - `backup_bucket_name`: optional override for the dev SQLite backup bucket.
+- `dns_zone_name`: delegated subdomain to manage in Route53 (e.g., `cloudradar.example.com`).
+
+Note: keep real domain values out of the repo; pass them via workflow input or the `DNS_ZONE_NAME` GitHub Actions variable.
 
 Notes:
 - When `backup_bucket_name` is empty, the workflow uses `TF_BACKUP_BUCKET_NAME` if set.
@@ -49,6 +52,7 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
 3. `tf-plan`: init + plan with `terraform.tfvars`.
 4. `tf-apply`: guarded apply (requires `auto_approve=true`).
 5. `tf-outputs` (dev only): load Terraform outputs for SSM/edge checks.
+6. `dns-sync` (dev only): update Route53 A records + write Grafana domain params to SSM.
 6. `k3s-ready-check` (dev): wait for k3s nodes via SSM.
 7. `argocd-bootstrap` (dev): bootstrap ArgoCD via SSM after k3s readiness.
 8. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
@@ -73,12 +77,13 @@ flowchart TB
     tf-plan[tf-plan]
     tf-apply[tf-apply]
     tf-outputs[tf-outputs]
+    dns-sync[dns-sync]
     k3s-ready-check[k3s-ready-check]
     argocd-bootstrap[argocd-bootstrap]
     smoke-tests[smoke-tests]
 
-    env-select --> tf-validate --> tf-plan --> tf-apply --> tf-outputs
-    tf-outputs --> k3s-ready-check --> argocd-bootstrap --> smoke-tests
+    env-select --> tf-validate --> tf-plan --> tf-apply --> tf-outputs --> dns-sync
+    dns-sync --> k3s-ready-check --> argocd-bootstrap --> smoke-tests
   end
 
   PR --> Dispatch

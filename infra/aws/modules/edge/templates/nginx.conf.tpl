@@ -88,7 +88,7 @@ server {
     # Keep the /prometheus prefix so Prometheus can serve from subpath.
     proxy_pass http://prometheus_upstream;
     proxy_http_version 1.1;
-    proxy_set_header Host prometheus.cloudradar.local;
+    proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Prefix /prometheus;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -100,7 +100,7 @@ server {
     # Keep the /grafana prefix so Grafana can serve from subpath without redirect loops.
     proxy_pass http://grafana_upstream;
     proxy_http_version 1.1;
-    proxy_set_header Host grafana.cloudradar.local;
+    proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Host $host;
     proxy_set_header X-Forwarded-Proto https;
     proxy_set_header X-Forwarded-Prefix /grafana;

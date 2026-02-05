@@ -44,6 +44,12 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "dns_zone_name" {
+  description = "Optional Route53 hosted zone name for delegated subdomain (e.g., cloudradar.example.com)."
+  type        = string
+  default     = ""
+}
 variable "grafana_admin_password" {
   description = "Grafana admin password. If empty, a random one will be generated."
   type        = string
