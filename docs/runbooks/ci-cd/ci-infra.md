@@ -24,9 +24,8 @@ Jobs run in CI to validate Terraform safely (no apply):
 - `auto_approve`: must be `true` to run apply.
 - `run_smoke_tests`: when `true`, runs post-apply readiness and health checks (k3s, ArgoCD, healthz).
 - `backup_bucket_name`: optional override for the dev SQLite backup bucket.
-- `dns_zone_name`: delegated subdomain to manage in Route53 (e.g., `cloudradar.example.com`).
-
-Note: keep real domain values out of the repo; pass them via workflow input or the `DNS_ZONE_NAME` GitHub Actions variable.
+- DNS delegation uses the `DNS_ZONE_NAME` GitHub Actions variable (e.g., `cloudradar.example.com`).
+  Keep real domain values out of the repo.
 
 Notes:
 - When `backup_bucket_name` is empty, the workflow uses `TF_BACKUP_BUCKET_NAME` if set.
