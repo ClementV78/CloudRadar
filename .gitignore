@@ -9,6 +9,8 @@
 *.tfstate
 *.tfstate.backup
 *.tfvars
+*.auto.tfvars
+*.auto.tfvars.json
 !infra/aws/live/**/terraform.tfvars
 infra/aws/live/**/backend.hcl
 

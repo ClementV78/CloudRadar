@@ -28,6 +28,7 @@ Jobs run in CI to validate Terraform safely (no apply):
 Notes:
 - When `backup_bucket_name` is empty, the workflow uses `TF_BACKUP_BUCKET_NAME` if set.
 - If neither is provided, Terraform derives the default bucket name in `infra/aws/live/dev`.
+- Local-only overrides can live in `local.donotcommit.auto.tfvars` inside the env folder (auto-loaded by Terraform, ignored by Git).
 
 ### Which environment is targeted in CI?
 
