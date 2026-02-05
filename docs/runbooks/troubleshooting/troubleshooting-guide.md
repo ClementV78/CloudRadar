@@ -391,6 +391,45 @@ kubectl -n kube-system get pods -l app.kubernetes.io/name=aws-ebs-csi-driver
 **Fix**
 - Check node affinity / taints
 - Verify StorageClass
+- Ensure the claim `storageClassName` exists (e.g., `ebs-gp3`).
+- Align Helm values with the live StorageClass name if mismatched.
+
+---
+
+## 7.2 Prometheus / Observability Incidents (Operational)
+
+Focus on recurring failure modes we have seen in CloudRadar builds.
+
+**A) CRDs missing / Prometheus app Degraded**
+**Symptoms**: Prometheus app `Degraded`, `/prometheus` returns 503, no Prometheus/Alertmanager CRs.
+**Checks**
+```bash
+kubectl get crd | grep -E 'prometheuses|alertmanagers|prometheusagents|thanosrulers|scrapeconfigs'
+kubectl -n argocd get application prometheus -o yaml | grep -nE 'sync|health|message|reason|status'
+```
+**Fix**
+- Apply Prometheus CRDs before ArgoCD sync (server-side apply).
+- Keep `ServerSideApply=true` on the Prometheus app to avoid annotation size failures.
+
+**B) StorageClass mismatch (gp3 vs ebs-gp3)**
+**Symptoms**: Prometheus CR `Reconciled=False` with `storage class "gp3" does not exist`, StatefulSet missing.
+**Checks**
+```bash
+kubectl -n monitoring describe prometheus prometheus-kube-prometheus-prometheus | grep -n "storage class"
+kubectl get storageclass
+```
+**Fix**
+- Align `storageClassName` in Prometheus values with the live StorageClass (`ebs-gp3`).
+
+**C) Server-side apply / annotation limits**
+**Symptoms**: CRD apply fails with `metadata.annotations: Too long`, sync errors on CRDs.
+**Checks**
+```bash
+kubectl -n argocd get application prometheus -o yaml | grep -nE 'ComparisonError|SyncFailed'
+```
+**Fix**
+- Use `kubectl apply --server-side --force-conflicts --validate=false` when applying CRDs.
+- In GitOps, enable `ServerSideApply=true` for the Prometheus app.
 
 ---
 
