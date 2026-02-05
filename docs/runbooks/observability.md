@@ -17,7 +17,7 @@ Prometheus scrapes metrics from all k3s services. Grafana provides dashboards fo
    - Generates random Grafana admin password (or uses provided values from GitHub Secrets / .env)
    - Stores passwords in AWS SSM Parameter Store (`/cloudradar/grafana/admin-password`, `/cloudradar/edge/basic-auth`)
    - Outputs passwords for display/use
-   - **Does NOT create K8s Secrets** (cluster access happens after bootstrap)
+   - Creates the Route53 hosted zone if `dns_zone_name` is provided
 
 2. **Bootstrap ArgoCD Phase** (`scripts/bootstrap-argocd-install.sh` + `scripts/bootstrap-argocd-app.sh`)
    - Installs ArgoCD on k3s server
@@ -25,54 +25,29 @@ Prometheus scrapes metrics from all k3s services. Grafana provides dashboards fo
    - ArgoCD discovers monitoring Applications in `k8s/apps/monitoring/`
    - **Waits for K8s Secrets before syncing Grafana**
 
-3. **Manual K8s Secrets Creation** (one-time, after terraform apply)
-   - Retrieve passwords from SSM Parameter Store
-   - Create K8s Secrets in monitoring namespace
-   - After this, ArgoCD syncs monitoring stack
+3. **External Secrets Sync** (automated)
+   - ESO syncs Grafana credentials from SSM into `monitoring/grafana-admin`
+   - ci-infra writes `/cloudradar/grafana-domain` and `/cloudradar/grafana-root-url` for Grafana routing
+   - Grafana reads domain/root_url from the `grafana-domain` Secret
 
-### Step-by-Step Manual Setup
+### Step-by-Step Sync Checks
 
-#### 1. After `terraform apply` completes
+#### 1. Verify SSM parameters exist
 
 ```bash
-# Get outputs
-cd infra/aws/live/dev
-GRAFANA_PASSWORD=$(terraform output -raw grafana_admin_password)
-
-# Verify they're in SSM
 aws ssm get-parameter --name /cloudradar/grafana/admin-password --with-decryption --query 'Parameter.Value'
 aws ssm get-parameter --name /cloudradar/edge/basic-auth --with-decryption --query 'Parameter.Value'
+aws ssm get-parameter --name /cloudradar/grafana-domain --query 'Parameter.Value'
+aws ssm get-parameter --name /cloudradar/grafana-root-url --query 'Parameter.Value'
 ```
 
-#### 2. Get kubeconfig and connect to k3s
+#### 2. Confirm ESO created the secrets
 
 ```bash
-# Download kubeconfig from k3s server via SSM
-bash scripts/get-aws-kubeconfig.sh
-
-# Verify cluster access
-kubectl get nodes
+kubectl get secret -n monitoring grafana-admin grafana-domain
 ```
 
-#### 3. Create K8s Secrets
-
-```bash
-# Create monitoring namespace (if not already created)
-kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
-
-# Create Grafana admin secret
-kubectl create secret generic grafana-admin \
-  -n monitoring \
-  --from-literal=admin-password="$GRAFANA_PASSWORD" \
-  --dry-run=client -o yaml | kubectl apply -f -
-
-# Prometheus auth is enforced at the edge (Basic Auth).
-
-# Verify secrets exist
-kubectl get secrets -n monitoring
-```
-
-#### 4. ArgoCD auto-syncs monitoring stack
+#### 3. ArgoCD auto-syncs monitoring stack
 
 Once K8s Secrets exist:
 - ArgoCD detects changes in `k8s/apps/` (monitoring folder)
@@ -91,7 +66,7 @@ argocd app get prometheus
 argocd app get grafana
 ```
 
-#### 5. Verify deployments
+#### 4. Verify deployments
 
 ```bash
 # Check pods
@@ -119,7 +94,7 @@ For now (MVP), the manual approach ensures we don't over-engineer the bootstrap 
 
 **Via Internet** (through edge Nginx reverse proxy):
 ```
-https://<edge-host>/grafana/
+https://grafana.<dns_zone_name>/grafana/
 User: admin
 Password: (check AWS SSM `/cloudradar/grafana/admin-password`)
 ```
@@ -141,7 +116,7 @@ Prometheus is exposed via edge Nginx with Basic Auth (same edge credentials as G
 
 **Via Internet** (through edge Nginx reverse proxy):
 ```
-https://<edge-host>/prometheus/
+https://prometheus.<dns_zone_name>/prometheus/
 User: cloudradar
 Password: (check AWS SSM `/cloudradar/edge/basic-auth`)
 ```
@@ -171,7 +146,8 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 ### Grafana
 
 - **Chart**: `grafana/grafana` v10.5.15 (repo: `grafana-community/helm-charts`)
-- **Admin password**: Retrieved from K8s Secret `grafana-admin` (set by Terraform)
+- **Admin password**: Retrieved from K8s Secret `grafana-admin` (synced from SSM via ESO)
+- **Domain/Root URL**: Stored in SSM (`/cloudradar/grafana-domain`, `/cloudradar/grafana-root-url`) and injected via ESO
 - **Datasource**: Auto-configured to Prometheus
 - **Dashboards**: Starter dashboards for cluster + application health
 - **Persistence**: Disabled (stateless, data loss on redeploy acceptable for MVP)

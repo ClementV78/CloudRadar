@@ -6,5 +6,8 @@ azs                  = ["us-east-1a"]
 public_subnet_cidrs  = ["10.1.1.0/24"]
 private_subnet_cidrs = ["10.1.101.0/24"]
 
+# Optional delegated subdomain managed in Route53 (leave empty to disable).
+dns_zone_name = "cloudradar.example.com"
+
 # Optional: only needed when a NAT instance is created.
 # private_route_nat_instance_id = "i-0123456789abcdef0"

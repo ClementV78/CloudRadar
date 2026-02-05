@@ -3,5 +3,6 @@ kind: Kustomization
 
 resources:
   - secretstore.yaml
+  - grafana-domain.yaml
   - grafana-secret.yaml
   - opensky-secret.yaml

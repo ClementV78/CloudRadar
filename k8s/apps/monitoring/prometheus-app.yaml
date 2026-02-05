@@ -24,7 +24,6 @@ spec:
             nodePort: 30090
             port: 9090
           prometheusSpec:
-            externalUrl: https://prometheus.cloudradar.local/prometheus
             retention: 7d
             retentionSize: "4GB"
             routePrefix: /prometheus

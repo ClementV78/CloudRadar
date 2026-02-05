@@ -96,6 +96,12 @@ Purpose: set up External Secrets Operator to sync secrets from AWS SSM Parameter
 - Implements: Issue #150
 - Phases: Terraform IAM → ESO Install → SecretStore → ExternalSecrets → Deployment updates
 
+## 3.2.2) DNS delegation (Route53, optional but recommended)
+
+Purpose: delegate `cloudradar.<domain>` to Route53 and keep DNS updated after rebuilds.
+
+- Runbook: `docs/runbooks/dns-delegation-route53.md`
+
 ## 3.3) Edge health endpoint (optional)
 
 Purpose: expose `/healthz` via the edge Nginx to validate end-to-end k3s connectivity.

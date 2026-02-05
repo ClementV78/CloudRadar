@@ -123,6 +123,12 @@ variable "edge_ami_id" {
   default     = null
 }
 
+variable "dns_zone_name" {
+  description = "Optional Route53 hosted zone name for delegated subdomain (e.g., cloudradar.example.com)."
+  type        = string
+  default     = ""
+}
+
 variable "edge_root_volume_size" {
   description = "Root volume size in GB for the edge instance."
   type        = number

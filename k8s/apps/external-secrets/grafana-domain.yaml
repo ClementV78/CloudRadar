@@ -1,0 +1,20 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: grafana-domain
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: ssm-parameter-store
+    kind: ClusterSecretStore
+  target:
+    name: grafana-domain
+    creationPolicy: Owner
+  data:
+    - secretKey: domain
+      remoteRef:
+        key: /cloudradar/grafana-domain
+    - secretKey: root_url
+      remoteRef:
+        key: /cloudradar/grafana-root-url

@@ -29,6 +29,9 @@ on:
       backup_bucket_name:
         description: "Optional S3 bucket name for SQLite backups (dev only)"
         required: false
+      dns_zone_name:
+        description: "Optional delegated subdomain for Route53 (e.g., cloudradar.example.com)"
+        required: true
 
 permissions:
   id-token: write
@@ -250,6 +253,7 @@ jobs:
         run: |
           set -euo pipefail
           BACKUP_BUCKET_NAME="${{ inputs.backup_bucket_name || env.TF_BACKUP_BUCKET_NAME }}"
+          DNS_ZONE_NAME="${{ inputs.dns_zone_name || vars.DNS_ZONE_NAME }}"
           EXTRA_VARS=()
 
           if [[ "${{ inputs.environment }}" == "dev" && -n "${BACKUP_BUCKET_NAME}" ]]; then
@@ -263,6 +267,15 @@ jobs:
 
           if [[ -n "${{ secrets.PROMETHEUS_AUTH_PASSWORD }}" ]]; then
             EXTRA_VARS+=("-var=prometheus_auth_password=${{ secrets.PROMETHEUS_AUTH_PASSWORD }}")
+          fi
+
+          if [[ -z "${DNS_ZONE_NAME}" ]]; then
+            echo "dns_zone_name is required for Route53 delegation."
+            exit 1
+          fi
+
+          if [[ -n "${DNS_ZONE_NAME}" ]]; then
+            EXTRA_VARS+=("-var=dns_zone_name=${DNS_ZONE_NAME}")
           fi
 
           terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" plan -input=false -no-color -var-file=terraform.tfvars \
@@ -306,6 +319,7 @@ jobs:
         run: |
           set -euo pipefail
           BACKUP_BUCKET_NAME="${{ inputs.backup_bucket_name || env.TF_BACKUP_BUCKET_NAME }}"
+          DNS_ZONE_NAME="${{ inputs.dns_zone_name || vars.DNS_ZONE_NAME }}"
           EXTRA_VARS=()
 
           if [[ "${{ inputs.environment }}" == "dev" && -n "${BACKUP_BUCKET_NAME}" ]]; then
@@ -319,6 +333,15 @@ jobs:
 
           if [[ -n "${{ secrets.PROMETHEUS_AUTH_PASSWORD }}" ]]; then
             EXTRA_VARS+=("-var=prometheus_auth_password=${{ secrets.PROMETHEUS_AUTH_PASSWORD }}")
+          fi
+
+          if [[ -z "${DNS_ZONE_NAME}" ]]; then
+            echo "dns_zone_name is required for Route53 delegation."
+            exit 1
+          fi
+
+          if [[ -n "${DNS_ZONE_NAME}" ]]; then
+            EXTRA_VARS+=("-var=dns_zone_name=${DNS_ZONE_NAME}")
           fi
 
           terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" apply -input=false -auto-approve -var-file=terraform.tfvars \
@@ -382,6 +405,8 @@ jobs:
       edge_public_ip: ${{ steps.outputs.outputs.edge_public_ip }}
       edge_basic_auth_user: ${{ steps.outputs.outputs.edge_basic_auth_user }}
       edge_basic_auth_ssm_parameter_name: ${{ steps.outputs.outputs.edge_basic_auth_ssm_parameter_name }}
+      dns_zone_id: ${{ steps.outputs.outputs.dns_zone_id }}
+      dns_zone_name: ${{ steps.outputs.outputs.dns_zone_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -412,6 +437,68 @@ jobs:
           echo "edge_public_ip=$(jq -r '.edge_public_ip.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "edge_basic_auth_user=$(jq -r '.edge_basic_auth_user.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "edge_basic_auth_ssm_parameter_name=$(jq -r '.edge_basic_auth_ssm_parameter_name.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
+          echo "dns_zone_id=$(jq -r '.dns_zone_id.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
+          echo "dns_zone_name=$(jq -r '.dns_zone_name.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
+
+  dns-sync:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
+    runs-on: ubuntu-latest
+    needs: tf-outputs
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update Route53 records + Grafana domain params
+        env:
+          DNS_ZONE_ID: ${{ needs.tf-outputs.outputs.dns_zone_id }}
+          DNS_ZONE_NAME: ${{ needs.tf-outputs.outputs.dns_zone_name }}
+          EDGE_PUBLIC_IP: ${{ needs.tf-outputs.outputs.edge_public_ip }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${DNS_ZONE_ID}" || -z "${DNS_ZONE_NAME}" ]]; then
+            echo "DNS zone not configured; Route53 updates cannot run."
+            exit 1
+          fi
+
+          echo "Updating Route53 records in zone ${DNS_ZONE_NAME} (${DNS_ZONE_ID})..."
+          change_batch="$(jq -n \
+            --arg zone "${DNS_ZONE_NAME}" \
+            --arg ip "${EDGE_PUBLIC_IP}" \
+            '{
+              Comment: "CloudRadar edge DNS",
+              Changes: [
+                {Action: "UPSERT", ResourceRecordSet: {Name: $zone, Type: "A", TTL: 60, ResourceRecords: [{Value: $ip}]}},
+                {Action: "UPSERT", ResourceRecordSet: {Name: "grafana.\($zone)", Type: "A", TTL: 60, ResourceRecords: [{Value: $ip}]}},
+                {Action: "UPSERT", ResourceRecordSet: {Name: "prometheus.\($zone)", Type: "A", TTL: 60, ResourceRecords: [{Value: $ip}]}},
+                {Action: "UPSERT", ResourceRecordSet: {Name: "app.\($zone)", Type: "A", TTL: 60, ResourceRecords: [{Value: $ip}]}}
+              ]
+            }')"
+
+          aws route53 change-resource-record-sets \
+            --hosted-zone-id "${DNS_ZONE_ID}" \
+            --change-batch "${change_batch}"
+
+          grafana_domain="grafana.${DNS_ZONE_NAME}"
+          grafana_root_url="https://${grafana_domain}/grafana/"
+
+          echo "Writing Grafana domain parameters to SSM..."
+          aws ssm put-parameter \
+            --name /cloudradar/grafana-domain \
+            --value "${grafana_domain}" \
+            --type String \
+            --overwrite \
+            --region "${AWS_REGION}"
+
+          aws ssm put-parameter \
+            --name /cloudradar/grafana-root-url \
+            --value "${grafana_root_url}" \
+            --type String \
+            --overwrite \
+            --region "${AWS_REGION}"
 
   k3s-ready-check:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
@@ -661,6 +748,7 @@ jobs:
     needs:
       - argocd-platform
       - tf-outputs
+      - dns-sync
     steps:
       - name: Checkout
         uses: actions/checkout@v4
