@@ -33,7 +33,7 @@ spec:
                   resources:
                     requests:
                       storage: 5Gi
-                  storageClassName: gp3
+                  storageClassName: ebs-gp3
             resources:
               requests:
                 cpu: 100m

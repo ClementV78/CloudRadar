@@ -2,6 +2,14 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-05
+
+### [obs/monitoring] Prometheus degraded (storageclass mismatch)
+- **Severity:** High
+- **Impact:** Prometheus StatefulSet never created; `/prometheus` smoke test failed after rebuild.
+- **Analysis:** Prometheus CR requested `storageClassName: gp3` but the cluster only provided `ebs-gp3`, so reconciliation failed with `storage class "gp3" does not exist`.
+- **Resolution:** Align Prometheus chart values to use `storageClassName: ebs-gp3`. (Refs: issue #304)
+
 ## 2026-02-04
 
 ### [obs/monitoring] Prometheus CRDs missing (server-side apply timeouts)
