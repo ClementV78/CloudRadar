@@ -85,9 +85,11 @@ server {
 
   location /prometheus/ {
     # Route Prometheus UI/API through edge; Basic Auth enforced at edge.
-    proxy_pass http://prometheus_upstream/;
+    # Keep the /prometheus prefix so Prometheus can serve from subpath.
+    proxy_pass http://prometheus_upstream;
     proxy_http_version 1.1;
     proxy_set_header Host prometheus.cloudradar.local;
+    proxy_set_header X-Forwarded-Prefix /prometheus;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
