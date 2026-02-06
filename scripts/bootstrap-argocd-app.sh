@@ -152,7 +152,7 @@ if [[ -n "${WAIT_CRDS}" ]]; then
   commands+=(
     # NOTE: avoid `kubectl wait` for CRDs here. On some clusters it fails with:
     # ".status.conditions accessor error: <nil> ... expected []interface{}" while the CRD status is still being populated.
-    "crd_timeout=300; crd_poll=10; for crd in ${wait_list}; do \
+    "crd_timeout=600; crd_poll=10; for crd in ${wait_list}; do \
       echo \"Waiting for CRD \${crd}...\"; \
       elapsed=0; \
       while ! sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" >/dev/null 2>&1; do \
@@ -162,13 +162,15 @@ if [[ -n "${WAIT_CRDS}" ]]; then
       while :; do \
         if [ \${elapsed} -ge \${crd_timeout} ]; then \
           echo \"CRD \${crd} not Established=True after \${crd_timeout}s\"; \
-          sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o yaml || true; \
+          sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o yaml | sed -n '1,120p' || true; \
+          echo \"--- argocd applications\"; \
+          sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get application external-secrets-operator external-secrets-config -o wide || true; \
+          echo \"--- external-secrets pods\"; \
+          sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n external-secrets get pods -o wide || true; \
           exit 1; \
         fi; \
-        if sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o yaml 2>/dev/null | awk ' \
-          \$1==\"type:\" && \$2==\"Established\" {est=1; next} \
-          est && \$1==\"status:\" {if (\$2 ~ /True/) exit 0; exit 1} \
-          END {exit 1}'; then \
+        # CRD YAML formatting varies (e.g., list items start with '-'), so check Established=True in JSON.
+        if sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o json 2>/dev/null | tr -d '[:space:]' | grep -q '\"type\":\"Established\"[^}]*\"status\":\"True\"'; then \
           echo \"CRD \${crd} Established=True\"; \
           break; \
         fi; \
