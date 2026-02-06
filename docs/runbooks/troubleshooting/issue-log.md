@@ -10,6 +10,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Analysis:** `bootstrap-argocd-app.sh` builds an SSM command string under `set -u`. The embedded `awk` program used `$1/$2`, which were expanded locally (and failed) instead of being evaluated on the instance.
 - **Resolution:** Escape `\$1`/`\$2` in the SSM command string so the awk fields are evaluated on the instance. (Refs: issue #321)
 
+### [ci/infra] argocd-platform job failed (false negative on CRD Established)
+- **Severity:** Medium
+- **Impact:** `ci-infra` failed during `argocd-platform` even though the ESO CRD existed.
+- **Analysis:** The CRD wait loop parsed CRD YAML and assumed the condition line starts with `type: Established`. In practice, conditions are list items and commonly rendered as `- type: Established`, so the wait loop never detected `Established=True` and timed out.
+- **Resolution:** Detect `Established=True` by parsing CRD JSON (`kubectl get crd -o json | tr | grep`) rather than relying on YAML token positions. (Refs: issue #321)
+
 ## 2026-02-05
 
 ### [obs/monitoring] Prometheus degraded (storageclass mismatch)
