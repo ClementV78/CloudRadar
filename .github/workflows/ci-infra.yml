@@ -789,6 +789,7 @@ jobs:
       - name: Bootstrap apps app via SSM
         env:
           IGNORE_INGESTER_REPLICAS: "true"
+          ARGOCD_SERVER_SIDE_APPLY: "true"
           ARGOCD_APP_NAME: cloudradar
           ARGOCD_APP_NAMESPACE: cloudradar
           ARGOCD_APP_PATH: k8s/apps
