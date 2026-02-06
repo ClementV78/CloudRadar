@@ -136,7 +136,9 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 - **Retention**: 7 days (MVP, data-flexible: if accumulation < 4 GB will keep all 7 days)
 - **Storage**: 5 GB gp3 EBS
 - **Scrape interval**: 30 seconds (default)
-- **Targets**: All k3s nodes + services with `prometheus.io/scrape=true` label
+- **Targets**:
+  - Kubernetes/node targets shipped with `kube-prometheus-stack` (kubelet, kube-state-metrics, node-exporter, etc.)
+  - Application/exporter targets declared via `ServiceMonitor` resources in `k8s/apps/monitoring/scrape-targets/`
 - **Resource allocation**:
   - Requests: CPU 100m, Memory 512 Mi
   - Limits: CPU 500m, Memory 1 Gi
@@ -148,12 +150,116 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 - **Chart**: `grafana/grafana` v10.5.15 (repo: `grafana-community/helm-charts`)
 - **Admin password**: Retrieved from K8s Secret `grafana-admin` (synced from SSM via ESO)
 - **Domain/Root URL**: Stored in SSM (`/cloudradar/grafana-domain`, `/cloudradar/grafana-root-url`) and injected via ESO
-- **Datasource**: Auto-configured to Prometheus
-- **Dashboards**: Starter dashboards for cluster + application health
+- **Datasource**: Auto-configured to Prometheus (UID pinned to `prometheus` for deterministic dashboard provisioning)
+- **Dashboards**: Provisioned as code (no manual UI import)
 - **Persistence**: Disabled (stateless, data loss on redeploy acceptable for MVP)
 - **Resource allocation**:
   - Requests: CPU 50m, Memory 128 Mi
   - Limits: CPU 200m, Memory 256 Mi
+
+## Prometheus Scrape Targets (MVP)
+
+This repo uses **ServiceMonitor** resources (Prometheus Operator) to scrape application/exporter metrics.
+
+Targets defined in:
+- `k8s/apps/monitoring/scrape-targets/`
+
+Expected MVP targets:
+- `processor` (Spring Boot): `GET /metrics/prometheus`
+- `ingester` (Spring Boot): `GET /metrics/prometheus`
+- `redis-exporter`: `GET /metrics`
+- `traefik`: `GET /metrics` (enabled via k3s Traefik HelmChartConfig in `infra/aws/modules/k3s/templates/cloud-init-server.yaml`)
+
+Validation:
+```bash
+kubectl -n monitoring get servicemonitor
+kubectl -n monitoring port-forward svc/prometheus-kube-prometheus-prometheus 9090:9090
+# Open http://localhost:9090/targets
+```
+
+## Grafana Dashboards (Provisioned)
+
+Dashboards are stored in Git and provisioned via the Grafana Helm chart using ConfigMaps.
+
+Source of truth:
+- `k8s/apps/monitoring/dashboards/`
+
+Provisioning mechanism:
+- `k8s/apps/monitoring/grafana-app.yaml` uses `dashboardsConfigMaps` to mount `grafana-dashboards-default`.
+
+Included baseline dashboards (pinned revisions):
+- Nodes: Node Exporter Full
+- Kubernetes: Kubernetes / Views / Global
+- Ingress: Traefik Official Standalone Dashboard
+- Redis: Redis Exporter
+- Apps: JVM (Micrometer)
+
+Validation:
+```bash
+kubectl -n monitoring logs deploy/grafana --tail=50
+# Grafana should not log "dashboards/default: no such file or directory"
+```
+
+## Dashboard Lifecycle (GitOps + Optional UI Imports)
+
+This project treats dashboards as **code**:
+- No manual UI imports are required for baseline dashboards.
+- Grafana persistence is disabled (`persistence.enabled=false`), so UI-only changes may be lost on restart/reschedule.
+
+### A) GitOps provisioning (recommended)
+
+How it works:
+1. Dashboard JSON files are stored in `k8s/apps/monitoring/dashboards/json/`.
+2. `k8s/apps/monitoring/dashboards/kustomization.yaml` generates a stable ConfigMap named `grafana-dashboards-default`.
+3. `k8s/apps/monitoring/grafana-app.yaml` mounts that ConfigMap using `dashboardsConfigMaps`.
+4. Grafana loads dashboards from `/var/lib/grafana/dashboards/default` via `dashboardProviders`.
+
+Add a new dashboard:
+1. Add a JSON file under `k8s/apps/monitoring/dashboards/json/`.
+2. Reference it in `k8s/apps/monitoring/dashboards/kustomization.yaml` (ConfigMap generator `files:` list).
+3. Commit and let ArgoCD sync.
+
+Local render check (no cluster required):
+```bash
+kubectl kustomize k8s/apps/monitoring | head -n 40
+```
+
+### B) Manual UI import (debug-only / prototyping)
+
+UI import is acceptable for fast prototyping, but the end state should be committed to Git.
+
+Steps:
+1. Open Grafana.
+2. Go to `Dashboards` -> `New` -> `Import`.
+3. Use one of:
+   - Paste dashboard JSON
+   - Enter a Grafana.com dashboard ID (`gnetId`)
+4. Select the `Prometheus` datasource when prompted.
+5. Save the dashboard.
+
+Important:
+- Because Grafana persistence is disabled, UI-only dashboards are not guaranteed to survive a redeploy.
+
+### Export a UI-created dashboard back to Git (recommended)
+
+From Grafana UI:
+1. Open the dashboard.
+2. `Dashboard settings` -> `JSON model`.
+3. Copy the JSON, save it into `k8s/apps/monitoring/dashboards/json/<name>.json`.
+4. Add it to `k8s/apps/monitoring/dashboards/kustomization.yaml`.
+
+### Updating pinned baseline dashboards
+
+Baseline dashboards are vendored from grafana.com and pinned to a specific revision for determinism.
+
+Example (replace `ID`, `REV`, and output file name as needed):
+```bash
+curl -fsSL "https://grafana.com/api/dashboards/ID/revisions/REV/download" > "k8s/apps/monitoring/dashboards/json/<file>.json"
+```
+
+After updating a JSON:
+- Verify Grafana loads it (no provisioning errors in logs).
+- Verify panels resolve the datasource correctly (common expectation: datasource named `Prometheus`).
 
 ## Password Management
 
