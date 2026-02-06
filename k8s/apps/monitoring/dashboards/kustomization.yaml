@@ -5,6 +5,10 @@ namespace: monitoring
 
 generatorOptions:
   disableNameSuffixHash: true
+  # The generated dashboards ConfigMap is large and may exceed the 256KiB annotation limit
+  # if applied with client-side apply (last-applied-configuration). Force SSA for this resource.
+  annotations:
+    argocd.argoproj.io/sync-options: ServerSideApply=true
 
 configMapGenerator:
   - name: grafana-dashboards-default
