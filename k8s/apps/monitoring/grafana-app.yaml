@@ -32,7 +32,9 @@ spec:
             - name: Prometheus
               uid: prometheus
               type: prometheus
-              url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
+              # Prometheus is configured with --web.route-prefix=/prometheus in kube-prometheus-stack.
+              # Grafana must include the prefix, otherwise queries hit /api/v1/* and return 404.
+              url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/prometheus
               access: proxy
               isDefault: true
         
