@@ -16,6 +16,11 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Analysis:** The CRD wait loop parsed CRD YAML and assumed the condition line starts with `type: Established`. In practice, conditions are list items and commonly rendered as `- type: Established`, so the wait loop never detected `Established=True` and timed out.
 - **Resolution:** Detect `Established=True` by parsing CRD JSON (`kubectl get crd -o json | tr | grep`) rather than relying on YAML token positions. (Refs: issue #321)
 
+### [gitops/argocd] external-secrets-config OutOfSync (namespace missing)
+- **Severity:** Medium
+- **Impact:** `external-secrets-config` stayed `OutOfSync` and repeatedly failed to apply `ExternalSecret` resources targeting the `monitoring` namespace.
+- **Analysis:** `external-secrets-config` is created during `argocd-platform` (before the root `cloudradar` apps app is bootstrapped). The manifests include `ExternalSecret` objects in `metadata.namespace: monitoring`, but the `monitoring` namespace used to be created later by `k8s/apps/monitoring`. `CreateNamespace=true` only creates the Application destination namespace, not arbitrary namespaces referenced by other resources.
+- **Resolution:** Create the `monitoring` namespace as part of `k8s/platform` (cluster baseline) and remove it from `k8s/apps/monitoring` to avoid ArgoCD shared resource ownership/conflicts.
 ## 2026-02-05
 
 ### [obs/monitoring] Prometheus degraded (storageclass mismatch)

@@ -745,17 +745,35 @@ jobs:
 
       - name: Bootstrap platform app via SSM
         env:
-          WAIT_CRDS: externalsecrets.external-secrets.io,clustersecretstores.external-secrets.io,secretstores.external-secrets.io
           ARGOCD_APP_NAME: cloudradar-platform
           ARGOCD_APP_NAMESPACE: argocd
           ARGOCD_APP_PATH: k8s/platform
         run: scripts/bootstrap-argocd-app.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
 
-  argocd-apps:
+  eso-ready-check:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
     runs-on: ubuntu-latest
     needs:
       - argocd-platform
+      - tf-outputs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Wait for ESO readiness via SSM
+        run: scripts/bootstrap-eso-ready.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
+
+  argocd-apps:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
+    runs-on: ubuntu-latest
+    needs:
+      - eso-ready-check
       - tf-outputs
       - dns-sync
     steps:
