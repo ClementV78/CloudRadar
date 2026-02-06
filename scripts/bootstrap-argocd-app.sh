@@ -169,8 +169,9 @@ if [[ -n "${WAIT_CRDS}" ]]; then
           sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n external-secrets get pods -o wide || true; \
           exit 1; \
         fi; \
-        # CRD YAML formatting varies (e.g., list items start with '-'), so check Established=True in JSON.
-        if sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o json 2>/dev/null | tr -d '[:space:]' | grep -q '\"type\":\"Established\"[^}]*\"status\":\"True\"'; then \
+        # Don't grep the raw JSON: field order is not guaranteed, and this can create false negatives.
+        # jsonpath output is stable for this use-case and doesn't require jq on the instance.
+        if sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o jsonpath='{range .status.conditions[*]}{.type}={.status}{\"\\n\"}{end}' 2>/dev/null | tr -d '\\r' | grep -q '^Established=True$'; then \
           echo \"CRD \${crd} Established=True\"; \
           break; \
         fi; \
