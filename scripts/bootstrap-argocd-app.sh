@@ -88,6 +88,7 @@ ARGOCD_APP_PATH="${ARGOCD_APP_PATH:-k8s/apps}"
 ARGOCD_APP_REVISION="${ARGOCD_APP_REVISION:-main}"
 IGNORE_INGESTER_REPLICAS="${IGNORE_INGESTER_REPLICAS:-false}"
 WAIT_CRDS="${WAIT_CRDS:-}"
+ARGOCD_SERVER_SIDE_APPLY="${ARGOCD_SERVER_SIDE_APPLY:-false}"
 
 require_cmd aws
 require_cmd jq
@@ -116,6 +117,10 @@ app_lines=(
   "    syncOptions:"
   "      - CreateNamespace=true"
 )
+
+if [[ "${ARGOCD_SERVER_SIDE_APPLY}" == "true" ]]; then
+  app_lines+=("      - ServerSideApply=true")
+fi
 
 if [[ "${IGNORE_INGESTER_REPLICAS}" == "true" ]]; then
   app_lines+=(
