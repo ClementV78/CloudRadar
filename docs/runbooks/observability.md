@@ -138,7 +138,7 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 - **Scrape interval**: 30 seconds (default)
 - **Targets**:
   - Kubernetes/node targets shipped with `kube-prometheus-stack` (kubelet, kube-state-metrics, node-exporter, etc.)
-  - Application/exporter targets declared via `ServiceMonitor` resources in `k8s/apps/monitoring/scrape-targets/`
+  - Application/exporter targets declared via `ServiceMonitor`/`PodMonitor` resources in `k8s/apps/monitoring/scrape-targets/`
 - **Resource allocation**:
   - Requests: CPU 100m, Memory 512 Mi
   - Limits: CPU 500m, Memory 1 Gi
@@ -159,7 +159,7 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 
 ## Prometheus Scrape Targets (MVP)
 
-This repo uses **ServiceMonitor** resources (Prometheus Operator) to scrape application/exporter metrics.
+This repo uses **ServiceMonitor** and **PodMonitor** resources (Prometheus Operator) to scrape application/exporter metrics.
 
 Targets defined in:
 - `k8s/apps/monitoring/scrape-targets/`
@@ -168,11 +168,14 @@ Expected MVP targets:
 - `processor` (Spring Boot): `GET /metrics/prometheus`
 - `ingester` (Spring Boot): `GET /metrics/prometheus`
 - `redis-exporter`: `GET /metrics`
-- `traefik`: `GET /metrics` (enabled via k3s Traefik HelmChartConfig in `infra/aws/modules/k3s/templates/cloud-init-server.yaml`)
+- `traefik`: `GET /metrics` on `:9100` (enabled via k3s Traefik HelmChartConfig in `infra/aws/modules/k3s/templates/cloud-init-server.yaml`)
+  - Scraped via `PodMonitor` because the default `kube-system/traefik` Service does not expose a `metrics` port.
+  - Manifest: `k8s/apps/monitoring/scrape-targets/podmonitor-traefik.yaml`
 
 Validation:
 ```bash
 kubectl -n monitoring get servicemonitor
+kubectl -n monitoring get podmonitor
 kubectl -n monitoring port-forward svc/prometheus-kube-prometheus-prometheus 9090:9090
 # Open http://localhost:9090/targets
 ```
