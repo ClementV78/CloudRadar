@@ -2,6 +2,14 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-06
+
+### [ci/infra] argocd-platform job failed (unbound variable in CRD wait)
+- **Severity:** Medium
+- **Impact:** `ci-infra` failed during `argocd-platform`, blocking GitOps bootstrap on fresh infra rebuilds.
+- **Analysis:** `bootstrap-argocd-app.sh` builds an SSM command string under `set -u`. The embedded `awk` program used `$1/$2`, which were expanded locally (and failed) instead of being evaluated on the instance.
+- **Resolution:** Escape `\$1`/`\$2` in the SSM command string so the awk fields are evaluated on the instance. (Refs: issue #321)
+
 ## 2026-02-05
 
 ### [obs/monitoring] Prometheus degraded (storageclass mismatch)
