@@ -215,7 +215,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max(up{job=\"cloudradar-ingester\"})",
+          "expr": "max(up{job=\"ingester\"})",
           "legendFormat": "ingester",
           "range": true,
           "refId": "A"
@@ -288,7 +288,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max(up{job=\"cloudradar-processor\"})",
+          "expr": "max(up{job=\"processor\"})",
           "legendFormat": "processor",
           "range": true,
           "refId": "A"
@@ -635,8 +635,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by (application) (jvm_memory_used_bytes{area=\"heap\",application=~\"ingester|processor\"}) * 100 / sum by (application) (jvm_memory_max_bytes{area=\"heap\",application=~\"ingester|processor\"})",
-          "legendFormat": "{{application}}",
+          "expr": "sum by (job) (jvm_memory_used_bytes{area=\"heap\",job=~\"ingester|processor\"}) * 100 / sum by (job) (jvm_memory_max_bytes{area=\"heap\",job=~\"ingester|processor\"})",
+          "legendFormat": "{{job}}",
           "range": true,
           "refId": "A"
         }
@@ -791,4 +791,3 @@
   "version": 1,
   "weekStart": ""
 }
-
