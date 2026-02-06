@@ -106,7 +106,9 @@ commands=(
         sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o yaml | sed -n '1,120p' || true; \
         exit 1; \
       fi; \
-      if sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o json 2>/dev/null | tr -d '[:space:]' | grep -q '\"type\":\"Established\"[^}]*\"status\":\"True\"'; then \
+      # Don't grep the raw JSON: field order is not guaranteed, and this can create false negatives.
+      # jsonpath output is stable for this use-case and doesn't require jq on the instance.
+      if sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o jsonpath='{range .status.conditions[*]}{.type}={.status}{\"\\n\"}{end}' 2>/dev/null | tr -d '\\r' | grep -q '^Established=True$'; then \
         echo \"CRD \${crd} Established=True\"; \
         break; \
       fi; \
@@ -126,4 +128,3 @@ commands=(
 )
 
 ssm_run_commands "${REGION}" "${INSTANCE_ID}" 1200 "eso ready" commands
-
