@@ -18,3 +18,4 @@ configMapGenerator:
       - json/ingress-traefik-official-17346-rev9.json
       - json/redis-exporter-763-rev6.json
       - json/apps-jvm-micrometer-4701-rev10.json
+      - json/cloudradar-ops-overview.json

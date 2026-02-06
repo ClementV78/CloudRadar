@@ -196,6 +196,7 @@ Included baseline dashboards (pinned revisions):
 - Ingress: Traefik Official Standalone Dashboard
 - Redis: Redis Exporter
 - Apps: JVM (Micrometer)
+- CloudRadar: Operations Overview (custom)
 
 Validation:
 ```bash
