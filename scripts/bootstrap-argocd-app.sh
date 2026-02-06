@@ -150,7 +150,31 @@ commands=(
 if [[ -n "${WAIT_CRDS}" ]]; then
   wait_list="${WAIT_CRDS//,/ }"
   commands+=(
-    "crd_timeout=300; crd_poll=10; for crd in ${wait_list}; do echo \"Waiting for CRD \${crd}...\"; elapsed=0; while ! sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" >/dev/null 2>&1; do if [ \${elapsed} -ge \${crd_timeout} ]; then echo \"CRD \${crd} not found after \${crd_timeout}s\"; exit 1; fi; sleep \${crd_poll}; elapsed=\$((elapsed + crd_poll)); done; remaining=\$((crd_timeout - elapsed)); if [ \${remaining} -le 0 ]; then echo \"CRD \${crd} not established within \${crd_timeout}s\"; exit 1; fi; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait --for=condition=Established \"crd/\${crd}\" --timeout=\"\${remaining}s\" --request-timeout=5s; done"
+    # NOTE: avoid `kubectl wait` for CRDs here. On some clusters it fails with:
+    # ".status.conditions accessor error: <nil> ... expected []interface{}" while the CRD status is still being populated.
+    "crd_timeout=300; crd_poll=10; for crd in ${wait_list}; do \
+      echo \"Waiting for CRD \${crd}...\"; \
+      elapsed=0; \
+      while ! sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" >/dev/null 2>&1; do \
+        if [ \${elapsed} -ge \${crd_timeout} ]; then echo \"CRD \${crd} not found after \${crd_timeout}s\"; exit 1; fi; \
+        sleep \${crd_poll}; elapsed=\$((elapsed + crd_poll)); \
+      done; \
+      while :; do \
+        if [ \${elapsed} -ge \${crd_timeout} ]; then \
+          echo \"CRD \${crd} not Established=True after \${crd_timeout}s\"; \
+          sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o yaml || true; \
+          exit 1; \
+        fi; \
+        if sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o yaml 2>/dev/null | awk ' \
+          $1==\"type:\" && $2==\"Established\" {est=1; next} \
+          est && $1==\"status:\" {gsub(/\\\"/, \"\", $2); if ($2==\"True\") exit 0; exit 1} \
+          END {exit 1}'; then \
+          echo \"CRD \${crd} Established=True\"; \
+          break; \
+        fi; \
+        sleep \${crd_poll}; elapsed=\$((elapsed + crd_poll)); \
+      done; \
+    done"
   )
 fi
 
