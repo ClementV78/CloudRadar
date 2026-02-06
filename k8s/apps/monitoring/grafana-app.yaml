@@ -30,6 +30,7 @@ spec:
             apiVersion: 1
             datasources:
             - name: Prometheus
+              uid: prometheus
               type: prometheus
               url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
               access: proxy
@@ -45,8 +46,13 @@ spec:
               type: file
               disableDeletion: false
               editable: true
-                options:
-                  path: /var/lib/grafana/dashboards/default
+              options:
+                path: /var/lib/grafana/dashboards/default
+
+        # Dashboards are provisioned via ConfigMap(s) created by kustomize in this repo.
+        # This avoids manual UI imports and keeps bootstrap deterministic.
+        dashboardsConfigMaps:
+          default: grafana-dashboards-default
 
         envValueFrom:
           GF_SERVER_DOMAIN:

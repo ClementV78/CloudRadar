@@ -11,3 +11,5 @@ resources:
   - prometheus-ingress.yaml
   - grafana-app.yaml
   - grafana-ingress.yaml
+  - dashboards
+  - scrape-targets
