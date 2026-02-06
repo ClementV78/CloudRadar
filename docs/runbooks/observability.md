@@ -17,7 +17,7 @@ Prometheus scrapes metrics from all k3s services. Grafana provides dashboards fo
    - Generates random Grafana admin password (or uses provided values from GitHub Secrets / .env)
    - Stores passwords in AWS SSM Parameter Store (`/cloudradar/grafana/admin-password`, `/cloudradar/edge/basic-auth`)
    - Outputs passwords for display/use
-   - Creates the Route53 hosted zone if `dns_zone_name` is provided
+   - Creates the Route53 hosted zone when `dns_zone_name` is set (in CI, provided via the `DNS_ZONE_NAME` GitHub Actions variable)
 
 2. **Bootstrap ArgoCD Phase** (`scripts/bootstrap-argocd-install.sh` + `scripts/bootstrap-argocd-app.sh`)
    - Installs ArgoCD on k3s server

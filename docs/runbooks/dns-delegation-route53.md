@@ -23,15 +23,15 @@ Goal: serve Grafana/Prometheus under stable FQDNs without `/etc/hosts`, and keep
 
 The zone is created by Terraform **only if** `dns_zone_name` is set.
 
-Recommended: set the value at `ci-infra` dispatch time so it is not committed.
+Recommended: set the value via the `DNS_ZONE_NAME` GitHub Actions variable so it is not committed.
 
-Example dispatch input (keep real values out of the repo):
+Example value (keep real values out of the repo):
 
 ```
-dns_zone_name = cloudradar.example.com
+cloudradar.example.com
 ```
 
-Do not commit real domain values. Use the workflow input or the `DNS_ZONE_NAME` GitHub Actions variable.
+Do not commit real domain values. The `ci-infra` workflow reads `DNS_ZONE_NAME` from GitHub Actions variables and will fail early on dev applies if it is missing.
 
 After apply, the zone name servers are available in Terraform outputs:
 
