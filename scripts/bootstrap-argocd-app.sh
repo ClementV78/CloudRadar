@@ -166,8 +166,8 @@ if [[ -n "${WAIT_CRDS}" ]]; then
           exit 1; \
         fi; \
         if sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o yaml 2>/dev/null | awk ' \
-          $1==\"type:\" && $2==\"Established\" {est=1; next} \
-          est && $1==\"status:\" {gsub(/\\\"/, \"\", $2); if ($2==\"True\") exit 0; exit 1} \
+          \$1==\"type:\" && \$2==\"Established\" {est=1; next} \
+          est && \$1==\"status:\" {if (\$2 ~ /True/) exit 0; exit 1} \
           END {exit 1}'; then \
           echo \"CRD \${crd} Established=True\"; \
           break; \
