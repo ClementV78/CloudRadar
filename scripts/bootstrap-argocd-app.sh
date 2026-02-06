@@ -163,6 +163,8 @@ if [[ -n "${WAIT_CRDS}" ]]; then
         if [ \${elapsed} -ge \${crd_timeout} ]; then \
           echo \"CRD \${crd} not Established=True after \${crd_timeout}s\"; \
           sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get crd \"\${crd}\" -o yaml | sed -n '1,120p' || true; \
+          echo \"--- argocd applications\"; \
+          sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n argocd get application external-secrets-operator external-secrets-config -o wide || true; \
           echo \"--- external-secrets pods\"; \
           sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n external-secrets get pods -o wide || true; \
           exit 1; \
