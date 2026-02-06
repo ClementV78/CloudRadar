@@ -1,17 +1,20 @@
 apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
+kind: PodMonitor
 metadata:
   name: traefik
   labels:
     app.kubernetes.io/part-of: cloudradar
 spec:
+  # Keep a stable `job="traefik"` label for dashboards.
+  jobLabel: app.kubernetes.io/name
   namespaceSelector:
     matchNames:
       - kube-system
   selector:
     matchLabels:
       app.kubernetes.io/name: traefik
-  endpoints:
+  podMetricsEndpoints:
     - port: metrics
       path: /metrics
       interval: 30s
+

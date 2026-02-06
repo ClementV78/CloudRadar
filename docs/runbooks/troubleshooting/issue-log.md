@@ -4,6 +4,12 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-06
 
+### [obs/monitoring] Traefik dashboard showed "No data" (ServiceMonitor port mismatch)
+- **Severity:** Medium
+- **Impact:** Traefik Grafana dashboard showed no metrics; Prometheus had no `traefik_*` series.
+- **Analysis:** Traefik metrics were enabled on entrypoint `metrics` (`:9100`), but the default `kube-system/traefik` Service exposed only `web`/`websecure` ports (no `metrics` port). The `ServiceMonitor traefik` expected `port: metrics`, so Prometheus could not build scrape targets.
+- **Resolution:** Scrape Traefik via `PodMonitor` on port `metrics` and keep a stable `job="traefik"` via `jobLabel`. (Refs: issue #335)
+
 ### [ci/infra] argocd-platform job failed (unbound variable in CRD wait)
 - **Severity:** Medium
 - **Impact:** `ci-infra` failed during `argocd-platform`, blocking GitOps bootstrap on fresh infra rebuilds.
