@@ -6,7 +6,6 @@ kind: Kustomization
 # Prometheus auth is enforced at the edge (no in-cluster Prometheus secret)
 
 resources:
-  - namespace.yaml
   - prometheus-app.yaml
   - prometheus-ingress.yaml
   - grafana-app.yaml

@@ -180,4 +180,6 @@ if [[ -n "${WAIT_CRDS}" ]]; then
   )
 fi
 
-ssm_run_commands "${REGION}" "${INSTANCE_ID}" 360 "argocd app ${ARGOCD_APP_NAME}" commands
+# This SSM command may include long waits (e.g., CRD establishment on cold starts).
+# Keep it comfortably above the in-command timeouts (kubectl wait + CRD wait).
+ssm_run_commands "${REGION}" "${INSTANCE_ID}" 1200 "argocd app ${ARGOCD_APP_NAME}" commands
