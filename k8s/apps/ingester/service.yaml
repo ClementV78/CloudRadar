@@ -3,9 +3,12 @@ kind: Service
 metadata:
   name: ingester
   namespace: cloudradar
+  labels:
+    app.kubernetes.io/name: ingester
+    app.kubernetes.io/part-of: cloudradar
 spec:
   selector:
-    app: ingester
+    app.kubernetes.io/name: ingester
   ports:
     - name: http
       port: 80
