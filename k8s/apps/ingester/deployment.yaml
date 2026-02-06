@@ -3,16 +3,23 @@ kind: Deployment
 metadata:
   name: ingester
   namespace: cloudradar
+  labels:
+    app.kubernetes.io/name: ingester
+    app.kubernetes.io/part-of: cloudradar
 spec:
   replicas: 0
   selector:
     matchLabels:
-      app: ingester
+      app.kubernetes.io/name: ingester
   template:
     metadata:
       labels:
-        app: ingester
+        app.kubernetes.io/name: ingester
+        app.kubernetes.io/part-of: cloudradar
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
       containers:
         - name: ingester
           image: ghcr.io/clementv78/cloudradar/ingester:0.1.4

@@ -12,7 +12,7 @@ flowchart LR
   Fetch --> Map["FlightState -> event map"]
   Map --> Redis["Redis List (cloudradar:ingest:queue)"]
   Redis --> Processor["Processor (consumer)"]
-  Metrics["/metrics"] --- Scheduler
+  Metrics["/metrics/prometheus"] --- Scheduler
   Health["/healthz"] --- Scheduler
 ```
 
@@ -62,7 +62,7 @@ classDiagram
 2. `OpenSkyClient` requests `/states/all` for the IDF bbox, using an OAuth2 token.
 3. The response is mapped to `FlightState` objects, then to a simple JSON payload.
 4. `RedisPublisher` pushes each payload into a Redis List (`cloudradar:ingest:queue`).
-5. Metrics and health endpoints are exposed via Actuator (`/metrics`, `/healthz`).
+5. Metrics and health endpoints are exposed via Actuator (`/metrics/prometheus`, `/healthz`).
 6. When OpenSky is unreachable, the ingester applies progressive backoff and stops after the final tier until restart.
 
 ### Failure backoff
@@ -97,8 +97,11 @@ mvn -q spring-boot:run
 
 ## Health & metrics
 - `GET /healthz`
-- `GET /metrics`
+- `GET /metrics/prometheus`
 
 ## Deployment notes
-- For Kubernetes, use a Secret named `opensky-credentials` with keys `client_id` and `client_secret`.
-- Alternatively set `OPENSKY_CLIENT_ID_SSM` and `OPENSKY_CLIENT_SECRET_SSM` and grant SSM access.
+- For Kubernetes, use a Secret named `opensky-secret` with keys:
+  - `client-id`
+  - `client-secret`
+  - `base-url`
+  - `token-url`

@@ -19,7 +19,7 @@
 
 **Functional Overview:** Ingest live flight telemetry from OpenSky, aggregate events, and expose data for a map dashboard with alertable zones.
 
-**Technical Overview:** Terraform provisions AWS (k3s on EC2, IAM, S3, VPC). GitHub Actions runs infra CI; ArgoCD syncs `k8s/apps`. Prometheus/Grafana observability and GHCR app publishing are planned.
+**Technical Overview:** Terraform provisions AWS (k3s on EC2, IAM, S3, VPC). GitHub Actions runs infra CI; ArgoCD syncs `k8s/apps`. Prometheus/Grafana observability is implemented (GitOps-provisioned dashboards).
 
 **Project Management:**
 Issues and PRs are tracked in GitHub Projects (Kanban board) using lightweight agile practices adapted for solo development. Templates enforce metadata standards (assignees, labels, milestones, project), and an automated workflow ensures consistency and quality across all tickets and PRs.

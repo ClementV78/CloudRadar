@@ -7,3 +7,5 @@ resources:
   - namespace.yaml
   - service.yaml
   - statefulset.yaml
+  - exporter-deployment.yaml
+  - exporter-service.yaml
