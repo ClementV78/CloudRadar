@@ -4,6 +4,37 @@
 Create the S3 bucket and DynamoDB table for Terraform state/locking via GitHub Actions,
 using a temporary local Terraform state.
 
+Optionally, it can also create:
+- an S3 bucket for SQLite backups
+- a Route53 hosted zone for DNS delegation
+
+## Architecture (Bootstrap Stack)
+
+```mermaid
+flowchart TB
+  subgraph GH["GitHub Actions"]
+    WF["Workflow: bootstrap-terraform-backend"]
+    TF["Terraform root: infra/aws/bootstrap\n(local state on runner)"]
+    WF --> TF
+  end
+
+  subgraph AWS["AWS"]
+    ROLE["OIDC IAM role\n(AWS_TERRAFORM_ROLE_ARN)"]
+
+    S3["S3 bucket (Terraform state)"]
+    DDB["DynamoDB lock table\n(lock_table_name / TF_LOCK_TABLE_NAME)"]
+
+    BK["S3 bucket (SQLite backups, optional)"]
+    R53["Route53 hosted zone (optional)"]
+  end
+
+  WF -->|assume role via OIDC| ROLE
+  TF --> S3
+  TF --> DDB
+  TF --> BK
+  TF --> R53
+```
+
 ## Prerequisites
 - AWS account bootstrap completed (OIDC provider + CI role).
 - Repo variables set (GitHub → Settings → Secrets and variables → Actions → Variables):
@@ -69,13 +100,16 @@ terraform -chdir=infra/aws/live/dev init -backend-config=backend.hcl
 ## Verification
 - Confirm S3 bucket exists and has versioning/encryption enabled.
 - Confirm DynamoDB table `cloudradar-tf-lock` exists in `us-east-1`.
+- If provided: confirm SQLite backup bucket exists.
+- If provided: confirm Route53 hosted zone exists and name servers are returned in outputs.
 - Confirm workflow run succeeded in GitHub Actions.
 
 ## Notes
 - This workflow uses a local backend and does not depend on existing remote state.
-- The workflow imports existing backend resources (state bucket, lock table, optional backup bucket) when they already exist, so it can be rerun safely.
-- Backend usage is configured in #6 after this completes.
+- The workflow imports existing resources (state bucket, lock table, optional backup bucket, optional hosted zone) when they already exist, so it can be rerun safely.
+- Remote backend usage is configured in CI (see example `terraform init` commands above) and optionally locally via `backend.hcl`.
 
 ## Related issues
 - #33
 - #6
+- #341
