@@ -21,6 +21,12 @@ variable "backup_bucket_name" {
   default     = null
 }
 
+variable "dns_zone_name" {
+  type        = string
+  description = "Optional Route53 hosted zone name for delegated subdomain (e.g., cloudradar.example.com)."
+  default     = ""
+}
+
 variable "tags" {
   type        = map(string)
   description = "Common tags for backend resources."

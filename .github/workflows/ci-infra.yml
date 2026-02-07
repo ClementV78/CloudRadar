@@ -173,6 +173,7 @@ jobs:
   env-select:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     outputs:
       tf_dir: ${{ steps.select.outputs.tf_dir }}
       tf_key: ${{ steps.select.outputs.tf_key }}
@@ -205,6 +206,7 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     needs: env-select
+    environment: ${{ inputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -235,6 +237,7 @@ jobs:
     needs:
       - env-select
       - tf-validate
+    environment: ${{ inputs.environment }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -255,6 +258,16 @@ jobs:
             -backend-config="region=${AWS_REGION}" \
             -backend-config="dynamodb_table=${TF_LOCK_TABLE_NAME}" \
             -backend-config="key=${{ needs.env-select.outputs.tf_key }}"
+
+      - name: Detach hosted zone from env state (migration, dev only)
+        if: ${{ inputs.environment == 'dev' && inputs.auto_approve == 'true' }}
+        run: |
+          set -euo pipefail
+          TF_DIR="${{ needs.env-select.outputs.tf_dir }}"
+
+          if terraform -chdir="${TF_DIR}" state list | grep -q '^aws_route53_zone\\.cloudradar\\[0\\]$'; then
+            terraform -chdir="${TF_DIR}" state rm aws_route53_zone.cloudradar[0]
+          fi
 
       - name: Terraform plan
         run: |
@@ -322,6 +335,16 @@ jobs:
             -backend-config="region=${AWS_REGION}" \
             -backend-config="dynamodb_table=${TF_LOCK_TABLE_NAME}" \
             -backend-config="key=${{ needs.env-select.outputs.tf_key }}"
+
+      - name: Detach hosted zone from env state (migration, dev only)
+        if: ${{ inputs.environment == 'dev' }}
+        run: |
+          set -euo pipefail
+          TF_DIR="${{ needs.env-select.outputs.tf_dir }}"
+
+          if terraform -chdir="${TF_DIR}" state list | grep -q '^aws_route53_zone\\.cloudradar\\[0\\]$'; then
+            terraform -chdir="${TF_DIR}" state rm aws_route53_zone.cloudradar[0]
+          fi
 
       - name: Terraform apply
         run: |
@@ -448,66 +471,6 @@ jobs:
           echo "edge_basic_auth_ssm_parameter_name=$(jq -r '.edge_basic_auth_ssm_parameter_name.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "dns_zone_id=$(jq -r '.dns_zone_id.value // empty' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "dns_zone_name=$(jq -r '.dns_zone_name.value // empty' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
-
-  dns-sync:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
-    runs-on: ubuntu-latest
-    needs: tf-outputs
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.TF_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Update Route53 records + Grafana domain params
-        env:
-          DNS_ZONE_ID: ${{ needs.tf-outputs.outputs.dns_zone_id }}
-          DNS_ZONE_NAME: ${{ needs.tf-outputs.outputs.dns_zone_name }}
-          EDGE_PUBLIC_IP: ${{ needs.tf-outputs.outputs.edge_public_ip }}
-        run: |
-          set -euo pipefail
-
-          if [[ -z "${DNS_ZONE_ID}" || -z "${DNS_ZONE_NAME}" ]]; then
-            echo "❌ ERROR: DNS zone outputs are empty. Ensure DNS_ZONE_NAME is set and Terraform created the hosted zone."
-            exit 1
-          fi
-
-          echo "Updating Route53 records in zone ${DNS_ZONE_NAME} (${DNS_ZONE_ID})..."
-          change_batch="$(jq -n \
-            --arg zone "${DNS_ZONE_NAME}" \
-            --arg ip "${EDGE_PUBLIC_IP}" \
-            '{
-              Comment: "CloudRadar edge DNS",
-              Changes: [
-                {Action: "UPSERT", ResourceRecordSet: {Name: $zone, Type: "A", TTL: 60, ResourceRecords: [{Value: $ip}]}},
-                {Action: "UPSERT", ResourceRecordSet: {Name: "grafana.\($zone)", Type: "A", TTL: 60, ResourceRecords: [{Value: $ip}]}},
-                {Action: "UPSERT", ResourceRecordSet: {Name: "prometheus.\($zone)", Type: "A", TTL: 60, ResourceRecords: [{Value: $ip}]}},
-                {Action: "UPSERT", ResourceRecordSet: {Name: "app.\($zone)", Type: "A", TTL: 60, ResourceRecords: [{Value: $ip}]}}
-              ]
-            }')"
-
-          aws route53 change-resource-record-sets \
-            --hosted-zone-id "${DNS_ZONE_ID}" \
-            --change-batch "${change_batch}"
-
-          grafana_domain="grafana.${DNS_ZONE_NAME}"
-          grafana_root_url="https://${grafana_domain}/grafana/"
-
-          echo "Writing Grafana domain parameters to SSM..."
-          aws ssm put-parameter \
-            --name /cloudradar/grafana-domain \
-            --value "${grafana_domain}" \
-            --type String \
-            --overwrite \
-            --region "${AWS_REGION}"
-
-          aws ssm put-parameter \
-            --name /cloudradar/grafana-root-url \
-            --value "${grafana_root_url}" \
-            --type String \
-            --overwrite \
-            --region "${AWS_REGION}"
 
   k3s-ready-check:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
@@ -775,7 +738,6 @@ jobs:
     needs:
       - eso-ready-check
       - tf-outputs
-      - dns-sync
     steps:
       - name: Checkout
         uses: actions/checkout@v4
