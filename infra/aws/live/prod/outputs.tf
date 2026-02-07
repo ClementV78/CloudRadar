@@ -24,16 +24,16 @@ output "private_route_table_id" {
 }
 
 output "dns_zone_id" {
-  description = "Route53 hosted zone ID for delegated subdomain (if created)."
-  value       = try(aws_route53_zone.cloudradar[0].zone_id, "")
+  description = "Route53 hosted zone ID for delegated subdomain (if enabled)."
+  value       = try(data.aws_route53_zone.cloudradar[0].zone_id, "")
 }
 
 output "dns_zone_name" {
-  description = "Route53 hosted zone name for delegated subdomain (if created)."
-  value       = try(aws_route53_zone.cloudradar[0].name, "")
+  description = "Route53 hosted zone name for delegated subdomain (if enabled)."
+  value       = try(trimsuffix(data.aws_route53_zone.cloudradar[0].name, "."), "")
 }
 
 output "dns_zone_name_servers" {
-  description = "Name servers for the delegated subdomain (if created)."
-  value       = try(aws_route53_zone.cloudradar[0].name_servers, [])
+  description = "Name servers for the delegated subdomain (if enabled)."
+  value       = try(data.aws_route53_zone.cloudradar[0].name_servers, [])
 }

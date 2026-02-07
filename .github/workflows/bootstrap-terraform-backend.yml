@@ -17,6 +17,9 @@ on:
       backup_bucket_name:
         description: "Optional S3 bucket name for SQLite backups"
         required: false
+      dns_zone_name:
+        description: "Optional Route53 hosted zone name for delegated subdomain (e.g., cloudradar.example.com)"
+        required: false
       role_arn:
         description: "Optional role ARN to assume (defaults to AWS_TERRAFORM_ROLE_ARN variable)"
         required: false
@@ -52,6 +55,7 @@ jobs:
           STATE_BUCKET="${{ inputs.state_bucket_name || vars.TF_STATE_BUCKET }}"
           LOCK_TABLE="${{ inputs.lock_table_name || vars.TF_LOCK_TABLE_NAME }}"
           BACKUP_BUCKET="${{ inputs.backup_bucket_name || vars.TF_BACKUP_BUCKET_NAME }}"
+          DNS_ZONE_NAME="${{ inputs.dns_zone_name || vars.DNS_ZONE_NAME }}"
 
           {
             echo "STATE_BUCKET=${STATE_BUCKET}"
@@ -68,12 +72,20 @@ jobs:
             } >> "${GITHUB_ENV}"
           fi
 
+          if [[ -n "${DNS_ZONE_NAME}" ]]; then
+            {
+              echo "DNS_ZONE_NAME=${DNS_ZONE_NAME}"
+              echo "TF_VAR_dns_zone_name=${DNS_ZONE_NAME}"
+            } >> "${GITHUB_ENV}"
+          fi
+
       - name: Import existing backend resources (idempotent)
         run: |
           set -euo pipefail
           STATE_BUCKET="${STATE_BUCKET}"
           LOCK_TABLE="${LOCK_TABLE}"
           BACKUP_BUCKET="${BACKUP_BUCKET:-}"
+          DNS_ZONE_NAME="${DNS_ZONE_NAME:-}"
 
           if aws s3api head-bucket --bucket "${STATE_BUCKET}" >/dev/null 2>&1; then
             terraform -chdir=infra/aws/bootstrap import aws_s3_bucket.tf_state "${STATE_BUCKET}"
@@ -93,10 +105,23 @@ jobs:
             terraform -chdir=infra/aws/bootstrap import module.sqlite_backups[0].aws_s3_bucket_public_access_block.this "${BACKUP_BUCKET}"
           fi
 
+          if [[ -n "${DNS_ZONE_NAME}" ]]; then
+            # Import the hosted zone by name when it already exists, so reruns are safe.
+            ZONE_ID="$(aws route53 list-hosted-zones-by-name \
+              --dns-name "${DNS_ZONE_NAME}." \
+              --output json | jq -r --arg name "${DNS_ZONE_NAME}." '.HostedZones[] | select(.Name==$name) | .Id' | head -n1)"
+            ZONE_ID="${ZONE_ID##*/}"
+
+            if [[ -n "${ZONE_ID}" && "${ZONE_ID}" != "null" ]]; then
+              terraform -chdir=infra/aws/bootstrap import aws_route53_zone.cloudradar[0] "${ZONE_ID}"
+            fi
+          fi
+
       - name: Terraform apply (create backend)
         run: |
           # Use local backend on runner to avoid a chicken-and-egg dependency.
           BACKUP_BUCKET="${BACKUP_BUCKET:-}"
+          DNS_ZONE_NAME="${DNS_ZONE_NAME:-}"
 
           APPLY_ARGS=(
             "-var=region=${{ inputs.region || vars.AWS_REGION }}"
@@ -106,6 +131,10 @@ jobs:
 
           if [[ -n "${BACKUP_BUCKET}" ]]; then
             APPLY_ARGS+=("-var=backup_bucket_name=${BACKUP_BUCKET}")
+          fi
+
+          if [[ -n "${DNS_ZONE_NAME}" ]]; then
+            APPLY_ARGS+=("-var=dns_zone_name=${DNS_ZONE_NAME}")
           fi
 
           terraform -chdir=infra/aws/bootstrap apply -auto-approve "${APPLY_ARGS[@]}"

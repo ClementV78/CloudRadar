@@ -2,6 +2,10 @@ provider "aws" {
   region = var.region
 }
 
+locals {
+  dns_zone_name = trimsuffix(var.dns_zone_name, ".")
+}
+
 resource "aws_s3_bucket" "tf_state" {
   bucket = var.state_bucket_name
   tags   = var.tags
@@ -50,4 +54,13 @@ module "sqlite_backups" {
 
   name = var.backup_bucket_name
   tags = var.tags
+}
+
+resource "aws_route53_zone" "cloudradar" {
+  count = local.dns_zone_name == "" ? 0 : 1
+
+  name = local.dns_zone_name
+  tags = merge(var.tags, {
+    Name = "cloudradar-dns"
+  })
 }

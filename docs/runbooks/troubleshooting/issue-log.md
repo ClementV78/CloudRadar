@@ -2,6 +2,14 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-07
+
+### [infra/dns] Terraform destroy failed (Route53 HostedZoneNotEmpty)
+- **Severity:** Medium
+- **Impact:** `terraform destroy`/`ci-infra-destroy` could not delete the Route53 hosted zone.
+- **Analysis:** The hosted zone contained A records created outside Terraform (ci-infra `dns-sync` job). Terraform did not own those recordsets, so the zone stayed non-empty and deletion failed.
+- **Resolution:** Manage Route53 A records and Grafana DNS SSM parameters in Terraform, remove the out-of-band `dns-sync` workflow job, and move the hosted zone out of the env state (managed under `infra/aws/bootstrap`). (Refs: issue #341)
+
 ## 2026-02-06
 
 ### [obs/monitoring] Traefik dashboard showed "No data" (ServiceMonitor port mismatch)
