@@ -445,17 +445,17 @@
     },
     {
       "id": 15,
-      "title": "Quick CPU (Real / Requests / Limits)",
+      "title": "Control Plane CPU (Real / Requests / Limits) (% allocatable)",
       "type": "bargauge",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 6,
-        "w": 12,
         "x": 0,
-        "y": 4
+        "y": 4,
+        "w": 12,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -464,7 +464,8 @@
           },
           "mappings": [],
           "min": 0,
-          "unit": "cores"
+          "max": 100,
+          "unit": "percent"
         },
         "overrides": []
       },
@@ -488,43 +489,43 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"cloudradar\",container!=\"\",image!=\"\"}[5m]))",
+          "expr": "100 * sum((sum by (node) (label_replace(sum by (nodename) (rate(node_cpu_seconds_total{mode!~\"idle|iowait|steal\"}[5m]) * on(instance) group_left(nodename) node_uname_info), \"node\", \"$1\", \"nodename\", \"(.*)\"))) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})) / clamp_min(sum((kube_node_status_allocatable{resource=\"cpu\"}) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})), 0.001)",
           "legendFormat": "Real",
-          "range": false,
           "instant": true,
+          "range": false,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum(kube_pod_container_resource_requests{namespace=\"cloudradar\",resource=\"cpu\"})",
+          "expr": "100 * sum((sum by (node) (kube_pod_container_resource_requests{resource=\"cpu\"} * on(namespace,pod) group_left(node) kube_pod_info)) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})) / clamp_min(sum((kube_node_status_allocatable{resource=\"cpu\"}) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})), 0.001)",
           "legendFormat": "Requests",
-          "range": false,
           "instant": true,
+          "range": false,
           "refId": "B"
         },
         {
           "editorMode": "code",
-          "expr": "sum(kube_pod_container_resource_limits{namespace=\"cloudradar\",resource=\"cpu\"})",
+          "expr": "100 * sum((sum by (node) (kube_pod_container_resource_limits{resource=\"cpu\"} * on(namespace,pod) group_left(node) kube_pod_info)) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})) / clamp_min(sum((kube_node_status_allocatable{resource=\"cpu\"}) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})), 0.001)",
           "legendFormat": "Limits",
-          "range": false,
           "instant": true,
+          "range": false,
           "refId": "C"
         }
       ]
     },
     {
       "id": 16,
-      "title": "Quick RAM (Real / Requests / Limits)",
+      "title": "Workers CPU (Real / Requests / Limits) (% allocatable)",
       "type": "bargauge",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 6,
-        "w": 12,
         "x": 12,
-        "y": 4
+        "y": 4,
+        "w": 12,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -533,7 +534,8 @@
           },
           "mappings": [],
           "min": 0,
-          "unit": "bytes"
+          "max": 100,
+          "unit": "percent"
         },
         "overrides": []
       },
@@ -557,43 +559,183 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(container_memory_working_set_bytes{namespace=\"cloudradar\",container!=\"\",image!=\"\"})",
+          "expr": "100 * sum((sum by (node) (label_replace(sum by (nodename) (rate(node_cpu_seconds_total{mode!~\"idle|iowait|steal\"}[5m]) * on(instance) group_left(nodename) node_uname_info), \"node\", \"$1\", \"nodename\", \"(.*)\"))) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))) / clamp_min(sum((kube_node_status_allocatable{resource=\"cpu\"}) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))), 0.001)",
           "legendFormat": "Real",
-          "range": false,
           "instant": true,
+          "range": false,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum(kube_pod_container_resource_requests{namespace=\"cloudradar\",resource=\"memory\"})",
+          "expr": "100 * sum((sum by (node) (kube_pod_container_resource_requests{resource=\"cpu\"} * on(namespace,pod) group_left(node) kube_pod_info)) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))) / clamp_min(sum((kube_node_status_allocatable{resource=\"cpu\"}) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))), 0.001)",
           "legendFormat": "Requests",
-          "range": false,
           "instant": true,
+          "range": false,
           "refId": "B"
         },
         {
           "editorMode": "code",
-          "expr": "sum(kube_pod_container_resource_limits{namespace=\"cloudradar\",resource=\"memory\"})",
+          "expr": "100 * sum((sum by (node) (kube_pod_container_resource_limits{resource=\"cpu\"} * on(namespace,pod) group_left(node) kube_pod_info)) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))) / clamp_min(sum((kube_node_status_allocatable{resource=\"cpu\"}) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))), 0.001)",
           "legendFormat": "Limits",
-          "range": false,
           "instant": true,
+          "range": false,
           "refId": "C"
         }
       ]
     },
     {
       "id": 17,
-      "title": "Root FS Used (%) (max)",
+      "title": "Control Plane RAM (Real / Requests / Limits) (% allocatable)",
+      "type": "bargauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 12,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "min": 0,
+          "max": 100,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "lcd",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * sum((sum by (node) (label_replace(sum by (nodename) ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) * on(instance) group_left(nodename) node_uname_info), \"node\", \"$1\", \"nodename\", \"(.*)\"))) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})) / clamp_min(sum((kube_node_status_allocatable{resource=\"memory\"}) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})), 1)",
+          "legendFormat": "Real",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "100 * sum((sum by (node) (kube_pod_container_resource_requests{resource=\"memory\"} * on(namespace,pod) group_left(node) kube_pod_info)) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})) / clamp_min(sum((kube_node_status_allocatable{resource=\"memory\"}) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})), 1)",
+          "legendFormat": "Requests",
+          "instant": true,
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "100 * sum((sum by (node) (kube_pod_container_resource_limits{resource=\"memory\"} * on(namespace,pod) group_left(node) kube_pod_info)) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})) / clamp_min(sum((kube_node_status_allocatable{resource=\"memory\"}) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})), 1)",
+          "legendFormat": "Limits",
+          "instant": true,
+          "range": false,
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Workers RAM (Real / Requests / Limits) (% allocatable)",
+      "type": "bargauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "min": 0,
+          "max": 100,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "lcd",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * sum((sum by (node) (label_replace(sum by (nodename) ((node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) * on(instance) group_left(nodename) node_uname_info), \"node\", \"$1\", \"nodename\", \"(.*)\"))) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))) / clamp_min(sum((kube_node_status_allocatable{resource=\"memory\"}) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))), 1)",
+          "legendFormat": "Real",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "100 * sum((sum by (node) (kube_pod_container_resource_requests{resource=\"memory\"} * on(namespace,pod) group_left(node) kube_pod_info)) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))) / clamp_min(sum((kube_node_status_allocatable{resource=\"memory\"}) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))), 1)",
+          "legendFormat": "Requests",
+          "instant": true,
+          "range": false,
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "100 * sum((sum by (node) (kube_pod_container_resource_limits{resource=\"memory\"} * on(namespace,pod) group_left(node) kube_pod_info)) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))) / clamp_min(sum((kube_node_status_allocatable{resource=\"memory\"}) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))), 1)",
+          "legendFormat": "Limits",
+          "instant": true,
+          "range": false,
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "title": "Control Plane Root FS Used (%) (max)",
       "type": "gauge",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 6,
-        "w": 6,
         "x": 0,
-        "y": 10
+        "y": 16,
+        "w": 6,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -652,7 +794,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max(100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"})))",
+          "expr": "max((label_replace(100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"})) * on(instance) group_left(nodename) node_uname_info, \"node\", \"$1\", \"nodename\", \"(.*)\")) * on(node) group_left (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))",
           "instant": true,
           "range": false,
           "refId": "A"
@@ -660,7 +802,85 @@
       ]
     },
     {
-      "id": 18,
+      "id": 25,
+      "title": "Workers Root FS Used (%) (max)",
+      "type": "gauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 16,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              }
+            }
+          ],
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "rgba(50, 172, 45, 0.97)"
+              },
+              {
+                "color": "rgba(237, 129, 40, 0.89)",
+                "value": 70
+              },
+              {
+                "color": "rgba(245, 54, 54, 0.9)",
+                "value": 85
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max((label_replace(100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"})) * on(instance) group_left(nodename) node_uname_info, \"node\", \"$1\", \"nodename\", \"(.*)\")) * on(node) group_left (kube_node_info unless on(node) (kube_node_role{role=~\"control-plane|master\"} OR kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} OR kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})))",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 26,
       "title": "Top Nodes Root FS Used (%)",
       "type": "bargauge",
       "datasource": {
@@ -668,10 +888,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 6,
-        "w": 18,
-        "x": 6,
-        "y": 10
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -680,6 +900,7 @@
           },
           "mappings": [],
           "min": 0,
+          "max": 100,
           "unit": "percent"
         },
         "overrides": []
@@ -704,10 +925,118 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "topk(5, 100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"})))",
-          "legendFormat": "{{instance}}",
-          "range": false,
+          "expr": "topk(6, label_replace(100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"})) * on(instance) group_left(nodename) node_uname_info, \"node\", \"$1\", \"nodename\", \"(.*)\"))",
+          "legendFormat": "{{node}}",
           "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "title": "Top Pods CPU Usage / Limit (%)",
+      "type": "bargauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "min": 0,
+          "max": 100,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "lcd",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "topk(10, 100 * sum by (namespace,pod) (rate(container_cpu_usage_seconds_total{namespace=~\"cloudradar|data|monitoring\",container!=\"\",image!=\"\"}[5m])) / clamp_min(sum by (namespace,pod) (kube_pod_container_resource_limits{namespace=~\"cloudradar|data|monitoring\",resource=\"cpu\"}), 0.001))",
+          "legendFormat": "{{namespace}}/{{pod}}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "title": "Top Pods RAM Usage / Limit (%)",
+      "type": "bargauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "min": 0,
+          "max": 100,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "lcd",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "topk(10, 100 * sum by (namespace,pod) (container_memory_working_set_bytes{namespace=~\"cloudradar|data|monitoring\",container!=\"\",image!=\"\"}) / clamp_min(sum by (namespace,pod) (kube_pod_container_resource_limits{namespace=~\"cloudradar|data|monitoring\",resource=\"memory\"}), 1))",
+          "legendFormat": "{{namespace}}/{{pod}}",
+          "instant": true,
+          "range": false,
           "refId": "A"
         }
       ]
@@ -721,10 +1050,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 5,
+        "x": 12,
+        "y": 29,
         "w": 12,
-        "x": 0,
-        "y": 16
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -798,10 +1127,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 5,
+        "x": 0,
+        "y": 29,
         "w": 6,
-        "x": 12,
-        "y": 16
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -876,10 +1205,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 5,
+        "x": 6,
+        "y": 29,
         "w": 6,
-        "x": 18,
-        "y": 16
+        "h": 5
       },
       "fieldConfig": {
         "defaults": {
@@ -954,10 +1283,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 6,
-        "w": 12,
         "x": 0,
-        "y": 21
+        "y": 34,
+        "w": 12,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {},
@@ -1003,10 +1332,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "h": 6,
-        "w": 12,
         "x": 12,
-        "y": 21
+        "y": 34,
+        "w": 12,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1072,7 +1401,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 40
       },
       "id": 7,
       "options": {
@@ -1093,7 +1422,7 @@
           "refId": "A"
         }
       ],
-      "title": "Node CPU Utilization (%)",
+      "title": "Nodes CPU Utilization (%) (per instance)",
       "type": "timeseries"
     },
     {
@@ -1113,7 +1442,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 40
       },
       "id": 8,
       "options": {
@@ -1134,7 +1463,7 @@
           "refId": "A"
         }
       ],
-      "title": "Node Memory Utilization (%)",
+      "title": "Nodes Memory Utilization (%) (per instance)",
       "type": "timeseries"
     },
     {
@@ -1152,7 +1481,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 48
       },
       "id": 9,
       "options": {
@@ -1173,7 +1502,7 @@
           "refId": "A"
         }
       ],
-      "title": "Top Pods CPU (cloudradar)",
+      "title": "Top Pods CPU (cloudradar) (cores)",
       "type": "timeseries"
     },
     {
@@ -1191,7 +1520,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 48
       },
       "id": 10,
       "options": {
@@ -1212,7 +1541,7 @@
           "refId": "A"
         }
       ],
-      "title": "Top Pods Memory (cloudradar)",
+      "title": "Top Pods Memory (cloudradar) (bytes)",
       "type": "timeseries"
     },
     {
@@ -1232,7 +1561,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 56
       },
       "id": 11,
       "options": {
@@ -1271,7 +1600,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 40
+        "y": 56
       },
       "id": 12,
       "options": {
@@ -1317,7 +1646,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 64
       },
       "id": 13,
       "options": {
@@ -1356,7 +1685,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 64
       },
       "id": 14,
       "options": {
