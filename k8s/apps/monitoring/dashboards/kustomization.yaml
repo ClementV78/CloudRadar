@@ -19,5 +19,6 @@ configMapGenerator:
       - json/redis-exporter-763-rev6.json
       - json/apps-jvm-micrometer-4701-rev10.json
       - json/cloudradar-ops-overview.json
+      - json/cloudradar-ops-cockpit.json
       - json/cloudradar-aws-infra-cloudwatch.json
       - json/cloudradar-vpc-flow-logs.json
