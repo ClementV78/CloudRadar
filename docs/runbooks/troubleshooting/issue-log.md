@@ -2,6 +2,22 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-08
+
+### [infra/dns] Terraform apply failed creating Route 53 records (record already exists)
+- **Severity:** Medium
+- **Impact:** `terraform apply` failed when creating `aws_route53_record` for the delegated zone because the record set already existed (state drift / partial destroy).
+- **Signal:** `InvalidChangeBatch: Tried to create resource record set ... but it already exists`.
+- **Resolution:** Set `allow_overwrite = true` on the Route 53 record resource to upsert instead of failing.
+- **Refs:** issue #341, PR #342, issue #317 / PR #344
+
+### [infra/obs] Terraform apply failed creating CloudWatch Log Group (missing IAM permissions)
+- **Severity:** High
+- **Impact:** VPC Flow Logs provisioning failed because CI role lacked `logs:CreateLogGroup` (and related) permissions.
+- **Signal:** `AccessDeniedException: ... is not authorized to perform: logs:CreateLogGroup`.
+- **Resolution:** Extend the CI role inline policy created by `scripts/bootstrap-aws.sh` to allow managing `/cloudradar/*` log groups, then re-run the script to update the role policy.
+- **Refs:** issue #317 / PR #344
+
 ## 2026-02-07
 
 ### [infra/dns] Terraform destroy failed (Route53 HostedZoneNotEmpty)
