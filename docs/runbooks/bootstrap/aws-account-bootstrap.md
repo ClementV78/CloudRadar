@@ -565,6 +565,10 @@ Notes:
 - **Step 6 (policy)**: attaches a minimal inline policy for S3 state and DynamoDB lock creation.
 - **Step 7 (outputs)**: prints the account ID, OIDC provider ARN, and CI role ARN.
 
+Note:
+- As the platform evolves, CI may require additional permissions beyond backend bootstrap.
+- Example: VPC Flow Logs to CloudWatch Logs requires `logs:CreateLogGroup` / retention management on `/cloudradar/*` log groups.
+
 ### Script inputs
 - `AWS_REGION` (default `us-east-1`)
 - `ROLE_NAME` (default `CloudRadarTerraformRole`)

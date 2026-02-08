@@ -32,6 +32,9 @@ resource "aws_route53_record" "edge_a" {
   type    = "A"
   ttl     = 60
   records = [each.value]
+
+  # Avoid create failures when the record already exists (e.g., state drift or partial destroy).
+  allow_overwrite = true
 }
 
 resource "aws_ssm_parameter" "grafana_domain" {
