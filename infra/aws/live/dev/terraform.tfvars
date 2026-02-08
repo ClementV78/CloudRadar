@@ -9,6 +9,12 @@ private_subnet_cidrs = ["10.0.101.0/24"]
 nat_instance_type    = "t3.nano"
 nat_root_volume_size = 8
 
+# VPC Flow Logs (CloudWatch Logs)
+enable_vpc_flow_logs                   = true
+vpc_flow_logs_retention_in_days        = 3
+vpc_flow_logs_traffic_type             = "ALL"
+vpc_flow_logs_max_aggregation_interval = 60
+
 k3s_server_instance_type = "t3a.medium"
 k3s_worker_instance_type = "t3a.medium"
 k3s_worker_min_size      = 1
@@ -38,3 +44,6 @@ edge_ssm_vpc_endpoints_enabled      = false
 # Optional: enable EC2 Serial Console login for ec2-user (temporary).
 # Provide a SHA-512 password hash via TF_VAR_k3s_server_serial_console_password_hash.
 k3s_server_serial_console_password_hash = ""
+
+# Grafana CloudWatch datasource uses the EC2 instance role (no static keys).
+enable_grafana_cloudwatch_read = true

@@ -149,7 +149,8 @@ kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 909
 - **Chart**: `grafana/grafana` v10.5.15 (repo: `grafana-community/helm-charts`)
 - **Admin password**: Retrieved from K8s Secret `grafana-admin` (synced from SSM via ESO)
 - **Domain/Root URL**: Stored in SSM (`/cloudradar/grafana-domain`, `/cloudradar/grafana-root-url`) and injected via ESO
-- **Datasource**: Auto-configured to Prometheus (UID pinned to `prometheus` for deterministic dashboard provisioning)
+- **Datasource**: Prometheus (UID pinned to `prometheus` for deterministic dashboard provisioning)
+- **Datasource**: CloudWatch (UID pinned to `cloudwatch` for AWS-native metrics + Logs Insights)
 - **Dashboards**: Provisioned as code (no manual UI import)
 - **Persistence**: Disabled (stateless, data loss on redeploy acceptable for MVP)
 - **Resource allocation**:
@@ -201,6 +202,57 @@ Validation:
 ```bash
 kubectl -n monitoring logs deploy/grafana --tail=50
 # Grafana should not log "dashboards/default: no such file or directory"
+```
+
+## CloudWatch Integration (AWS-Native Signals)
+
+Prometheus covers Kubernetes + application metrics, but it does not provide AWS-native infra visibility or VPC-level network flow analysis.
+
+This project uses **Grafana CloudWatch datasource** (no static keys) plus **VPC Flow Logs** (CloudWatch Logs destination) to cover AWS-native signals.
+
+### IAM / Authentication model (no static keys)
+
+- Grafana uses the AWS SDK default credential chain and reads credentials from the **EC2 instance role** (IMDSv2).
+- In k3s-on-EC2 (not EKS), there is no IRSA. This implies the node role is shared at the host level.
+- The Terraform k3s module can attach a **read-only** IAM policy for CloudWatch metrics + logs queries to the node role.
+
+Security note:
+- If pods can reach IMDS (`169.254.169.254`), any pod could potentially use the node role credentials.
+- This is acceptable for a single-tenant MVP cluster but should be re-evaluated if multi-tenancy is introduced.
+
+### VPC Flow Logs (Terraform)
+
+Terraform provisions:
+- A dedicated CloudWatch Log Group (default name: `/cloudradar/<project>-<env>/vpc-flow-logs`)
+- An IAM role for the Flow Logs service to write into that Log Group
+- A VPC Flow Log resource attached to the VPC (`traffic_type=ALL` by default)
+
+Validation:
+```bash
+# Check Flow Logs are enabled and writing to the expected Log Group
+aws ec2 describe-flow-logs --query 'FlowLogs[*].{Id:FlowLogId,ResourceId:ResourceId,Status:FlowLogStatus,LogGroup:LogGroupName,TrafficType:TrafficType}' --output table
+
+# Check Log Group retention
+aws logs describe-log-groups --log-group-name-prefix /cloudradar/ --query 'logGroups[?contains(logGroupName, `vpc-flow-logs`)].{name:logGroupName,retention:retentionInDays,storedBytes:storedBytes}' --output table
+```
+
+Cost note:
+- CloudWatch Logs is billed by **GB ingested** and **GB-month stored**. Keep retention low for MVP (default: 3 days).
+
+### Grafana dashboards (CloudWatch)
+
+Dashboards are provisioned as code under:
+- `k8s/apps/monitoring/dashboards/json/`
+
+Included CloudWatch dashboards (MVP):
+- `CloudRadar: AWS Infra (CloudWatch)` (EC2/EBS/ASG/S3)
+- `CloudRadar: VPC Flow Logs (CloudWatch Logs)` (Logs Insights queries)
+
+Validation:
+```bash
+# Port-forward Grafana and check dashboards load
+kubectl port-forward -n monitoring svc/grafana 3000:80
+# Open http://localhost:3000 and verify CloudWatch datasource + dashboards.
 ```
 
 ## Dashboard Lifecycle (GitOps + Optional UI Imports)

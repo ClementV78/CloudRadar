@@ -23,6 +23,16 @@ output "private_route_table_id" {
   value       = module.vpc.private_route_table_id
 }
 
+output "vpc_flow_logs_log_group_name" {
+  description = "CloudWatch Log Group name for VPC Flow Logs (null when disabled)."
+  value       = module.vpc.vpc_flow_logs_log_group_name
+}
+
+output "vpc_flow_logs_log_group_arn" {
+  description = "CloudWatch Log Group ARN for VPC Flow Logs (null when disabled)."
+  value       = module.vpc.vpc_flow_logs_log_group_arn
+}
+
 output "dns_zone_id" {
   description = "Route53 hosted zone ID for delegated subdomain (if enabled)."
   value       = try(data.aws_route53_zone.cloudradar[0].zone_id, "")

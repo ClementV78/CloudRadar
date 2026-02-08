@@ -1,0 +1,174 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "description": "Flow counts over time grouped by action (ACCEPT/REJECT).",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "id": "A",
+          "queryMode": "Logs",
+          "region": "$region",
+          "logGroupNames": [
+            "$loggroupname"
+          ],
+          "expression": "fields @timestamp, @message\n| parse @message \"* * * * * * * * * * * * * *\" as version, account_id, interface_id, srcaddr, dstaddr, srcport, dstport, protocol, packets, bytes, start, end, action, log_status\n| filter log_status = \"OK\"\n| stats count() as flows by bin(5m), action\n| sort @timestamp asc",
+          "refId": "A"
+        }
+      ],
+      "title": "Flows by action (5m bins)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "description": "Top source IPs for REJECT flows.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 2,
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "id": "A",
+          "queryMode": "Logs",
+          "region": "$region",
+          "logGroupNames": [
+            "$loggroupname"
+          ],
+          "expression": "fields @message\n| parse @message \"* * * * * * * * * * * * * *\" as version, account_id, interface_id, srcaddr, dstaddr, srcport, dstport, protocol, packets, bytes, start, end, action, log_status\n| filter action = \"REJECT\" and log_status = \"OK\"\n| stats count() as rejects by srcaddr\n| sort rejects desc\n| limit 15",
+          "refId": "A"
+        }
+      ],
+      "title": "Top REJECT sources (count)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "description": "Top destination ports for REJECT flows.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 3,
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "id": "A",
+          "queryMode": "Logs",
+          "region": "$region",
+          "logGroupNames": [
+            "$loggroupname"
+          ],
+          "expression": "fields @message\n| parse @message \"* * * * * * * * * * * * * *\" as version, account_id, interface_id, srcaddr, dstaddr, srcport, dstport, protocol, packets, bytes, start, end, action, log_status\n| filter action = \"REJECT\" and log_status = \"OK\"\n| stats count() as rejects by dstport\n| sort rejects desc\n| limit 15",
+          "refId": "A"
+        }
+      ],
+      "title": "Top REJECT dstport (count)",
+      "type": "table"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": [
+    "cloudradar",
+    "aws",
+    "cloudwatch",
+    "flowlogs"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "cloudwatch",
+          "uid": "cloudwatch"
+        },
+        "includeAll": false,
+        "label": "Region",
+        "name": "region",
+        "options": [],
+        "query": "regions()",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "cloudwatch",
+          "uid": "cloudwatch"
+        },
+        "includeAll": false,
+        "label": "Flow Logs Log Group",
+        "name": "loggroupname",
+        "options": [],
+        "query": "dimension_values($region, AWS/Logs, IncomingBytes, LogGroupName)",
+        "refresh": 1,
+        "regex": "^/cloudradar/.*/vpc-flow-logs$",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CloudRadar: VPC Flow Logs (CloudWatch Logs)",
+  "uid": "cloudradarVpcFlow00",
+  "version": 1,
+  "weekStart": ""
+}

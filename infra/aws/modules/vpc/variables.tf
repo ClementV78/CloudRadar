@@ -73,3 +73,48 @@ variable "private_subnet_tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_vpc_flow_logs" {
+  description = "Whether to enable VPC Flow Logs (CloudWatch Logs destination)."
+  type        = bool
+  default     = false
+}
+
+variable "vpc_flow_logs_log_group_name" {
+  description = "Optional CloudWatch Log Group name for VPC Flow Logs. Defaults to /cloudradar/<name>/vpc-flow-logs."
+  type        = string
+  default     = null
+}
+
+variable "vpc_flow_logs_retention_in_days" {
+  description = "Retention in days for the VPC Flow Logs CloudWatch Log Group."
+  type        = number
+  default     = 3
+
+  validation {
+    condition     = var.vpc_flow_logs_retention_in_days >= 1
+    error_message = "vpc_flow_logs_retention_in_days must be >= 1."
+  }
+}
+
+variable "vpc_flow_logs_traffic_type" {
+  description = "Traffic type captured by VPC Flow Logs (ACCEPT, REJECT, or ALL)."
+  type        = string
+  default     = "ALL"
+
+  validation {
+    condition     = contains(["ACCEPT", "REJECT", "ALL"], var.vpc_flow_logs_traffic_type)
+    error_message = "vpc_flow_logs_traffic_type must be one of: ACCEPT, REJECT, ALL."
+  }
+}
+
+variable "vpc_flow_logs_max_aggregation_interval" {
+  description = "Maximum aggregation interval for Flow Logs (60 or 600 seconds). Lower values increase granularity and cost."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = contains([60, 600], var.vpc_flow_logs_max_aggregation_interval)
+    error_message = "vpc_flow_logs_max_aggregation_interval must be 60 or 600."
+  }
+}

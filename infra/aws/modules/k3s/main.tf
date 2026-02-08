@@ -109,7 +109,7 @@ data "aws_iam_policy_document" "ssm_secrets_access" {
     condition {
       test     = "StringEquals"
       variable = "kms:ViaService"
-      values   = ["ssm.${data.aws_region.current.name}.amazonaws.com"]
+      values   = ["ssm.${data.aws_region.current.id}.amazonaws.com"]
     }
   }
 }
@@ -160,6 +160,73 @@ resource "aws_iam_role_policy_attachment" "backup_bucket" {
 
   role       = aws_iam_role.k3s_nodes.name
   policy_arn = aws_iam_policy.backup_bucket[0].arn
+}
+
+data "aws_iam_policy_document" "grafana_cloudwatch_read" {
+  count = var.enable_grafana_cloudwatch_read ? 1 : 0
+
+  statement {
+    actions = [
+      "cloudwatch:DescribeAlarms",
+      "cloudwatch:DescribeAlarmsForMetric",
+      "cloudwatch:DescribeInsightRules",
+      "cloudwatch:GetInsightRuleReport",
+      "cloudwatch:GetMetricData",
+      "cloudwatch:GetMetricStatistics",
+      "cloudwatch:ListMetrics"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    actions = [
+      "ec2:DescribeInstances",
+      "ec2:DescribeRegions",
+      "ec2:DescribeTags",
+      "ec2:DescribeVolumes",
+      "autoscaling:DescribeAutoScalingGroups",
+      "s3:ListAllMyBuckets",
+      "tag:GetResources"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    actions = [
+      "logs:DescribeLogGroups",
+      "logs:DescribeLogStreams"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    actions = [
+      "logs:FilterLogEvents",
+      "logs:GetLogEvents",
+      "logs:GetQueryResults",
+      "logs:StartQuery",
+      "logs:StopQuery"
+    ]
+    resources = [
+      "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/cloudradar/*",
+      "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/cloudradar/*:log-stream:*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "grafana_cloudwatch_read" {
+  count = var.enable_grafana_cloudwatch_read ? 1 : 0
+
+  name_prefix = "${var.name}-grafana-cloudwatch-read-"
+  policy      = data.aws_iam_policy_document.grafana_cloudwatch_read[0].json
+  tags        = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "grafana_cloudwatch_read" {
+  count = var.enable_grafana_cloudwatch_read ? 1 : 0
+
+  role       = aws_iam_role.k3s_nodes.name
+  policy_arn = aws_iam_policy.grafana_cloudwatch_read[0].arn
 }
 
 resource "aws_security_group" "k3s_nodes" {

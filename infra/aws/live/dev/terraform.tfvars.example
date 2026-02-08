@@ -9,6 +9,15 @@ private_subnet_cidrs = ["10.0.101.0/24"]
 nat_instance_type    = "t3.nano"
 nat_root_volume_size = 8
 
+# VPC Flow Logs (CloudWatch Logs)
+# Cost notes:
+# - CloudWatch Logs ingestion is billed by GB ingested.
+# - Retention also impacts cost (stored GB-month).
+enable_vpc_flow_logs                = true
+vpc_flow_logs_retention_in_days     = 3
+vpc_flow_logs_traffic_type          = "ALL"
+vpc_flow_logs_max_aggregation_interval = 60
+
 k3s_server_instance_type = "t3a.medium"
 k3s_worker_instance_type = "t3a.medium"
 k3s_worker_min_size       = 1
@@ -16,6 +25,9 @@ k3s_worker_desired        = 1
 k3s_worker_max_size       = 3
 k3s_root_volume_size      = 40
 k3s_server_extra_args     = ["--node-taint=node-role.kubernetes.io/control-plane:NoSchedule"]
+
+# Grafana CloudWatch datasource uses the EC2 instance role (no static keys).
+enable_grafana_cloudwatch_read = true
 
 # Optional: additional k3s flags.
 # k3s_server_extra_args = ["--tls-san=example.com"]

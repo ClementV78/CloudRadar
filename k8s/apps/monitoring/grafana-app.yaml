@@ -37,6 +37,14 @@ spec:
               url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090/prometheus
               access: proxy
               isDefault: true
+            - name: CloudWatch
+              uid: cloudwatch
+              type: cloudwatch
+              access: proxy
+              jsonData:
+                # Use the EC2 instance role via IMDS (no static keys).
+                authType: default
+                defaultRegion: us-east-1
         
         dashboardProviders:
           dashboardproviders.yaml:

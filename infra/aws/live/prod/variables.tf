@@ -56,3 +56,27 @@ variable "grafana_admin_password" {
   sensitive   = true
   default     = ""
 }
+
+variable "enable_vpc_flow_logs" {
+  description = "Whether to enable VPC Flow Logs (CloudWatch Logs destination)."
+  type        = bool
+  default     = false
+}
+
+variable "vpc_flow_logs_retention_in_days" {
+  description = "Retention in days for the VPC Flow Logs CloudWatch Log Group."
+  type        = number
+  default     = 3
+}
+
+variable "vpc_flow_logs_traffic_type" {
+  description = "Traffic type captured by VPC Flow Logs (ACCEPT, REJECT, or ALL)."
+  type        = string
+  default     = "ALL"
+}
+
+variable "vpc_flow_logs_max_aggregation_interval" {
+  description = "Maximum aggregation interval for Flow Logs (60 or 600 seconds)."
+  type        = number
+  default     = 60
+}

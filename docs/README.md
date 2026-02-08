@@ -39,7 +39,7 @@ Start here if you're new to the project or want to understand how components fit
    - Terraform module organization
 
 3. **[Architecture Decision Records (ADRs)](architecture/decisions/)** (Technical choices)
-   - 15+ ADRs documenting all major decisions
+   - 18+ ADRs documenting all major decisions
    - Technology selections, cost implications, trade-offs
    - **See [ADR Index](#adr-index) below for quick reference**
 
@@ -102,16 +102,21 @@ Quick reference to all Architecture Decision Records (decisions/):
 | [ADR-0003](architecture/decisions/ADR-0003-2026-01-08-event-driven-pipeline-redis-buffer.md) | 2026-01-08 | Event-Driven Pipeline + Redis | Async processing, buffering |
 | [ADR-0004](architecture/decisions/ADR-0004-2026-01-08-sqlite-storage-with-s3-backups.md) | 2026-01-08 | SQLite Storage + S3 Backups | Lightweight DB, durable backups |
 | [ADR-0005](architecture/decisions/ADR-0005-2026-01-08-observability-prometheus-grafana.md) | 2026-01-08 | Observability: Prometheus + Grafana | Metrics collection & visualization |
+| [ADR-0006](architecture/decisions/ADR-0006-2026-01-08-ci-cd-github-actions-ghcr.md) | 2026-01-08 | CI/CD: GitHub Actions + GHCR | Build/publish automation |
 | [ADR-0007](architecture/decisions/ADR-0007-2026-01-08-edge-cloudfront-nginx.md) | 2026-01-08 | Edge: CloudFront + Nginx | CDN + load balancer |
 | [ADR-0008](architecture/decisions/ADR-0008-2026-01-08-vpc-public-edge-private-k3s-nat-instance.md) | 2026-01-08 | VPC: Public Edge, Private k3s, NAT | Network isolation |
 | [ADR-0009](architecture/decisions/ADR-0009-2026-01-08-security-baseline-secrets-and-iam.md) | 2026-01-08 | Security Baseline: Secrets & IAM | SSM Parameter Store, least-privilege |
 | [ADR-0010](architecture/decisions/ADR-0010-2026-01-08-terraform-remote-state-and-oidc.md) | 2026-01-08 | Terraform Remote State + OIDC | IaC & GitHub Actions integration |
 | [ADR-0011](architecture/decisions/ADR-0011-2026-01-16-edge-ssm-vpc-endpoints.md) | 2026-01-16 | Edge: SSM + VPC Endpoints | Secure parameter access |
 | [ADR-0012](architecture/decisions/ADR-0012-2026-01-16-edge-s3-gateway-endpoint.md) | 2026-01-16 | Edge: S3 Gateway Endpoint | S3 access without internet |
+| [ADR-0013](architecture/decisions/ADR-0013-2026-01-17-gitops-bootstrap-strategy-argocd.md) | 2026-01-17 | GitOps bootstrap: ArgoCD | Declarative k8s delivery |
 | [ADR-0014](architecture/decisions/ADR-0014-2026-01-19-processor-language-java.md) | 2026-01-19 | Processor Language: Java | Spring Boot for data processing |
 | [ADR-0015](architecture/decisions/ADR-0015-2026-01-22-redis-list-for-ingestion-queue.md) | 2026-01-22 | Redis List for Ingestion Queue | BLPOP-based event consumption |
+| [ADR-0016](architecture/decisions/ADR-0016-2026-01-28-documentation-hub-organization.md) | 2026-01-28 | Documentation hub organization | Docs structure and navigation |
+| [ADR-0016](architecture/decisions/ADR-0016-2026-01-29-external-secrets-operator.md) | 2026-01-29 | External Secrets Operator | SSM to K8s secrets sync |
+| [ADR-0017](architecture/decisions/ADR-0017-2026-02-07-cloudwatch-datasource-for-aws-native-signals.md) | 2026-02-07 | CloudWatch datasource for AWS-native signals | AWS metrics + VPC Flow Logs |
 
-**⚠️ Note**: ADR-0006 and ADR-0013 are intentionally missing (likely superseded).
+**⚠️ Note**: There are two ADR-0016 entries due to historical numbering; keep both for stable links.
 
 ---
 
@@ -142,7 +147,7 @@ Quick reference to all Architecture Decision Records (decisions/):
 ## 📊 Documentation Statistics
 
 - **Total .md files**: 45+ (including this hub)
-- **ADRs**: 15 (decisions/0001-0015, with gaps 0006, 0013)
+- **ADRs**: 18 (including two ADR-0016 entries; see note above)
 - **Runbooks**: 15+ (bootstrap, operations, observability, CI/CD)
 - **Architecture docs**: 3 (application, infrastructure, decisions)
 - **Supporting docs**: 5+ (IAM, project status, dependencies)
@@ -178,5 +183,5 @@ Quick reference to all Architecture Decision Records (decisions/):
 
 ---
 
-**Last updated**: 2026-01-28  
+**Last updated**: 2026-02-07  
 **Maintained by**: Agent (automated) + User (architectural decisions)
