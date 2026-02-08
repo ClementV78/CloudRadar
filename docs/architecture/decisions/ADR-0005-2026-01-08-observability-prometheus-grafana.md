@@ -15,4 +15,5 @@ Deploy **Prometheus** for metrics scraping and **Grafana** for dashboards.
 - Showcases CNCF-friendly observability stack.
 
 ## Details
-- No managed monitoring services (e.g., CloudWatch) in v1.
+- No managed monitoring services for primary Kubernetes/app metrics in v1.
+- Update (2026-02-07): AWS-native signals are queried via Grafana CloudWatch datasource and VPC Flow Logs (read-only). See ADR-0017.

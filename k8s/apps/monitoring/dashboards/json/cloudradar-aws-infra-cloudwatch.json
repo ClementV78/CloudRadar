@@ -1,0 +1,404 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "description": "EC2 CPU utilization (per instance).",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/EC2",
+          "metricName": "CPUUtilization",
+          "dimensions": {
+            "InstanceId": "$instanceid"
+          },
+          "region": "$region",
+          "statistic": "Average",
+          "period": "",
+          "refId": "A"
+        }
+      ],
+      "title": "EC2 CPUUtilization",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "description": "EC2 instance/system status check failures.",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/EC2",
+          "metricName": "StatusCheckFailed",
+          "dimensions": {
+            "InstanceId": "$instanceid"
+          },
+          "region": "$region",
+          "statistic": "Maximum",
+          "period": "",
+          "refId": "A"
+        }
+      ],
+      "title": "EC2 StatusCheckFailed",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "description": "Network throughput (bytes in/out).",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "id": 3,
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/EC2",
+          "metricName": "NetworkIn",
+          "dimensions": {
+            "InstanceId": "$instanceid"
+          },
+          "region": "$region",
+          "statistic": "Sum",
+          "period": "",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/EC2",
+          "metricName": "NetworkOut",
+          "dimensions": {
+            "InstanceId": "$instanceid"
+          },
+          "region": "$region",
+          "statistic": "Sum",
+          "period": "",
+          "refId": "B"
+        }
+      ],
+      "title": "EC2 NetworkIn/NetworkOut",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "description": "EBS burst balance (gp2/gp3 may expose different metrics; BurstBalance is common for gp2).",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "id": 4,
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/EBS",
+          "metricName": "BurstBalance",
+          "dimensions": {
+            "VolumeId": "$volumeid"
+          },
+          "region": "$region",
+          "statistic": "Average",
+          "period": "",
+          "refId": "A"
+        }
+      ],
+      "title": "EBS BurstBalance",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "description": "ASG health signals (GroupInServiceInstances vs desired).",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "id": 5,
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/AutoScaling",
+          "metricName": "GroupDesiredCapacity",
+          "dimensions": {
+            "AutoScalingGroupName": "$autoscalinggroupname"
+          },
+          "region": "$region",
+          "statistic": "Average",
+          "period": "",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/AutoScaling",
+          "metricName": "GroupInServiceInstances",
+          "dimensions": {
+            "AutoScalingGroupName": "$autoscalinggroupname"
+          },
+          "region": "$region",
+          "statistic": "Average",
+          "period": "",
+          "refId": "B"
+        }
+      ],
+      "title": "Auto Scaling Group (Desired vs InService)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "description": "S3 storage metrics (daily resolution).",
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "id": 6,
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/S3",
+          "metricName": "BucketSizeBytes",
+          "dimensions": {
+            "BucketName": "$bucket",
+            "StorageType": "StandardStorage"
+          },
+          "region": "$region",
+          "statistic": "Average",
+          "period": "",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "namespace": "AWS/S3",
+          "metricName": "NumberOfObjects",
+          "dimensions": {
+            "BucketName": "$bucket",
+            "StorageType": "AllStorageTypes"
+          },
+          "region": "$region",
+          "statistic": "Average",
+          "period": "",
+          "refId": "B"
+        }
+      ],
+      "title": "S3 BucketSizeBytes / NumberOfObjects",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 40,
+  "tags": [
+    "cloudradar",
+    "aws",
+    "cloudwatch"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "cloudwatch",
+          "uid": "cloudwatch"
+        },
+        "includeAll": false,
+        "label": "Region",
+        "name": "region",
+        "options": [],
+        "query": "regions()",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "allValue": "*",
+        "current": {},
+        "datasource": {
+          "type": "cloudwatch",
+          "uid": "cloudwatch"
+        },
+        "includeAll": true,
+        "label": "Instance Name (tag:Name)",
+        "name": "instancename",
+        "options": [],
+        "query": "ec2_instance_attribute($region, Tags.Name, {})",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "cloudwatch",
+          "uid": "cloudwatch"
+        },
+        "includeAll": false,
+        "label": "InstanceId",
+        "name": "instanceid",
+        "options": [],
+        "query": "ec2_instance_attribute($region, InstanceId, {\"tag:Name\": [\"$instancename\"]})",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": "*",
+        "current": {},
+        "datasource": {
+          "type": "cloudwatch",
+          "uid": "cloudwatch"
+        },
+        "includeAll": false,
+        "label": "EBS VolumeId",
+        "name": "volumeid",
+        "options": [],
+        "query": "ebs_volume_ids($region, $instanceid)",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "cloudwatch",
+          "uid": "cloudwatch"
+        },
+        "includeAll": false,
+        "label": "AutoScalingGroupName",
+        "name": "autoscalinggroupname",
+        "options": [],
+        "query": "dimension_values($region, AWS/AutoScaling, GroupTotalInstances, AutoScalingGroupName)",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "cloudwatch",
+          "uid": "cloudwatch"
+        },
+        "includeAll": false,
+        "label": "S3 Bucket",
+        "name": "bucket",
+        "options": [],
+        "query": "dimension_values($region,AWS/S3,NumberOfObjects,BucketName)",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CloudRadar: AWS Infra (CloudWatch)",
+  "uid": "cloudradarAwsInfra00",
+  "version": 1,
+  "weekStart": ""
+}
