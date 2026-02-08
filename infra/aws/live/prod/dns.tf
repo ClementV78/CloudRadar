@@ -1,8 +1,11 @@
-resource "aws_route53_zone" "cloudradar" {
-  count = var.dns_zone_name == "" ? 0 : 1
+locals {
+  dns_zone_name = trimsuffix(var.dns_zone_name, ".")
+  dns_enabled   = local.dns_zone_name != ""
+}
 
-  name = var.dns_zone_name
-  tags = merge(var.tags, {
-    Name = "${var.project}-${var.environment}-dns"
-  })
+data "aws_route53_zone" "cloudradar" {
+  count = local.dns_enabled ? 1 : 0
+
+  name         = local.dns_zone_name
+  private_zone = false
 }

@@ -86,6 +86,8 @@ else
 fi
 
 # Minimal inline policy for backend bootstrap (S3 + DynamoDB).
+# Note: This role is also used by CI for Terraform plan/apply. Keep policies additive
+# and scoped to CloudRadar-owned resources when possible.
 inline_policy="$(mktemp)"
 cat > "${inline_policy}" <<EOF
 {
@@ -117,6 +119,22 @@ cat > "${inline_policy}" <<EOF
         "dynamodb:TagResource"
       ],
       "Resource": "arn:aws:dynamodb:${AWS_REGION}:${account_id}:table/${LOCK_TABLE_NAME}"
+    }
+    ,
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:PutRetentionPolicy",
+        "logs:TagResource",
+        "logs:UntagResource",
+        "logs:DescribeLogGroups"
+      ],
+      "Resource": [
+        "arn:aws:logs:${AWS_REGION}:${account_id}:log-group:/cloudradar/*",
+        "arn:aws:logs:${AWS_REGION}:${account_id}:log-group:/cloudradar/*:log-stream:*"
+      ]
     }
   ]
 }
