@@ -23,6 +23,16 @@ output "private_route_table_id" {
   value       = module.vpc.private_route_table_id
 }
 
+output "vpc_flow_logs_log_group_name" {
+  description = "CloudWatch Log Group name for VPC Flow Logs (null when disabled)."
+  value       = module.vpc.vpc_flow_logs_log_group_name
+}
+
+output "vpc_flow_logs_log_group_arn" {
+  description = "CloudWatch Log Group ARN for VPC Flow Logs (null when disabled)."
+  value       = module.vpc.vpc_flow_logs_log_group_arn
+}
+
 output "nat_instance_id" {
   description = "NAT instance ID."
   value       = module.nat_instance.nat_instance_id

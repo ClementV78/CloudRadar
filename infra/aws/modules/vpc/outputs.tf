@@ -27,3 +27,13 @@ output "private_route_table_id" {
   description = "ID of the private route table."
   value       = aws_route_table.private.id
 }
+
+output "vpc_flow_logs_log_group_name" {
+  description = "CloudWatch Log Group name for VPC Flow Logs (null when disabled)."
+  value       = try(aws_cloudwatch_log_group.vpc_flow_logs[0].name, null)
+}
+
+output "vpc_flow_logs_log_group_arn" {
+  description = "CloudWatch Log Group ARN for VPC Flow Logs (null when disabled)."
+  value       = try(aws_cloudwatch_log_group.vpc_flow_logs[0].arn, null)
+}

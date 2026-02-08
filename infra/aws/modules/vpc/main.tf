@@ -17,6 +17,8 @@ locals {
       cidr = var.private_subnet_cidrs[idx]
     }
   }
+
+  vpc_flow_logs_log_group_name = var.vpc_flow_logs_log_group_name != null ? var.vpc_flow_logs_log_group_name : "/cloudradar/${var.name}/vpc-flow-logs"
 }
 
 resource "aws_vpc" "this" {
@@ -128,4 +130,101 @@ resource "aws_route_table_association" "private" {
 
   subnet_id      = each.value.id
   route_table_id = aws_route_table.private.id
+}
+
+resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
+  count = var.enable_vpc_flow_logs ? 1 : 0
+
+  name              = local.vpc_flow_logs_log_group_name
+  retention_in_days = var.vpc_flow_logs_retention_in_days
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-vpc-flow-logs"
+  })
+}
+
+data "aws_iam_policy_document" "vpc_flow_logs_assume_role" {
+  count = var.enable_vpc_flow_logs ? 1 : 0
+
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["vpc-flow-logs.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "vpc_flow_logs" {
+  count = var.enable_vpc_flow_logs ? 1 : 0
+
+  name_prefix        = "${var.name}-vpc-flow-logs-"
+  assume_role_policy = data.aws_iam_policy_document.vpc_flow_logs_assume_role[0].json
+  tags               = var.tags
+}
+
+data "aws_iam_policy_document" "vpc_flow_logs_write" {
+  count = var.enable_vpc_flow_logs ? 1 : 0
+
+  statement {
+    actions = [
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    resources = [
+      aws_cloudwatch_log_group.vpc_flow_logs[0].arn,
+      "${aws_cloudwatch_log_group.vpc_flow_logs[0].arn}:log-stream:*"
+    ]
+  }
+
+  statement {
+    actions = [
+      "logs:DescribeLogGroups",
+      "logs:DescribeLogStreams"
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "vpc_flow_logs_write" {
+  count = var.enable_vpc_flow_logs ? 1 : 0
+
+  name_prefix = "${var.name}-vpc-flow-logs-write-"
+  role        = aws_iam_role.vpc_flow_logs[0].id
+  policy      = data.aws_iam_policy_document.vpc_flow_logs_write[0].json
+}
+
+resource "aws_flow_log" "vpc" {
+  count = var.enable_vpc_flow_logs ? 1 : 0
+
+  vpc_id               = aws_vpc.this.id
+  traffic_type         = var.vpc_flow_logs_traffic_type
+  log_destination_type = "cloud-watch-logs"
+  log_destination      = aws_cloudwatch_log_group.vpc_flow_logs[0].arn
+  iam_role_arn         = aws_iam_role.vpc_flow_logs[0].arn
+
+  max_aggregation_interval = var.vpc_flow_logs_max_aggregation_interval
+
+  # Keep a stable format so Logs Insights queries can parse reliably.
+  log_format = join(" ", [
+    "$${version}",
+    "$${account-id}",
+    "$${interface-id}",
+    "$${srcaddr}",
+    "$${dstaddr}",
+    "$${srcport}",
+    "$${dstport}",
+    "$${protocol}",
+    "$${packets}",
+    "$${bytes}",
+    "$${start}",
+    "$${end}",
+    "$${action}",
+    "$${log-status}",
+  ])
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-vpc-flow-logs"
+  })
 }

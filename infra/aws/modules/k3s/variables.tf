@@ -85,6 +85,12 @@ variable "backup_bucket_name" {
   default     = null
 }
 
+variable "enable_grafana_cloudwatch_read" {
+  description = "Whether to grant the node instance role read-only access to CloudWatch metrics/logs (used by Grafana CloudWatch datasource)."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)

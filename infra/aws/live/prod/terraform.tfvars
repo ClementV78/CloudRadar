@@ -6,5 +6,11 @@ azs                  = ["us-east-1a"]
 public_subnet_cidrs  = ["10.1.1.0/24"]
 private_subnet_cidrs = ["10.1.101.0/24"]
 
+# VPC Flow Logs (CloudWatch Logs) - disabled by default in prod.
+# enable_vpc_flow_logs = false
+# vpc_flow_logs_retention_in_days = 3
+# vpc_flow_logs_traffic_type = "ALL"
+# vpc_flow_logs_max_aggregation_interval = 60
+
 # Optional: only needed when a NAT instance is created.
 # private_route_nat_instance_id = "i-0123456789abcdef0"
