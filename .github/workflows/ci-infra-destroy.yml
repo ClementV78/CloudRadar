@@ -10,6 +10,14 @@ on:
         options:
           - dev
           - prod
+      redis_backup_restore:
+        description: "Run Redis backup + rotation before destroy (dev only)"
+        required: true
+        type: choice
+        default: "yes"
+        options:
+          - yes
+          - no
       confirm_destroy:
         description: "Type DESTROY to confirm"
         required: true
@@ -24,6 +32,7 @@ env:
   AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
   TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
   TF_LOCK_TABLE_NAME: ${{ vars.TF_LOCK_TABLE_NAME }}
+  TF_BACKUP_BUCKET_NAME: ${{ vars.TF_BACKUP_BUCKET_NAME }}
   TF_ROLE_ARN: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
 
 jobs:
@@ -75,6 +84,135 @@ jobs:
 
       - name: Terraform validate
         run: terraform -chdir="${TF_DIR}" validate
+
+      - name: Backup Redis + rotate (dev only)
+        if: ${{ inputs.environment == 'dev' }}
+        shell: bash
+        env:
+          BACKUP_BUCKET: ${{ env.TF_BACKUP_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ inputs.redis_backup_restore }}" != "yes" ]]; then
+            echo "::notice title=Redis backup::redis_backup_restore=${{ inputs.redis_backup_restore }}; skipping Redis backup/rotation."
+            exit 0
+          fi
+
+          if [[ -z "${BACKUP_BUCKET}" ]]; then
+            echo "::notice title=Redis backup::TF_BACKUP_BUCKET_NAME not set; skipping Redis backup/rotation."
+            exit 0
+          fi
+
+          echo "Loading k3s_server_instance_id from Terraform outputs..."
+          K3S_SERVER_INSTANCE_ID="$(terraform -chdir="${TF_DIR}" output -raw k3s_server_instance_id)"
+          if [[ -z "${K3S_SERVER_INSTANCE_ID}" ]]; then
+            echo "ERROR: k3s_server_instance_id is empty" >&2
+            exit 1
+          fi
+
+          echo "Waiting for SSM instance readiness..."
+          instance_id="${K3S_SERVER_INSTANCE_ID}"
+          max_attempts=12
+          attempt=1
+          sleep_seconds=10
+
+          while [ "${attempt}" -le "${max_attempts}" ]; do
+            state="$(aws ec2 describe-instance-status \
+              --instance-ids "${instance_id}" \
+              --include-all-instances \
+              --query "InstanceStatuses[0].InstanceState.Name" \
+              --output text 2>/dev/null || true)"
+
+            ping="$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=${instance_id}" \
+              --query "InstanceInformationList[0].PingStatus" \
+              --output text 2>/dev/null || true)"
+
+            if [ "${state}" = "running" ] && [ "${ping}" = "Online" ]; then
+              echo "SSM instance is online."
+              break
+            fi
+
+            echo "Waiting for SSM instance readiness (state=${state:-unknown} ping=${ping:-unknown})..."
+            sleep "${sleep_seconds}"
+            attempt=$((attempt + 1))
+            sleep_seconds=$((sleep_seconds + 5))
+          done
+
+          if [ "${attempt}" -gt "${max_attempts}" ]; then
+            echo "SSM instance not ready after ${max_attempts} attempts."
+            exit 1
+          fi
+
+          TS="$(date -u +%Y%m%dT%H%M%SZ)"
+          S3_PREFIX="redis-backups/${TS}"
+          echo "Backup timestamp: ${TS}"
+          echo "Backup destination: s3://${BACKUP_BUCKET}/${S3_PREFIX}/"
+
+          # Stop writes (best effort).
+          params="$(jq -n \
+            --arg c0 "i=0; while [ \\$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
+            --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
+            --arg c2 "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n cloudradar scale deploy/ingester --replicas=0 || true" \
+            '{commands:[$c0,$c1,$c2]}')"
+
+          stop_cmd_id="$(aws ssm send-command \
+            --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "${params}" \
+            --timeout-seconds 300 \
+            --query "Command.CommandId" \
+            --output text)"
+
+          echo "::notice title=SSM::Stop ingester command_id=${stop_cmd_id}"
+          if ! aws ssm wait command-executed --command-id "${stop_cmd_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"; then
+            aws ssm get-command-invocation --command-id "${stop_cmd_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}" || true
+            echo "WARN: Failed to scale ingester to 0; continuing with backup."
+          fi
+
+          # Backup.
+          BACKUP_B64="$(base64 -w0 scripts/redis-backup.sh)"
+          params="$(jq -n \
+            --arg c0 "i=0; while [ \\$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
+            --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
+            --arg c2 "echo '${BACKUP_B64}' | base64 -d > /tmp/redis-backup.sh && chmod +x /tmp/redis-backup.sh" \
+            --arg c3 "/tmp/redis-backup.sh --kubeconfig /etc/rancher/k3s/k3s.yaml --kubectl /usr/local/bin/kubectl --s3-bucket ${BACKUP_BUCKET} --s3-prefix ${S3_PREFIX} --region ${AWS_REGION}" \
+            '{commands:[$c0,$c1,$c2,$c3]}')"
+
+          backup_cmd_id="$(aws ssm send-command \
+            --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "${params}" \
+            --timeout-seconds 900 \
+            --query "Command.CommandId" \
+            --output text)"
+
+          echo "::notice title=SSM::Redis backup command_id=${backup_cmd_id}"
+          if ! aws ssm wait command-executed --command-id "${backup_cmd_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"; then
+            aws ssm get-command-invocation --command-id "${backup_cmd_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}" || true
+            exit 1
+          fi
+
+          # Rotate backups (keep last 3).
+          echo "Rotating Redis backups in s3://${BACKUP_BUCKET}/redis-backups/ (keep last 3)..."
+          mapfile -t prefixes < <(aws s3api list-objects-v2 \
+            --bucket "${BACKUP_BUCKET}" \
+            --prefix "redis-backups/" \
+            --delimiter "/" \
+            --query "CommonPrefixes[].Prefix" \
+            --output text | tr '\t' '\n' | sed '/^$/d' || true)
+
+          if (( ${#prefixes[@]} <= 3 )); then
+            echo "Found ${#prefixes[@]} backups; nothing to rotate."
+            exit 0
+          fi
+
+          mapfile -t sorted < <(printf "%s\n" "${prefixes[@]}" | sort)
+          delete_count=$(( ${#sorted[@]} - 3 ))
+          for ((i=0; i<delete_count; i++)); do
+            echo "Deleting old backup prefix: s3://${BACKUP_BUCKET}/${sorted[$i]}"
+            aws s3 rm "s3://${BACKUP_BUCKET}/${sorted[$i]}" --recursive
+          done
 
       - name: Terraform destroy
         run: terraform -chdir="${TF_DIR}" destroy -input=false -auto-approve -var-file=terraform.tfvars
