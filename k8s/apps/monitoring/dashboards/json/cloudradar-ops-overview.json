@@ -1381,6 +1381,163 @@
       ]
     },
     {
+      "id": 32,
+      "title": "Redis Keys (db0)",
+      "type": "stat",
+      "description": "Number of keys in Redis DB0 (redis-exporter).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Empty"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(redis_db_keys{namespace=\"data\",job=\"redis-exporter\",db=\"db0\"})",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "title": "Redis Ops/s",
+      "type": "gauge",
+      "description": "Redis command throughput (redis-exporter).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 34,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              }
+            }
+          ],
+          "min": 0,
+          "max": 1000,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.01
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(redis_commands_processed_total{namespace=\"data\",job=\"redis-exporter\"}[$__rate_interval]))",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "id": 22,
       "title": "Top Pod Restarts (1h)",
       "type": "table",
@@ -1390,7 +1547,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 34,
+        "y": 40,
         "w": 12,
         "h": 6
       },
@@ -1440,7 +1597,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 34,
+        "y": 40,
         "w": 6,
         "h": 6
       },
@@ -1502,7 +1659,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 34,
+        "y": 40,
         "w": 6,
         "h": 6
       },
@@ -1587,7 +1744,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 46
       },
       "id": 7,
       "options": {
@@ -1628,7 +1785,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 40
+        "y": 46
       },
       "id": 8,
       "options": {
@@ -1667,7 +1824,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 54
       },
       "id": 9,
       "options": {
@@ -1706,7 +1863,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 54
       },
       "id": 10,
       "options": {
@@ -1747,7 +1904,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 56
+        "y": 62
       },
       "id": 11,
       "options": {
@@ -1786,7 +1943,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 56
+        "y": 62
       },
       "id": 12,
       "options": {
@@ -1832,7 +1989,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 64
+        "y": 70
       },
       "id": 13,
       "options": {
@@ -1871,7 +2028,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 64
+        "y": 70
       },
       "id": 14,
       "options": {
