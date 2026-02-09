@@ -13,11 +13,8 @@ on:
       redis_backup_restore:
         description: "Run Redis backup + rotation before destroy (dev only)"
         required: true
-        type: choice
-        default: "yes"
-        options:
-          - yes
-          - no
+        type: boolean
+        default: true
       confirm_destroy:
         description: "Type DESTROY to confirm"
         required: true
@@ -93,7 +90,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ "${{ inputs.redis_backup_restore }}" != "yes" ]]; then
+          if [[ "${{ inputs.redis_backup_restore }}" != "true" ]]; then
             echo "::notice title=Redis backup::redis_backup_restore=${{ inputs.redis_backup_restore }}; skipping Redis backup/rotation."
             exit 0
           fi
