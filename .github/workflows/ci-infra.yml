@@ -18,6 +18,14 @@ on:
         options:
           - dev
           - prod
+      redis_backup_restore:
+        description: "Restore Redis from latest backup after deploy (dev only)"
+        required: true
+        type: choice
+        default: "yes"
+        options:
+          - yes
+          - no
       auto_approve:
         description: "Set to true to run apply"
         required: true
@@ -757,11 +765,199 @@ jobs:
           ARGOCD_APP_PATH: k8s/apps
         run: scripts/bootstrap-argocd-app.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
 
+  redis-restore:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.redis_backup_restore == 'yes' }}
+    runs-on: ubuntu-latest
+    needs:
+      - argocd-apps
+      - tf-outputs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Guard Redis backup bucket (dev only)
+        shell: bash
+        env:
+          K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
+          BACKUP_BUCKET: ${{ env.TF_BACKUP_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${BACKUP_BUCKET}" ]]; then
+            echo "::notice title=Redis restore::TF_BACKUP_BUCKET_NAME not set; skipping Redis restore."
+            echo "SKIP_REDIS_RESTORE=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "SKIP_REDIS_RESTORE=false" >> "$GITHUB_ENV"
+          echo "BACKUP_BUCKET=${BACKUP_BUCKET}" >> "$GITHUB_ENV"
+
+      - name: Find latest Redis backup (dev only)
+        if: ${{ env.SKIP_REDIS_RESTORE != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Looking up latest Redis backup in s3://${BACKUP_BUCKET}/redis-backups/ ..."
+          latest_prefix="$(aws s3api list-objects-v2 \
+            --bucket "${BACKUP_BUCKET}" \
+            --prefix "redis-backups/" \
+            --delimiter "/" \
+            --query "CommonPrefixes[].Prefix" \
+            --output text | tr '\t' '\n' | sed '/^$/d' | sort | tail -n 1 || true)"
+
+          if [[ -z "${latest_prefix}" ]]; then
+            echo "::notice title=Redis restore::No Redis backups found; skipping restore."
+            echo "SKIP_REDIS_RESTORE=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          latest_key="$(aws s3api list-objects-v2 \
+            --bucket "${BACKUP_BUCKET}" \
+            --prefix "${latest_prefix}" \
+            --query "Contents[?ends_with(Key, \`.tgz\`)].Key | [0]" \
+            --output text || true)"
+
+          if [[ -z "${latest_key}" || "${latest_key}" == "None" ]]; then
+            echo "ERROR: Could not find tgz object under prefix: ${latest_prefix}" >&2
+            exit 1
+          fi
+
+          S3_URI="s3://${BACKUP_BUCKET}/${latest_key}"
+          echo "Latest backup: ${S3_URI}"
+          echo "S3_URI=${S3_URI}" >> "$GITHUB_ENV"
+
+      - name: Wait for SSM instance readiness (dev only)
+        if: ${{ env.SKIP_REDIS_RESTORE != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          instance_id="${K3S_SERVER_INSTANCE_ID}"
+          max_attempts=12
+          attempt=1
+          sleep_seconds=10
+
+          while [ "${attempt}" -le "${max_attempts}" ]; do
+            state="$(aws ec2 describe-instance-status \
+              --instance-ids "${instance_id}" \
+              --include-all-instances \
+              --query "InstanceStatuses[0].InstanceState.Name" \
+              --output text 2>/dev/null || true)"
+
+            ping="$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=${instance_id}" \
+              --query "InstanceInformationList[0].PingStatus" \
+              --output text 2>/dev/null || true)"
+
+            if [ "${state}" = "running" ] && [ "${ping}" = "Online" ]; then
+              echo "SSM instance is online."
+              exit 0
+            fi
+
+            echo "Waiting for SSM instance readiness (state=${state:-unknown} ping=${ping:-unknown})..."
+            sleep "${sleep_seconds}"
+            attempt=$((attempt + 1))
+            sleep_seconds=$((sleep_seconds + 5))
+          done
+
+          echo "SSM instance not ready after ${max_attempts} attempts."
+          exit 1
+
+      - name: "SSM: wait Redis Ready (dev only)"
+        if: ${{ env.SKIP_REDIS_RESTORE != 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          params="$(jq -n \
+            --arg c0 "i=0; while [ \\$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
+            --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
+            --arg c2 "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n data rollout status statefulset/redis --timeout=300s" \
+            '{commands:[$c0,$c1,$c2]}')"
+
+          command_id="$(aws ssm send-command \
+            --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "${params}" \
+            --timeout-seconds 600 \
+            --query "Command.CommandId" \
+            --output text)"
+
+          echo "::notice title=SSM::Wait Redis Ready command_id=${command_id}"
+          if ! aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"; then
+            aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}" || true
+            exit 1
+          fi
+
+      - name: "SSM: check Redis /data emptiness (dev only)"
+        if: ${{ env.SKIP_REDIS_RESTORE != 'true' }}
+        id: redis_fresh
+        shell: bash
+        run: |
+          set -euo pipefail
+          params="$(jq -n \
+            --arg c0 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
+            --arg c1 "if sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n data exec statefulset/redis -c redis -- sh -lc 'test -z \"\\$(ls -A /data 2>/dev/null)\"'; then echo \"fresh=true\"; else echo \"fresh=false\"; fi" \
+            '{commands:[$c0,$c1]}')"
+
+          command_id="$(aws ssm send-command \
+            --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "${params}" \
+            --timeout-seconds 120 \
+            --query "Command.CommandId" \
+            --output text)"
+
+          aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"
+          out="$(aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}" --query "StandardOutputContent" --output text || true)"
+          echo "SSM output: ${out}"
+          if echo "${out}" | grep -q "fresh=true"; then
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip restore (Redis not fresh) (dev only)
+        if: ${{ env.SKIP_REDIS_RESTORE != 'true' && steps.redis_fresh.outputs.fresh != 'true' }}
+        run: |
+          echo "::notice title=Redis restore::Redis /data is not empty; skipping restore to avoid data loss."
+
+      - name: "SSM: restore Redis from S3 (dev only)"
+        if: ${{ env.SKIP_REDIS_RESTORE != 'true' && steps.redis_fresh.outputs.fresh == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESTORE_B64="$(base64 -w0 scripts/redis-restore.sh)"
+          params="$(jq -n \
+            --arg c0 "i=0; while [ \\$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
+            --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
+            --arg c2 "echo '${RESTORE_B64}' | base64 -d > /tmp/redis-restore.sh && chmod +x /tmp/redis-restore.sh" \
+            --arg c3 "/tmp/redis-restore.sh --force --s3-uri ${S3_URI} --kubeconfig /etc/rancher/k3s/k3s.yaml --kubectl /usr/local/bin/kubectl --region ${AWS_REGION}" \
+            '{commands:[$c0,$c1,$c2,$c3]}')"
+
+          command_id="$(aws ssm send-command \
+            --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters "${params}" \
+            --timeout-seconds 900 \
+            --query "Command.CommandId" \
+            --output text)"
+
+          echo "::notice title=SSM::Redis restore command_id=${command_id}"
+          if ! aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"; then
+            aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}" || true
+            exit 1
+          fi
+
   smoke-tests:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.run_smoke_tests == 'true' }}
     runs-on: ubuntu-latest
     needs:
       - argocd-apps
+      - redis-restore
       - tf-outputs
     steps:
       - name: Configure AWS credentials

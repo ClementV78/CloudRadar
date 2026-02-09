@@ -21,6 +21,7 @@ Jobs run in CI to validate Terraform safely (no apply):
 ## Manual apply inputs (workflow_dispatch)
 
 - `environment`: target env (`dev` or `prod`).
+- `redis_backup_restore`: when `yes` (default, dev only), restores Redis from the latest backup after apps are bootstrapped.
 - `auto_approve`: must be `true` to run apply.
 - `run_smoke_tests`: when `true`, runs post-apply readiness and health checks (k3s, ArgoCD, healthz).
 - `backup_bucket_name`: optional override for the dev SQLite backup bucket.
@@ -53,7 +54,8 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
 5. `tf-outputs` (dev only): load Terraform outputs for SSM/edge checks.
 6. `k3s-ready-check` (dev): wait for k3s nodes via SSM.
 7. `argocd-bootstrap` (dev): bootstrap ArgoCD via SSM after k3s readiness.
-8. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
+8. `redis-restore` (dev): restore Redis from the latest backup (guarded: only runs when `redis_backup_restore=yes`, and only restores when Redis `/data` is empty).
+9. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
 
 ## Workflow diagram (Mermaid)
 
@@ -77,10 +79,11 @@ flowchart TB
     tf-outputs[tf-outputs]
     k3s-ready-check[k3s-ready-check]
     argocd-bootstrap[argocd-bootstrap]
+    redis-restore[redis-restore]
     smoke-tests[smoke-tests]
 
     env-select --> tf-validate --> tf-plan --> tf-apply --> tf-outputs
-    tf-outputs --> k3s-ready-check --> argocd-bootstrap --> smoke-tests
+    tf-outputs --> k3s-ready-check --> argocd-bootstrap --> redis-restore --> smoke-tests
   end
 
   PR --> Dispatch
@@ -138,6 +141,7 @@ This keeps SSH password auth disabled while allowing Serial Console login.
 Use the dedicated destroy workflow when you need to tear down an environment.
 
 - Select `environment` (`dev` or `prod`).
+- `redis_backup_restore`: when `yes` (default, dev only), backs up Redis to S3 and rotates backups (keeps last 3) before Terraform destroy.
 - Set `confirm_destroy=DESTROY` to allow destruction.
 - Uses the same S3/DynamoDB backend and the OIDC role.
 - The workflow validates the selected root before destroying.
@@ -148,7 +152,7 @@ Use the dedicated destroy workflow when you need to tear down an environment.
 - `AWS_REGION`
 - `TF_STATE_BUCKET`
 - `TF_LOCK_TABLE_NAME`
-- `TF_BACKUP_BUCKET_NAME` (optional, SQLite backups bucket)
+- `TF_BACKUP_BUCKET_NAME` (optional, used for SQLite and Redis backups)
 
 ## Related files
 
