@@ -768,6 +768,9 @@ jobs:
     needs:
       - argocd-apps
       - tf-outputs
+    env:
+      # Required across multiple steps; avoid "unbound variable" with `set -u`.
+      K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -781,7 +784,6 @@ jobs:
       - name: Guard Redis backup bucket (dev only)
         shell: bash
         env:
-          K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
           BACKUP_BUCKET: ${{ env.TF_BACKUP_BUCKET_NAME }}
         run: |
           set -euo pipefail
