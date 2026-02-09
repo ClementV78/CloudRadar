@@ -1431,8 +1431,9 @@
     },
     {
       "id": 23,
-      "title": "Ingest vs Process (events/s)",
-      "type": "timeseries",
+      "title": "Bandwidth (RX/TX) (max)",
+      "type": "bargauge",
+      "description": "Color scale uses a fixed max of 1 Gbps (pre-anomaly signal). This is a dashboard scale, not a guaranteed NIC line rate.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1440,53 +1441,132 @@
       "gridPos": {
         "x": 12,
         "y": 34,
-        "w": 12,
+        "w": 6,
         "h": 6
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "ops",
-          "min": 0
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "mappings": [],
+          "min": 0,
+          "max": 1000000000,
+          "unit": "bps"
         },
         "overrides": []
       },
       "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+        "displayMode": "lcd",
+        "minVizHeight": 10,
+        "minVizWidth": 0,
+        "namePlacement": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "single"
-        }
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(ingester_push_total[5m]))",
-          "legendFormat": "ingester push",
-          "range": true,
+          "expr": "topk(1, (sum by (instance) (rate(node_network_receive_bytes_total{device!~\"lo|cni.*|flannel.*|veth.*|docker.*|kube-ipvs0\"}[5m])) * 8) * on(instance) group_left(node) label_replace(max by (node, internal_ip) (kube_node_info), \"instance\", \"$1:9100\", \"internal_ip\", \"(.*)\"))",
+          "legendFormat": "RX {{node}}",
+          "instant": true,
+          "range": false,
           "refId": "A"
         },
         {
           "editorMode": "code",
-          "expr": "sum(rate(processor_events_processed_total[5m]))",
-          "legendFormat": "processor processed",
-          "range": true,
+          "expr": "topk(1, (sum by (instance) (rate(node_network_transmit_bytes_total{device!~\"lo|cni.*|flannel.*|veth.*|docker.*|kube-ipvs0\"}[5m])) * 8) * on(instance) group_left(node) label_replace(max by (node, internal_ip) (kube_node_info), \"instance\", \"$1:9100\", \"internal_ip\", \"(.*)\"))",
+          "legendFormat": "TX {{node}}",
+          "instant": true,
+          "range": false,
           "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "title": "TCP Retransmits/s (max)",
+      "type": "gauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 34,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              }
+            }
+          ],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "rgba(50, 172, 45, 0.97)"
+              },
+              {
+                "color": "rgba(237, 129, 40, 0.89)",
+                "value": 0.2
+              },
+              {
+                "color": "rgba(245, 54, 54, 0.9)",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "ops"
         },
+        "overrides": []
+      },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(ingester_errors_total[5m]))",
-          "legendFormat": "ingester errors",
-          "range": true,
-          "refId": "C"
-        },
-        {
-          "editorMode": "code",
-          "expr": "sum(rate(processor_events_errors_total[5m]))",
-          "legendFormat": "processor errors",
-          "range": true,
-          "refId": "D"
+          "expr": "topk(1, (max by (instance) (rate(node_netstat_Tcp_RetransSegs[5m])) * on(instance) group_left(node) label_replace(max by (node, internal_ip) (kube_node_info), \"instance\", \"$1:9100\", \"internal_ip\", \"(.*)\")))",
+          "legendFormat": "{{node}}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
         }
       ]
     },
