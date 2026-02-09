@@ -794,7 +794,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max((label_replace(100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"})) * on(instance) group_left(nodename) node_uname_info, \"node\", \"$1\", \"nodename\", \"(.*)\")) and on(node) (max by (node) (kube_node_spec_taint{key=~\"node-role.kubernetes.io/control-plane|node-role.kubernetes.io.master|node-role.kubernetes.io/master\"} or kube_node_role{role=~\"control-plane|master\"} or kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} or kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})))",
+          "expr": "topk(1, ((max by (instance) (100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"}))) * on(instance) group_left(node) label_replace(max by (node, internal_ip) (kube_node_info), \"instance\", \"$1:9100\", \"internal_ip\", \"(.*)\")) and on(node) (max by (node) (kube_node_spec_taint{key=~\"node-role.kubernetes.io/control-plane|node-role.kubernetes.io.master\"} or kube_node_role{role=~\"control-plane|master\"} or kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} or kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))))",
+          "legendFormat": "{{node}}",
           "instant": true,
           "range": false,
           "refId": "A"
@@ -872,7 +873,8 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max((label_replace(100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"})) * on(instance) group_left(nodename) node_uname_info, \"node\", \"$1\", \"nodename\", \"(.*)\")) and on(node) ((kube_node_info unless on(node) (max by (node) (kube_node_spec_taint{key=~\"node-role.kubernetes.io/control-plane|node-role.kubernetes.io.master|node-role.kubernetes.io/master\"} or kube_node_role{role=~\"control-plane|master\"} or kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} or kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})))))",
+          "expr": "topk(1, ((max by (instance) (100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"}))) * on(instance) group_left(node) label_replace(max by (node, internal_ip) (kube_node_info), \"instance\", \"$1:9100\", \"internal_ip\", \"(.*)\")) and on(node) (kube_node_info unless on(node) (max by (node) (kube_node_spec_taint{key=~\"node-role.kubernetes.io/control-plane|node-role.kubernetes.io.master\"} or kube_node_role{role=~\"control-plane|master\"} or kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} or kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})))))",
+          "legendFormat": "{{node}}",
           "instant": true,
           "range": false,
           "refId": "A"
@@ -880,9 +882,9 @@
       ]
     },
     {
-      "id": 26,
-      "title": "Top Nodes Root FS Used (%)",
-      "type": "bargauge",
+      "id": 29,
+      "title": "Control Plane Disk Pressure (CPU iowait%) (max)",
+      "type": "gauge",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -890,27 +892,52 @@
       "gridPos": {
         "x": 12,
         "y": 16,
-        "w": 12,
+        "w": 6,
         "h": 6
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-GrYlRd"
+            "mode": "thresholds"
           },
-          "mappings": [],
+          "decimals": 1,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              }
+            }
+          ],
           "min": 0,
           "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "rgba(50, 172, 45, 0.97)"
+              },
+              {
+                "color": "rgba(237, 129, 40, 0.89)",
+                "value": 5
+              },
+              {
+                "color": "rgba(245, 54, 54, 0.9)",
+                "value": 15
+              }
+            ]
+          },
           "unit": "percent"
         },
         "overrides": []
       },
       "options": {
-        "displayMode": "lcd",
-        "minVizHeight": 10,
-        "minVizWidth": 0,
-        "namePlacement": "auto",
-        "orientation": "horizontal",
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -918,14 +945,93 @@
           "fields": "",
           "values": false
         },
-        "showUnfilled": true,
-        "sizing": "auto",
-        "valueMode": "color"
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
       },
       "targets": [
         {
           "editorMode": "code",
-          "expr": "topk(6, label_replace(100 * (1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\",mountpoint=\"/\"})) * on(instance) group_left(nodename) node_uname_info, \"node\", \"$1\", \"nodename\", \"(.*)\"))",
+          "expr": "topk(1, (((100 * sum by (instance) (rate(node_cpu_seconds_total{mode=\"iowait\"}[5m])) / clamp_min(sum by (instance) (rate(node_cpu_seconds_total[5m])), 1e-09)) * on(instance) group_left(node) label_replace(max by (node, internal_ip) (kube_node_info), \"instance\", \"$1:9100\", \"internal_ip\", \"(.*)\")) and on(node) (max by (node) (kube_node_spec_taint{key=~\"node-role.kubernetes.io/control-plane|node-role.kubernetes.io.master\"} or kube_node_role{role=~\"control-plane|master\"} or kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} or kube_node_labels{label_node_role_kubernetes_io_master=\"true\"}))))",
+          "legendFormat": "{{node}}",
+          "instant": true,
+          "range": false,
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "title": "Workers Disk Pressure (CPU iowait%) (max)",
+      "type": "gauge",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 16,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "N/A"
+                }
+              }
+            }
+          ],
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "rgba(50, 172, 45, 0.97)"
+              },
+              {
+                "color": "rgba(237, 129, 40, 0.89)",
+                "value": 5
+              },
+              {
+                "color": "rgba(245, 54, 54, 0.9)",
+                "value": 15
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "topk(1, (((100 * sum by (instance) (rate(node_cpu_seconds_total{mode=\"iowait\"}[5m])) / clamp_min(sum by (instance) (rate(node_cpu_seconds_total[5m])), 1e-09)) * on(instance) group_left(node) label_replace(max by (node, internal_ip) (kube_node_info), \"instance\", \"$1:9100\", \"internal_ip\", \"(.*)\")) and on(node) (kube_node_info unless on(node) (max by (node) (kube_node_spec_taint{key=~\"node-role.kubernetes.io/control-plane|node-role.kubernetes.io.master\"} or kube_node_role{role=~\"control-plane|master\"} or kube_node_labels{label_node_role_kubernetes_io_control_plane=\"true\"} or kube_node_labels{label_node_role_kubernetes_io_master=\"true\"})))))",
           "legendFormat": "{{node}}",
           "instant": true,
           "range": false,
