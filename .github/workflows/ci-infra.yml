@@ -872,7 +872,7 @@ jobs:
         run: |
           set -euo pipefail
           params="$(jq -n \
-            --arg c0 "i=0; while [ \\$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
+            --arg c0 'i=0; while [ $i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo "Waiting for kubectl..."; sleep 10; i=$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo "kubectl not found after 300s"; exit 1; fi' \
             --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
             --arg c2 "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n data rollout status statefulset/redis --timeout=300s" \
             '{commands:[$c0,$c1,$c2]}')"
@@ -899,7 +899,7 @@ jobs:
           set -euo pipefail
           params="$(jq -n \
             --arg c0 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
-            --arg c1 "if sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n data exec statefulset/redis -c redis -- sh -lc 'test -z \"\\$(ls -A /data 2>/dev/null)\"'; then echo \"fresh=true\"; else echo \"fresh=false\"; fi" \
+            --arg c1 'if sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n data exec statefulset/redis -c redis -- sh -lc "test -z \"$(ls -A /data 2>/dev/null)\""; then echo "fresh=true"; else echo "fresh=false"; fi' \
             '{commands:[$c0,$c1]}')"
 
           command_id="$(aws ssm send-command \
@@ -931,7 +931,7 @@ jobs:
           set -euo pipefail
           RESTORE_B64="$(base64 -w0 scripts/redis-restore.sh)"
           params="$(jq -n \
-            --arg c0 "i=0; while [ \\$i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 300s\"; exit 1; fi" \
+            --arg c0 'i=0; while [ $i -lt 30 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo "Waiting for kubectl..."; sleep 10; i=$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo "kubectl not found after 300s"; exit 1; fi' \
             --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
             --arg c2 "echo '${RESTORE_B64}' | base64 -d > /tmp/redis-restore.sh && chmod +x /tmp/redis-restore.sh" \
             --arg c3 "/tmp/redis-restore.sh --force --s3-uri ${S3_URI} --kubeconfig /etc/rancher/k3s/k3s.yaml --kubectl /usr/local/bin/kubectl --region ${AWS_REGION}" \
