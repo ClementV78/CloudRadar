@@ -2,6 +2,16 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-09
+
+### [ci/infra] ci-infra-destroy failed (unbound variable in Redis backup step)
+- **Severity:** High
+- **Impact:** `ci-infra-destroy` failed before destroy, so infra teardown was blocked.
+- **Signal:** `/home/runner/...sh: line 64: i: unbound variable` in step `Backup Redis + rotate (dev only)`.
+- **Analysis:** The workflow step runs with `set -u` and builds SSM command payloads via `jq --arg`. A `$i` loop inside the payload was expanded on the runner instead of on the instance.
+- **Resolution:** Pass the `$i` loop payload via single quotes to prevent runner expansion (SSM executes it on the instance).
+- **Refs:** issue #369
+
 ## 2026-02-08
 
 ### [infra/dns] Terraform apply failed creating Route 53 records (record already exists)
