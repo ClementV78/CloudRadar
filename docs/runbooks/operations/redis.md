@@ -24,3 +24,23 @@ kubectl -n data get svc redis
 - Resources are capped for MVP (requests: 50m/128Mi, limits: 250m/256Mi).
 - Service DNS inside the cluster: `redis.data.svc.cluster.local:6379`.
 - For MVP, no authentication is enabled (internal-only access via ClusterIP).
+
+## Backup & Restore (scripts)
+
+Backup (creates a `.tgz` + `.sha256`, optional S3 upload):
+```bash
+scripts/redis-backup.sh --s3-bucket cloudradar-dev-<account-id>-sqlite-backups
+```
+
+Restore (from local file):
+```bash
+scripts/redis-restore.sh --force --archive /tmp/cloudradar-redis-data-<ts>.tgz --sha256 /tmp/cloudradar-redis-data-<ts>.tgz.sha256
+```
+
+Restore (from S3):
+```bash
+scripts/redis-restore.sh --force --s3-uri s3://cloudradar-dev-<account-id>-sqlite-backups/redis-backups/<ts>/cloudradar-redis-data-<ts>.tgz
+```
+
+Notes:
+- Restore wipes Redis `/data` before copying files. `--force` is required to acknowledge this data loss risk.
