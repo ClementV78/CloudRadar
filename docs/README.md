@@ -116,6 +116,7 @@ Quick reference to all Architecture Decision Records (decisions/):
 | [ADR-0016](architecture/decisions/ADR-0016-2026-01-29-external-secrets-operator.md) | 2026-01-29 | External Secrets Operator | SSM to K8s secrets sync |
 | [ADR-0017](architecture/decisions/ADR-0017-2026-02-07-cloudwatch-datasource-for-aws-native-signals.md) | 2026-02-07 | CloudWatch datasource for AWS-native signals | AWS metrics + VPC Flow Logs |
 | [ADR-0018](architecture/decisions/ADR-0018-2026-02-10-reference-aircraft-database-distribution.md) | 2026-02-10 | Reference aircraft database distribution | S3 artifact + local SQLite lookups |
+| [ADR-0019](architecture/decisions/ADR-0019-2026-02-10-aircraft-metadata-enrichment-for-ui.md) | 2026-02-10 | Aircraft metadata enrichment for UI | On-the-fly lookups + in-process cache |
 
 **⚠️ Note**: There are two ADR-0016 entries due to historical numbering; keep both for stable links.
 
