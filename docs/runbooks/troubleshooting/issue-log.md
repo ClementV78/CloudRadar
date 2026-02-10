@@ -22,6 +22,14 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Resolution:** Pin a concrete Docker Hub AWS CLI tag, e.g. `amazon/aws-cli:<major.minor.patch>`, in `k8s/apps/processor/deployment.yaml`.
 - **Refs:** issue #377, PR #378, issue #379
 
+### [ci/k8s] Processor ran an outdated image tag (GHCR tag drift)
+- **Severity:** Medium
+- **Impact:** Cluster was running `processor:0.1.4` even after code changes were merged, leading to confusion (digest mismatch vs `sha-<commit>` builds).
+- **Signal:** K8s `imageID` digest did not match the latest `sha-<commit>` image published for the same code revision.
+- **Analysis:** `.github/workflows/build-and-push.yml` publishes `main/latest/sha-*` tags on `push` to `main`, but semver-like tags (e.g. `0.1.4`) are only published on git tags (`v*`). Manifests pinned `:0.1.4`, so the cluster could stay on an older image even while newer images existed.
+- **Resolution:** Introduce a repo `VERSION` file and publish `:<VERSION>` tags on `main` pushes; bump manifests to the new version when code changes are merged.
+- **Refs:** issue #381
+
 ## 2026-02-08
 
 ### [infra/dns] Terraform apply failed creating Route 53 records (record already exists)
