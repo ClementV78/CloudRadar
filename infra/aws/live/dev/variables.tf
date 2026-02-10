@@ -111,6 +111,12 @@ variable "sqlite_backup_bucket_name" {
   default     = null
 }
 
+variable "aircraft_reference_bucket_name" {
+  description = "Optional aircraft reference data bucket name (created by bootstrap)."
+  type        = string
+  default     = null
+}
+
 variable "edge_instance_type" {
   description = "Instance type for the edge EC2 instance."
   type        = string

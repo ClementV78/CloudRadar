@@ -18,6 +18,16 @@ output "backup_bucket_arn" {
   description = "SQLite backup bucket ARN (if created)."
 }
 
+output "aircraft_reference_bucket_name" {
+  value       = var.aircraft_reference_bucket_name != null && var.aircraft_reference_bucket_name != "" ? module.aircraft_reference[0].bucket_name : null
+  description = "Aircraft reference data bucket name (if created)."
+}
+
+output "aircraft_reference_bucket_arn" {
+  value       = var.aircraft_reference_bucket_name != null && var.aircraft_reference_bucket_name != "" ? module.aircraft_reference[0].bucket_arn : null
+  description = "Aircraft reference data bucket ARN (if created)."
+}
+
 output "dns_zone_id" {
   value       = try(aws_route53_zone.cloudradar[0].zone_id, "")
   description = "Route53 hosted zone ID for delegated subdomain (if created)."

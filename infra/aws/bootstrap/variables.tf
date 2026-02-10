@@ -21,6 +21,12 @@ variable "backup_bucket_name" {
   default     = null
 }
 
+variable "aircraft_reference_bucket_name" {
+  type        = string
+  description = "Optional S3 bucket name for aircraft reference data artifacts."
+  default     = null
+}
+
 variable "dns_zone_name" {
   type        = string
   description = "Optional Route53 hosted zone name for delegated subdomain (e.g., cloudradar.example.com)."

@@ -85,6 +85,12 @@ variable "backup_bucket_name" {
   default     = null
 }
 
+variable "aircraft_reference_bucket_name" {
+  description = "Optional S3 bucket name for aircraft reference data artifacts."
+  type        = string
+  default     = null
+}
+
 variable "enable_grafana_cloudwatch_read" {
   description = "Whether to grant the node instance role read-only access to CloudWatch metrics/logs (used by Grafana CloudWatch datasource)."
   type        = bool

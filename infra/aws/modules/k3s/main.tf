@@ -1,8 +1,9 @@
 locals {
-  server_subnet_id  = var.k3s_server_subnet_id != null ? var.k3s_server_subnet_id : var.private_subnet_ids[0]
-  server_args       = length(var.k3s_server_extra_args) > 0 ? " ${join(" ", var.k3s_server_extra_args)}" : ""
-  agent_args        = length(var.k3s_agent_extra_args) > 0 ? " ${join(" ", var.k3s_agent_extra_args)}" : ""
-  backup_bucket_arn = var.backup_bucket_name != null ? "arn:aws:s3:::${var.backup_bucket_name}" : null
+  server_subnet_id              = var.k3s_server_subnet_id != null ? var.k3s_server_subnet_id : var.private_subnet_ids[0]
+  server_args                   = length(var.k3s_server_extra_args) > 0 ? " ${join(" ", var.k3s_server_extra_args)}" : ""
+  agent_args                    = length(var.k3s_agent_extra_args) > 0 ? " ${join(" ", var.k3s_agent_extra_args)}" : ""
+  backup_bucket_arn             = var.backup_bucket_name != null ? "arn:aws:s3:::${var.backup_bucket_name}" : null
+  aircraft_reference_bucket_arn = var.aircraft_reference_bucket_name != null ? "arn:aws:s3:::${var.aircraft_reference_bucket_name}" : null
 }
 
 data "aws_caller_identity" "current" {}
@@ -160,6 +161,38 @@ resource "aws_iam_role_policy_attachment" "backup_bucket" {
 
   role       = aws_iam_role.k3s_nodes.name
   policy_arn = aws_iam_policy.backup_bucket[0].arn
+}
+
+data "aws_iam_policy_document" "aircraft_reference_bucket_read" {
+  count = var.aircraft_reference_bucket_name != null ? 1 : 0
+
+  statement {
+    actions = [
+      "s3:GetBucketLocation",
+      "s3:GetObject",
+      "s3:ListBucket"
+    ]
+
+    resources = [
+      local.aircraft_reference_bucket_arn,
+      "${local.aircraft_reference_bucket_arn}/*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "aircraft_reference_bucket_read" {
+  count = var.aircraft_reference_bucket_name != null ? 1 : 0
+
+  name_prefix = "${var.name}-aircraft-refdata-"
+  policy      = data.aws_iam_policy_document.aircraft_reference_bucket_read[0].json
+  tags        = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "aircraft_reference_bucket_read" {
+  count = var.aircraft_reference_bucket_name != null ? 1 : 0
+
+  role       = aws_iam_role.k3s_nodes.name
+  policy_arn = aws_iam_policy.aircraft_reference_bucket_read[0].arn
 }
 
 data "aws_iam_policy_document" "grafana_cloudwatch_read" {

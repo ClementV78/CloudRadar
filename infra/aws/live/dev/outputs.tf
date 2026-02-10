@@ -98,6 +98,16 @@ output "sqlite_backup_bucket_arn" {
   value       = "arn:aws:s3:::${local.sqlite_backup_bucket_name}"
 }
 
+output "aircraft_reference_bucket_name" {
+  description = "S3 bucket name for aircraft reference data artifacts."
+  value       = local.aircraft_reference_bucket_name
+}
+
+output "aircraft_reference_bucket_arn" {
+  description = "S3 bucket ARN for aircraft reference data artifacts."
+  value       = "arn:aws:s3:::${local.aircraft_reference_bucket_name}"
+}
+
 output "dns_zone_id" {
   description = "Route53 hosted zone ID for delegated subdomain (if enabled)."
   value       = try(data.aws_route53_zone.cloudradar[0].zone_id, "")
