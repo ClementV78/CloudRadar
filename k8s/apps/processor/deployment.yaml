@@ -63,7 +63,7 @@ spec:
               mountPath: /refdata
       containers:
         - name: processor
-          image: ghcr.io/clementv78/cloudradar/processor:0.1.4
+          image: ghcr.io/clementv78/cloudradar/processor:0.1.5
           imagePullPolicy: IfNotPresent
           env:
             - name: REDIS_HOST

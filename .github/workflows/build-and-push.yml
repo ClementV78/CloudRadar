@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'src/**'
+      - 'VERSION'
       - '.github/workflows/build-and-push.yml'
       - 'Dockerfile*'
       - '.dockerignore'
@@ -16,6 +17,7 @@ on:
       - main
     paths:
       - 'src/**'
+      - 'VERSION'
       - '.github/workflows/build-and-push.yml'
       - 'Dockerfile*'
       - '.dockerignore'
@@ -46,6 +48,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Load VERSION
+        run: |
+          set -euo pipefail
+          APP_VERSION="$(tr -d ' \t\r\n' < VERSION)"
+          echo "APP_VERSION=${APP_VERSION}" >> "$GITHUB_ENV"
+
       - name: Set lowercase repository name
         run: echo "REPO_LOWER=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
@@ -70,6 +78,7 @@ jobs:
             type=ref,event=branch
             type=sha
             type=semver,pattern={{version}}
+            type=raw,value=${{ env.APP_VERSION }},enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push
