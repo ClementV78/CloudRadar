@@ -26,6 +26,7 @@ flowchart TB
     DDB["DynamoDB lock table\n(lock_table_name / TF_LOCK_TABLE_NAME)"]
 
     BK["S3 bucket (SQLite backups, optional)"]
+    AR["S3 bucket (Aircraft reference data, optional)"]
     R53["Route53 hosted zone (optional)"]
   end
 
@@ -33,6 +34,7 @@ flowchart TB
   TF --> S3
   TF --> DDB
   TF --> BK
+  TF --> AR
   TF --> R53
 ```
 
@@ -106,12 +108,13 @@ terraform -chdir=infra/aws/live/dev init -backend-config=backend.hcl
 - Confirm S3 bucket exists and has versioning/encryption enabled.
 - Confirm DynamoDB table `cloudradar-tf-lock` exists in `us-east-1`.
 - If provided: confirm SQLite backup bucket exists.
+- If provided: confirm aircraft reference bucket exists.
 - If provided: confirm Route53 hosted zone exists and name servers are returned in outputs.
 - Confirm workflow run succeeded in GitHub Actions.
 
 ## Notes
 - This workflow uses a local backend and does not depend on existing remote state.
-- The workflow imports existing resources (state bucket, lock table, optional backup bucket, optional hosted zone) when they already exist, so it can be rerun safely.
+- The workflow imports existing resources (state bucket, lock table, optional backup bucket, optional aircraft reference bucket, optional hosted zone) when they already exist, so it can be rerun safely.
 - Remote backend usage is configured in CI (see example `terraform init` commands above) and optionally locally via `backend.hcl`.
 
 ## State Persistence (Recommended)
