@@ -20,8 +20,10 @@ spec:
         runAsUser: 10001
       initContainers:
         - name: aircraft-db-download
-          # ECR Public image; `amazon/aws-cli:2` on Docker Hub is not available.
-          image: public.ecr.aws/aws-cli/aws-cli:2
+          # Docker Hub `amazon/aws-cli` does not provide a major-only tag (e.g. `:2`).
+          # Pin a concrete version tag to avoid ImagePullBackOff.
+          # Verified available via `crictl pull` on the k3s node.
+          image: amazon/aws-cli:2.33.18
           imagePullPolicy: IfNotPresent
           command:
             - sh
