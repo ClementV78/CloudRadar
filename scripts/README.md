@@ -30,3 +30,18 @@ scripts/bootstrap-prometheus-crds.sh <instance-id> us-east-1
 
 Notes:
 - Overrides: `PROMETHEUS_CRD_REPO`, `PROMETHEUS_CRD_REVISION`, `PROMETHEUS_CRD_DIR`, `PROMETHEUS_CRD_TIMEOUT`.
+
+## build-aircraft-sqlite.py
+
+Builds a lightweight aircraft reference database (`aircraft.db`) from a large CSV dataset.
+
+This is intended for local/offline use. Do not commit the raw CSV nor the generated SQLite file.
+
+Usage:
+
+```bash
+python3 scripts/build-aircraft-sqlite.py \
+  --input .local/.tmp/aircraft-database-complete-2025-08.csv \
+  --output .local/.tmp/aircraft.db \
+  --drop-existing
+```

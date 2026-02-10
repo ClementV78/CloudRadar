@@ -66,6 +66,9 @@ mvn -q spring-boot:run
 ## Optional env overrides
 - `PROCESSOR_POLL_TIMEOUT_SECONDS` (default: 2)
 - `PROCESSOR_TRACK_LENGTH` (default: 180)
+- `PROCESSOR_AIRCRAFT_DB_ENABLED` (default: false)
+- `PROCESSOR_AIRCRAFT_DB_PATH` (default: empty)
+- `PROCESSOR_AIRCRAFT_DB_CACHE_SIZE` (default: 50000)
 - `PROCESSOR_REDIS_INPUT_KEY` (default: `cloudradar:ingest:queue`)
 - `PROCESSOR_LAST_POSITIONS_KEY` (default: `cloudradar:aircraft:last`)
 - `PROCESSOR_TRACK_KEY_PREFIX` (default: `cloudradar:aircraft:track:`)
@@ -84,6 +87,8 @@ Key processor metrics exposed at `/metrics/prometheus`:
 - `processor_events_errors_total` — total processing errors.
 - `processor_bbox_count` — current count of aircraft inside the bbox.
 - `processor_last_processed_epoch` — Unix epoch (seconds) of last processed event.
+- `processor_queue_depth` — current Redis ingestion queue depth (LLEN).
+- `processor_aircraft_category_events_total{category=...}` — events per aircraft category (requires aircraft DB enabled).
 
 Example (local port-forward):
 

@@ -56,6 +56,14 @@ module "sqlite_backups" {
   tags = var.tags
 }
 
+module "aircraft_reference" {
+  count  = var.aircraft_reference_bucket_name != null && var.aircraft_reference_bucket_name != "" ? 1 : 0
+  source = "../modules/backup-bucket"
+
+  name = var.aircraft_reference_bucket_name
+  tags = var.tags
+}
+
 resource "aws_route53_zone" "cloudradar" {
   count = local.dns_zone_name == "" ? 0 : 1
 

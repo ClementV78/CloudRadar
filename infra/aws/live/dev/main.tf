@@ -38,7 +38,8 @@ locals {
   // for_each only accepts sets of strings, so stringify ports for iteration.
   edge_nodeport_port_keys = toset([for port in local.edge_nodeport_ports : tostring(port)])
 
-  sqlite_backup_bucket_name = var.sqlite_backup_bucket_name != null ? var.sqlite_backup_bucket_name : "${var.project}-${var.environment}-${data.aws_caller_identity.current.account_id}-sqlite-backups"
+  sqlite_backup_bucket_name      = var.sqlite_backup_bucket_name != null ? var.sqlite_backup_bucket_name : "${var.project}-${var.environment}-${data.aws_caller_identity.current.account_id}-sqlite-backups"
+  aircraft_reference_bucket_name = var.aircraft_reference_bucket_name != null ? var.aircraft_reference_bucket_name : "${var.project}-${var.environment}-${data.aws_caller_identity.current.account_id}-reference-data"
 }
 
 data "aws_prefix_list" "s3" {
@@ -91,6 +92,7 @@ module "k3s" {
   serial_console_password_hash   = var.k3s_server_serial_console_password_hash
   enable_ebs_csi_policy          = true
   backup_bucket_name             = local.sqlite_backup_bucket_name
+  aircraft_reference_bucket_name = local.aircraft_reference_bucket_name
   enable_grafana_cloudwatch_read = var.enable_grafana_cloudwatch_read
   tags                           = local.tags
 }
