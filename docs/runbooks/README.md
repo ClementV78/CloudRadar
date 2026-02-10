@@ -20,7 +20,7 @@ Purpose: establish IAM baseline, MFA, budgets, and the GitHub OIDC provider + Te
 
 Purpose: create the S3 bucket and DynamoDB table used by Terraform state and locking.
 
-- Runbook: `docs/runbooks/terraform-backend-bootstrap.md`
+- Runbook: `docs/runbooks/bootstrap/terraform-backend-bootstrap.md`
 
 ## 2.1) CI workflow reference (recommended)
 

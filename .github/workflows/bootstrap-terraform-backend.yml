@@ -17,6 +17,9 @@ on:
       backup_bucket_name:
         description: "Optional S3 bucket name for SQLite backups"
         required: false
+      aircraft_reference_bucket_name:
+        description: "Optional S3 bucket name for aircraft reference data artifacts"
+        required: false
       dns_zone_name:
         description: "Optional Route53 hosted zone name for delegated subdomain (e.g., cloudradar.example.com)"
         required: false
@@ -55,6 +58,7 @@ jobs:
           STATE_BUCKET="${{ inputs.state_bucket_name || vars.TF_STATE_BUCKET }}"
           LOCK_TABLE="${{ inputs.lock_table_name || vars.TF_LOCK_TABLE_NAME }}"
           BACKUP_BUCKET="${{ inputs.backup_bucket_name || vars.TF_BACKUP_BUCKET_NAME }}"
+          AIRCRAFT_REFERENCE_BUCKET="${{ inputs.aircraft_reference_bucket_name || vars.TF_AIRCRAFT_REFERENCE_BUCKET_NAME }}"
           DNS_ZONE_NAME="${{ inputs.dns_zone_name || vars.DNS_ZONE_NAME }}"
 
           {
@@ -72,6 +76,13 @@ jobs:
             } >> "${GITHUB_ENV}"
           fi
 
+          if [[ -n "${AIRCRAFT_REFERENCE_BUCKET}" ]]; then
+            {
+              echo "AIRCRAFT_REFERENCE_BUCKET=${AIRCRAFT_REFERENCE_BUCKET}"
+              echo "TF_VAR_aircraft_reference_bucket_name=${AIRCRAFT_REFERENCE_BUCKET}"
+            } >> "${GITHUB_ENV}"
+          fi
+
           if [[ -n "${DNS_ZONE_NAME}" ]]; then
             {
               echo "DNS_ZONE_NAME=${DNS_ZONE_NAME}"
@@ -85,6 +96,7 @@ jobs:
           STATE_BUCKET="${STATE_BUCKET}"
           LOCK_TABLE="${LOCK_TABLE}"
           BACKUP_BUCKET="${BACKUP_BUCKET:-}"
+          AIRCRAFT_REFERENCE_BUCKET="${AIRCRAFT_REFERENCE_BUCKET:-}"
           DNS_ZONE_NAME="${DNS_ZONE_NAME:-}"
 
           if aws s3api head-bucket --bucket "${STATE_BUCKET}" >/dev/null 2>&1; then
@@ -105,6 +117,13 @@ jobs:
             terraform -chdir=infra/aws/bootstrap import module.sqlite_backups[0].aws_s3_bucket_public_access_block.this "${BACKUP_BUCKET}"
           fi
 
+          if [[ -n "${AIRCRAFT_REFERENCE_BUCKET}" ]] && aws s3api head-bucket --bucket "${AIRCRAFT_REFERENCE_BUCKET}" >/dev/null 2>&1; then
+            terraform -chdir=infra/aws/bootstrap import module.aircraft_reference[0].aws_s3_bucket.this "${AIRCRAFT_REFERENCE_BUCKET}"
+            terraform -chdir=infra/aws/bootstrap import module.aircraft_reference[0].aws_s3_bucket_versioning.this "${AIRCRAFT_REFERENCE_BUCKET}"
+            terraform -chdir=infra/aws/bootstrap import module.aircraft_reference[0].aws_s3_bucket_server_side_encryption_configuration.this "${AIRCRAFT_REFERENCE_BUCKET}"
+            terraform -chdir=infra/aws/bootstrap import module.aircraft_reference[0].aws_s3_bucket_public_access_block.this "${AIRCRAFT_REFERENCE_BUCKET}"
+          fi
+
           if [[ -n "${DNS_ZONE_NAME}" ]]; then
             # Import the hosted zone by name when it already exists, so reruns are safe.
             ZONE_ID="$(aws route53 list-hosted-zones-by-name \
@@ -121,6 +140,7 @@ jobs:
         run: |
           # Use local backend on runner to avoid a chicken-and-egg dependency.
           BACKUP_BUCKET="${BACKUP_BUCKET:-}"
+          AIRCRAFT_REFERENCE_BUCKET="${AIRCRAFT_REFERENCE_BUCKET:-}"
           DNS_ZONE_NAME="${DNS_ZONE_NAME:-}"
 
           APPLY_ARGS=(
@@ -131,6 +151,10 @@ jobs:
 
           if [[ -n "${BACKUP_BUCKET}" ]]; then
             APPLY_ARGS+=("-var=backup_bucket_name=${BACKUP_BUCKET}")
+          fi
+
+          if [[ -n "${AIRCRAFT_REFERENCE_BUCKET}" ]]; then
+            APPLY_ARGS+=("-var=aircraft_reference_bucket_name=${AIRCRAFT_REFERENCE_BUCKET}")
           fi
 
           if [[ -n "${DNS_ZONE_NAME}" ]]; then

@@ -6,6 +6,7 @@ using a temporary local Terraform state.
 
 Optionally, it can also create:
 - an S3 bucket for SQLite backups
+- an S3 bucket for aircraft reference data artifacts
 - a Route53 hosted zone for DNS delegation
 
 ## Architecture (Bootstrap Stack)
@@ -42,6 +43,7 @@ flowchart TB
   - `AWS_REGION` (default for workflow)
   - `TF_LOCK_TABLE_NAME` (default for workflow)
   - `TF_BACKUP_BUCKET_NAME` (optional default for SQLite backups)
+  - `TF_AIRCRAFT_REFERENCE_BUCKET_NAME` (optional default for aircraft reference data artifacts)
   - `DNS_ZONE_NAME` (optional, delegated subdomain hosted zone name; keep real values out of the repo)
 
 ## Run
@@ -50,6 +52,7 @@ flowchart TB
    - `state_bucket_name` (globally unique)
    - `lock_table_name` (prefilled from `TF_LOCK_TABLE_NAME`)
    - `backup_bucket_name` (optional, SQLite backups bucket)
+   - `aircraft_reference_bucket_name` (optional, aircraft reference data bucket)
    - `dns_zone_name` (optional, delegated subdomain hosted zone name)
    - `region` (prefilled from `AWS_REGION`)
 
@@ -64,6 +67,7 @@ gh workflow run bootstrap-terraform-backend \
   -f state_bucket_name=cloudradar-tfstate-<account-id> \
   -f lock_table_name=cloudradar-tf-lock \
   -f backup_bucket_name=cloudradar-dev-<account-id>-sqlite-backups \
+  -f aircraft_reference_bucket_name=cloudradar-dev-<account-id>-aircraft-db \
   -f dns_zone_name=cloudradar.example.com
 ```
 
@@ -71,6 +75,7 @@ gh workflow run bootstrap-terraform-backend \
 - S3 state bucket created with versioning, encryption, public access blocked.
 - DynamoDB lock table created (PAY_PER_REQUEST).
 - SQLite backup bucket created (if `backup_bucket_name` provided).
+- Aircraft reference bucket created (if `aircraft_reference_bucket_name` provided).
 - Route53 hosted zone created (if `dns_zone_name` provided).
 
 ## Remote backend configuration (post-bootstrap)
@@ -108,6 +113,28 @@ terraform -chdir=infra/aws/live/dev init -backend-config=backend.hcl
 - This workflow uses a local backend and does not depend on existing remote state.
 - The workflow imports existing resources (state bucket, lock table, optional backup bucket, optional hosted zone) when they already exist, so it can be rerun safely.
 - Remote backend usage is configured in CI (see example `terraform init` commands above) and optionally locally via `backend.hcl`.
+
+## State Persistence (Recommended)
+This workflow intentionally uses a local Terraform backend on the GitHub Actions runner to avoid a chicken-and-egg dependency.
+However, the runner state file is ephemeral.
+
+To avoid losing the bootstrap Terraform state, migrate it to the remote backend after the bootstrap resources exist.
+
+Example (local):
+1) Import existing resources (if needed), then migrate:
+```bash
+cd infra/aws/bootstrap
+
+cat > /tmp/bootstrap-backend.hcl <<'HCL'
+bucket         = "cloudradar-tfstate-<account-id>"
+key            = "bootstrap/terraform.tfstate"
+region         = "us-east-1"
+dynamodb_table = "cloudradar-tf-lock"
+encrypt        = true
+HCL
+
+terraform init -backend-config=/tmp/bootstrap-backend.hcl -migrate-state
+```
 
 ## Related issues
 - #33
