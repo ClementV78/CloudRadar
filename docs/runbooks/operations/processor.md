@@ -26,6 +26,36 @@ curl -s http://localhost:8080/metrics/prometheus | head -n 20
 - Short track per aircraft: `cloudradar:aircraft:track:<icao24>` (list, newest first).
 - Aircraft inside bbox: `cloudradar:aircraft:in_bbox` (set).
 
+## Aircraft reference DB (optional)
+The processor can optionally enrich events using a local SQLite reference database built from an external ICAO24 dataset.
+
+### Build the SQLite artifact (local)
+```bash
+python3 scripts/build-aircraft-sqlite.py \
+  --input /path/to/aircraft-database.csv \
+  --output /tmp/aircraft.db \
+  --drop-existing
+```
+
+### Upload the artifact (S3)
+Upload the generated `aircraft.db` to your reference bucket (versioned path recommended), for example:
+`s3://<reference-bucket>/aircraft-db/<version>/aircraft.db`
+
+### Enable in Kubernetes
+In `k8s/apps/processor/deployment.yaml`:
+- Set initContainer env:
+  - `AIRCRAFT_DB_S3_URI` to the S3 URI
+  - optionally `AIRCRAFT_DB_SHA256` for integrity verification
+- Set processor env:
+  - `PROCESSOR_AIRCRAFT_DB_ENABLED=true`
+  - `PROCESSOR_AIRCRAFT_DB_PATH=/refdata/aircraft.db`
+
+Then deploy:
+```bash
+kubectl apply -k k8s/apps/processor
+kubectl -n cloudradar rollout status deploy/processor
+```
+
 ## Notes
 - The processor uses a blocking pop with a short timeout to minimize CPU when the queue is empty.
 - Bbox limits are configured via env vars (`PROCESSOR_LAT_MIN`, `PROCESSOR_LAT_MAX`, `PROCESSOR_LON_MIN`, `PROCESSOR_LON_MAX`).
