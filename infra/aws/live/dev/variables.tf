@@ -117,6 +117,24 @@ variable "aircraft_reference_bucket_name" {
   default     = null
 }
 
+variable "processor_aircraft_db_enabled" {
+  description = "Whether to enable aircraft reference DB enrichment in the processor (stored in SSM and injected via ESO)."
+  type        = bool
+  default     = false
+}
+
+variable "processor_aircraft_db_s3_uri" {
+  description = "S3 URI to the aircraft reference SQLite artifact (stored in SSM and injected via ESO)."
+  type        = string
+  default     = ""
+}
+
+variable "processor_aircraft_db_sha256" {
+  description = "Optional SHA256 for the aircraft reference SQLite artifact (stored in SSM and injected via ESO)."
+  type        = string
+  default     = ""
+}
+
 variable "edge_instance_type" {
   description = "Instance type for the edge EC2 instance."
   type        = string

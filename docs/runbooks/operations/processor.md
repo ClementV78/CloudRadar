@@ -42,18 +42,41 @@ Upload the generated `aircraft.db` to your reference bucket (versioned path reco
 `s3://<reference-bucket>/aircraft-db/<version>/aircraft.db`
 
 ### Enable in Kubernetes
-In `k8s/apps/processor/deployment.yaml`:
-- Set initContainer env:
-  - `AIRCRAFT_DB_S3_URI` to the S3 URI
-  - optionally `AIRCRAFT_DB_SHA256` for integrity verification
-- Set processor env:
-  - `PROCESSOR_AIRCRAFT_DB_ENABLED=true`
-  - `PROCESSOR_AIRCRAFT_DB_PATH=/refdata/aircraft.db`
+The processor reads the aircraft DB configuration from a Kubernetes Secret managed by ESO
+(`processor-aircraft-db`). Terraform writes the source-of-truth values to AWS SSM Parameter Store.
+
+#### Configure via Terraform (local apply)
+In `infra/aws/live/dev/local.donotcommit.auto.tfvars` (or `prod`):
+```hcl
+processor_aircraft_db_enabled = true
+processor_aircraft_db_s3_uri  = "s3://<bucket>/aircraft-db/<version>/aircraft.db"
+processor_aircraft_db_sha256  = "<sha256>"
+```
+
+Then apply:
+```bash
+cd infra/aws/live/dev
+terraform init
+terraform plan -var-file=terraform.tfvars
+terraform apply -var-file=terraform.tfvars
+```
+
+#### Configure via ci-infra (GitHub Actions)
+Set GitHub Actions Variables (environment-scoped) and run `ci-infra` with `workflow_dispatch`:
+- `PROCESSOR_AIRCRAFT_DB_ENABLED` (`true` / `false`)
+- `PROCESSOR_AIRCRAFT_DB_S3_URI` (S3 URI)
+- `PROCESSOR_AIRCRAFT_DB_SHA256` (optional)
 
 Then deploy:
 ```bash
 kubectl apply -k k8s/apps/processor
 kubectl -n cloudradar rollout status deploy/processor
+```
+
+Verify ESO sync:
+```bash
+kubectl -n cloudradar get externalsecret processor-aircraft-db
+kubectl -n cloudradar get secret processor-aircraft-db
 ```
 
 ## Notes
