@@ -44,9 +44,17 @@ spec:
             - name: AWS_REGION
               value: us-east-1
             - name: AIRCRAFT_DB_S3_URI
-              value: ""
+              valueFrom:
+                secretKeyRef:
+                  name: processor-aircraft-db
+                  key: s3-uri
+                  optional: true
             - name: AIRCRAFT_DB_SHA256
-              value: ""
+              valueFrom:
+                secretKeyRef:
+                  name: processor-aircraft-db
+                  key: sha256
+                  optional: true
           volumeMounts:
             - name: aircraft-refdata
               mountPath: /refdata
@@ -70,7 +78,11 @@ spec:
             - name: PROCESSOR_TRACK_LENGTH
               value: "180"
             - name: PROCESSOR_AIRCRAFT_DB_ENABLED
-              value: "false"
+              valueFrom:
+                secretKeyRef:
+                  name: processor-aircraft-db
+                  key: enabled
+                  optional: true
             - name: PROCESSOR_AIRCRAFT_DB_PATH
               value: /refdata/aircraft.db
           ports:

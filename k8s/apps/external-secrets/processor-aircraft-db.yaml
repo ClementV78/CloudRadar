@@ -1,0 +1,24 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: processor-aircraft-db
+  namespace: cloudradar
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: ssm-parameter-store
+    kind: ClusterSecretStore
+  target:
+    name: processor-aircraft-db
+    creationPolicy: Owner
+  data:
+    - secretKey: enabled
+      remoteRef:
+        key: /cloudradar/processor/aircraft-db/enabled
+    - secretKey: s3-uri
+      remoteRef:
+        key: /cloudradar/processor/aircraft-db/s3-uri
+    - secretKey: sha256
+      remoteRef:
+        key: /cloudradar/processor/aircraft-db/sha256
+

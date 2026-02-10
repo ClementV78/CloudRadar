@@ -27,6 +27,9 @@ Jobs run in CI to validate Terraform safely (no apply):
 - `backup_bucket_name`: optional override for the dev SQLite backup bucket.
 - DNS delegation uses the `DNS_ZONE_NAME` GitHub Actions variable (e.g., `cloudradar.example.com`).
   Keep real domain values out of the repo.
+- Processor aircraft DB (optional) uses GitHub Actions Variables (environment-scoped):
+  - `PROCESSOR_AIRCRAFT_DB_ENABLED`, `PROCESSOR_AIRCRAFT_DB_S3_URI`, `PROCESSOR_AIRCRAFT_DB_SHA256`
+  - The workflow passes them as Terraform variables so Terraform writes `/cloudradar/processor/aircraft-db/*` SSM parameters for ESO.
 
 Notes:
 - When `backup_bucket_name` is empty, the workflow uses `TF_BACKUP_BUCKET_NAME` if set.
@@ -153,6 +156,9 @@ Use the dedicated destroy workflow when you need to tear down an environment.
 - `TF_STATE_BUCKET`
 - `TF_LOCK_TABLE_NAME`
 - `TF_BACKUP_BUCKET_NAME` (optional, used for SQLite and Redis backups)
+- `PROCESSOR_AIRCRAFT_DB_ENABLED` (optional, workflow_dispatch only; writes SSM for ESO)
+- `PROCESSOR_AIRCRAFT_DB_S3_URI` (optional, workflow_dispatch only; writes SSM for ESO)
+- `PROCESSOR_AIRCRAFT_DB_SHA256` (optional, workflow_dispatch only; writes SSM for ESO)
 
 ## Related files
 

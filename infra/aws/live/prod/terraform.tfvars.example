@@ -15,5 +15,11 @@ private_subnet_cidrs = ["10.1.101.0/24"]
 # Optional delegated subdomain managed in Route53 (leave empty to disable).
 dns_zone_name = "cloudradar.example.com"
 
+# Optional: configure aircraft reference DB enrichment in the processor.
+# Stored in SSM and injected into the processor via External Secrets Operator.
+# processor_aircraft_db_enabled = true
+# processor_aircraft_db_s3_uri  = "s3://<bucket>/aircraft-db/<version>/aircraft.db"
+# processor_aircraft_db_sha256  = "<sha256>"
+
 # Optional: only needed when a NAT instance is created.
 # private_route_nat_instance_id = "i-0123456789abcdef0"

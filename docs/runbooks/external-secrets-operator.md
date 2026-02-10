@@ -65,6 +65,12 @@ aws ssm put-parameter --name /cloudradar/opensky/token_url --value "https://open
 aws ssm put-parameter --name /cloudradar/grafana-admin-password --value "your-password" --type SecureString
 ```
 
+**Processor (aircraft reference DB, non-sensitive):**
+- Managed by Terraform (recommended) via `infra/aws/live/<env>`:
+  - `/cloudradar/processor/aircraft-db/enabled` (`true|false`)
+  - `/cloudradar/processor/aircraft-db/s3-uri` (`s3://.../aircraft.db`)
+  - `/cloudradar/processor/aircraft-db/sha256` (optional)
+
 **Prometheus**
 - Prometheus access is protected by **edge Basic Auth** (`/cloudradar/edge/basic-auth`).
 - No Prometheus-specific SSM parameters are required.
