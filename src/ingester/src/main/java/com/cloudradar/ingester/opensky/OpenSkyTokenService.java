@@ -3,6 +3,9 @@ package com.cloudradar.ingester.opensky;
 import com.cloudradar.ingester.config.OpenSkyProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -10,6 +13,7 @@ import java.net.http.HttpResponse;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -22,6 +26,11 @@ public class OpenSkyTokenService {
   private final OpenSkyProperties properties;
   private final HttpClient httpClient;
   private final ObjectMapper objectMapper;
+  private final Timer tokenRequestTimer;
+  private final Counter tokenRequestSuccessCounter;
+  private final Counter tokenRequestClientErrorCounter;
+  private final Counter tokenRequestServerErrorCounter;
+  private final Counter tokenRequestExceptionCounter;
 
   private String accessToken;
   private Instant expiry;
@@ -29,12 +38,35 @@ public class OpenSkyTokenService {
   public OpenSkyTokenService(
       OpenSkyEndpointProvider endpointProvider,
       OpenSkyProperties properties,
+      MeterRegistry meterRegistry,
       HttpClient httpClient,
       ObjectMapper objectMapper) {
     this.endpointProvider = endpointProvider;
     this.properties = properties;
     this.httpClient = httpClient;
     this.objectMapper = objectMapper;
+
+    this.tokenRequestTimer = Timer.builder("ingester.opensky.token.http.duration")
+        .description("OpenSky token HTTP request duration (seconds)")
+        .publishPercentileHistogram(true)
+        .register(meterRegistry);
+
+    this.tokenRequestSuccessCounter = Counter.builder("ingester.opensky.token.http.requests.total")
+        .description("OpenSky token HTTP requests (by outcome)")
+        .tag("outcome", "success")
+        .register(meterRegistry);
+    this.tokenRequestClientErrorCounter = Counter.builder("ingester.opensky.token.http.requests.total")
+        .description("OpenSky token HTTP requests (by outcome)")
+        .tag("outcome", "client_error")
+        .register(meterRegistry);
+    this.tokenRequestServerErrorCounter = Counter.builder("ingester.opensky.token.http.requests.total")
+        .description("OpenSky token HTTP requests (by outcome)")
+        .tag("outcome", "server_error")
+        .register(meterRegistry);
+    this.tokenRequestExceptionCounter = Counter.builder("ingester.opensky.token.http.requests.total")
+        .description("OpenSky token HTTP requests (by outcome)")
+        .tag("outcome", "exception")
+        .register(meterRegistry);
   }
 
   public synchronized String getToken() {
@@ -43,6 +75,8 @@ public class OpenSkyTokenService {
       return accessToken;
     }
 
+    long httpStartNs = -1L;
+    boolean recorded = false;
     try {
       String clientId = properties.clientId();
       String clientSecret = properties.clientSecret();
@@ -66,11 +100,20 @@ public class OpenSkyTokenService {
           .POST(HttpRequest.BodyPublishers.ofString(body))
           .build();
 
+      httpStartNs = System.nanoTime();
       HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+      tokenRequestTimer.record(System.nanoTime() - httpStartNs, TimeUnit.NANOSECONDS);
+      recorded = true;
 
       if (response.statusCode() != 200) {
+        if (response.statusCode() >= 500) {
+          tokenRequestServerErrorCounter.increment();
+        } else {
+          tokenRequestClientErrorCounter.increment();
+        }
         throw new RuntimeException("Failed to get token from " + tokenUrl + ": " + response.statusCode());
       }
+      tokenRequestSuccessCounter.increment();
 
       JsonNode json = objectMapper.readTree(response.body());
       accessToken = json.get("access_token").asText();
@@ -81,6 +124,10 @@ public class OpenSkyTokenService {
       return accessToken;
 
     } catch (Exception e) {
+      if (!recorded && httpStartNs > 0) {
+        tokenRequestTimer.record(System.nanoTime() - httpStartNs, TimeUnit.NANOSECONDS);
+      }
+      tokenRequestExceptionCounter.increment();
       log.error("Failed to get OpenSky token", e);
       throw new RuntimeException("Token refresh failed: " + e.getMessage(), e);
     }

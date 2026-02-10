@@ -55,6 +55,8 @@ public class FlightIngestJob {
   };
   private final java.util.concurrent.atomic.AtomicLong remainingCredits = new java.util.concurrent.atomic.AtomicLong(-1);
   private final java.util.concurrent.atomic.AtomicLong lastRemainingCredits = new java.util.concurrent.atomic.AtomicLong(-1);
+  private final java.util.concurrent.atomic.AtomicLong creditLimitOverride = new java.util.concurrent.atomic.AtomicLong(-1);
+  private final java.util.concurrent.atomic.AtomicLong resetAtEpochSeconds = new java.util.concurrent.atomic.AtomicLong(-1);
   private final java.util.concurrent.atomic.AtomicLong requestsSinceReset = new java.util.concurrent.atomic.AtomicLong(0);
   private final java.util.concurrent.atomic.AtomicLong creditsUsedSinceReset = new java.util.concurrent.atomic.AtomicLong(0);
   private final java.util.concurrent.atomic.AtomicLong eventsSinceReset = new java.util.concurrent.atomic.AtomicLong(0);
@@ -115,6 +117,7 @@ public class FlightIngestJob {
       log.info("Fetched {} states, pushed {} events", states.size(), pushed);
 
       updateCreditTracking(result.remainingCredits());
+      updateResetTracking(result.creditLimit(), result.resetAtEpochSeconds());
       updateRateLimit(result.remainingCredits());
       consecutiveFailures.set(0);
       nextAllowedAtMs = System.currentTimeMillis() + currentDelayMs;
@@ -153,12 +156,17 @@ public class FlightIngestJob {
 
   private void registerGauges(MeterRegistry meterRegistry) {
     meterRegistry.gauge("ingester.opensky.credits.remaining", remainingCredits);
+    meterRegistry.gauge("ingester.opensky.credits.limit", creditLimitOverride);
     meterRegistry.gauge("ingester.opensky.requests.since_reset", requestsSinceReset);
     meterRegistry.gauge("ingester.opensky.credits.used.since_reset", creditsUsedSinceReset);
+    meterRegistry.gauge("ingester.opensky.credits.consumed.percent", this, job -> job.consumedPercent());
     meterRegistry.gauge("ingester.opensky.events.since_reset", eventsSinceReset);
     meterRegistry.gauge("ingester.opensky.credits.avg_per_request", this, job -> job.averageCreditsPerRequest());
     meterRegistry.gauge("ingester.opensky.events.avg_per_request", this, job -> job.averageEventsPerRequest());
     meterRegistry.gauge("ingester.opensky.bbox.area.square_degrees", this, job -> job.bboxAreaSquareDegrees());
+    // Approximate area in km2 (good enough for a density index on the dashboard).
+    meterRegistry.gauge("ingester.opensky.bbox.area.km2", this, job -> job.bboxAreaKm2());
+    meterRegistry.gauge("ingester.opensky.reset.eta_seconds", this, job -> job.resetEtaSeconds());
     meterRegistry.gauge("ingester.opensky.quota", this, job -> job.quotaOrDefault());
     meterRegistry.gauge("ingester.opensky.threshold.warn50", this, job -> job.thresholdPercent("warn50"));
     meterRegistry.gauge("ingester.opensky.threshold.warn80", this, job -> job.thresholdPercent("warn80"));
@@ -182,6 +190,8 @@ public class FlightIngestJob {
       requestsSinceReset.set(0);
       creditsUsedSinceReset.set(0);
       eventsSinceReset.set(0);
+      // The API may not provide reset headers; still keep a best-effort local marker.
+      resetAtEpochSeconds.set(-1);
       return;
     }
 
@@ -189,6 +199,48 @@ public class FlightIngestJob {
     if (delta > 0) {
       creditsUsedSinceReset.addAndGet(delta);
     }
+  }
+
+  private void updateResetTracking(Integer creditLimit, Long resetAt) {
+    if (creditLimit != null && creditLimit > 0) {
+      creditLimitOverride.set(creditLimit);
+    } else {
+      IngesterProperties.RateLimit rateLimit = properties.rateLimit();
+      if (rateLimit != null && rateLimit.quota() > 0) {
+        creditLimitOverride.set(rateLimit.quota());
+      }
+    }
+
+    if (resetAt != null && resetAt > 0) {
+      resetAtEpochSeconds.set(resetAt);
+    }
+  }
+
+  private double resetEtaSeconds() {
+    long resetAt = resetAtEpochSeconds.get();
+    if (resetAt <= 0) {
+      return 0.0;
+    }
+    long now = System.currentTimeMillis() / 1000;
+    long eta = resetAt - now;
+    return Math.max(0.0, (double) eta);
+  }
+
+  private double consumedPercent() {
+    long limit = creditLimitOverride.get();
+    long remaining = remainingCredits.get();
+    if (limit <= 0 || remaining < 0) {
+      return 0.0;
+    }
+    long used = Math.max(0L, limit - remaining);
+    double pct = ((double) used / (double) limit) * 100.0;
+    if (pct < 0.0) {
+      return 0.0;
+    }
+    if (pct > 100.0) {
+      return 100.0;
+    }
+    return pct;
   }
 
   private double averageCreditsPerRequest() {
@@ -210,6 +262,24 @@ public class FlightIngestJob {
   private double bboxAreaSquareDegrees() {
     IngesterProperties.Bbox bbox = properties.bbox();
     return Math.max(0.0, (bbox.latMax() - bbox.latMin()) * (bbox.lonMax() - bbox.lonMin()));
+  }
+
+  private double bboxAreaKm2() {
+    // Very lightweight approximation for a lat/lon bbox (sufficient for an at-a-glance dashboard gauge).
+    // 1 deg lat ~= 110.574 km; 1 deg lon ~= 111.320 km * cos(lat).
+    IngesterProperties.Bbox bbox = properties.bbox();
+    double latMin = bbox.latMin();
+    double latMax = bbox.latMax();
+    double lonMin = bbox.lonMin();
+    double lonMax = bbox.lonMax();
+
+    double dLat = Math.max(0.0, latMax - latMin);
+    double dLon = Math.max(0.0, lonMax - lonMin);
+
+    double latMidRad = Math.toRadians((latMin + latMax) / 2.0);
+    double heightKm = dLat * 110.574;
+    double widthKm = dLon * 111.320 * Math.cos(latMidRad);
+    return Math.max(0.0, widthKm * heightKm);
   }
 
   private double quotaOrDefault() {

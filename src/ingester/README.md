@@ -99,6 +99,21 @@ mvn -q spring-boot:run
 - `GET /healthz`
 - `GET /metrics/prometheus`
 
+### Notable metrics
+
+OpenSky performance:
+- `ingester_opensky_states_http_duration_seconds_*` (Timer; use histogram quantiles for p50/p95)
+- `ingester_opensky_states_http_requests_total{outcome="success|rate_limited|client_error|server_error|exception"}`
+- `ingester_opensky_states_http_last_status` (gauge; `0` means exception)
+- `ingester_opensky_token_http_duration_seconds_*` (Timer)
+- `ingester_opensky_token_http_requests_total{outcome="success|client_error|server_error|exception"}`
+- `ingester_opensky_credits_consumed_percent` (gauge)
+- `ingester_opensky_reset_eta_seconds` (gauge; `0` if header not available)
+
+Throughput (telemetry ingestion):
+- `ingester_fetch_total` (counter; increments by number of states fetched)
+- `ingester_push_total` (counter; increments by number of events pushed to Redis)
+
 ## Deployment notes
 - For Kubernetes, use a Secret named `opensky-secret` with keys:
   - `client-id`
