@@ -4,6 +4,10 @@ server:
 processor:
   poll-timeout-seconds: ${PROCESSOR_POLL_TIMEOUT_SECONDS:2}
   track-length: ${PROCESSOR_TRACK_LENGTH:180}
+  aircraft-db:
+    enabled: ${PROCESSOR_AIRCRAFT_DB_ENABLED:false}
+    path: ${PROCESSOR_AIRCRAFT_DB_PATH:}
+    cache-size: ${PROCESSOR_AIRCRAFT_DB_CACHE_SIZE:50000}
   redis:
     input-key: ${PROCESSOR_REDIS_INPUT_KEY:cloudradar:ingest:queue}
     last-positions-key: ${PROCESSOR_LAST_POSITIONS_KEY:cloudradar:aircraft:last}

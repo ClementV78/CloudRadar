@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public class ProcessorProperties {
   private final Redis redis = new Redis();
   private final Bbox bbox = new Bbox();
+  private final AircraftDb aircraftDb = new AircraftDb();
   private int trackLength = 180;
   private long pollTimeoutSeconds = 2;
 
@@ -15,6 +16,10 @@ public class ProcessorProperties {
 
   public Bbox getBbox() {
     return bbox;
+  }
+
+  public AircraftDb getAircraftDb() {
+    return aircraftDb;
   }
 
   public int getTrackLength() {
@@ -108,6 +113,36 @@ public class ProcessorProperties {
 
     public void setLonMax(double lonMax) {
       this.lonMax = lonMax;
+    }
+  }
+
+  public static class AircraftDb {
+    private boolean enabled = false;
+    private String path = "";
+    private int cacheSize = 50000;
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+    }
+
+    public String getPath() {
+      return path;
+    }
+
+    public void setPath(String path) {
+      this.path = path;
+    }
+
+    public int getCacheSize() {
+      return cacheSize;
+    }
+
+    public void setCacheSize(int cacheSize) {
+      this.cacheSize = cacheSize;
     }
   }
 }
