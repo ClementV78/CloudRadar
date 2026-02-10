@@ -115,6 +115,7 @@ Quick reference to all Architecture Decision Records (decisions/):
 | [ADR-0016](architecture/decisions/ADR-0016-2026-01-28-documentation-hub-organization.md) | 2026-01-28 | Documentation hub organization | Docs structure and navigation |
 | [ADR-0016](architecture/decisions/ADR-0016-2026-01-29-external-secrets-operator.md) | 2026-01-29 | External Secrets Operator | SSM to K8s secrets sync |
 | [ADR-0017](architecture/decisions/ADR-0017-2026-02-07-cloudwatch-datasource-for-aws-native-signals.md) | 2026-02-07 | CloudWatch datasource for AWS-native signals | AWS metrics + VPC Flow Logs |
+| [ADR-0018](architecture/decisions/ADR-0018-2026-02-10-reference-aircraft-database-distribution.md) | 2026-02-10 | Reference aircraft database distribution | S3 artifact + local SQLite lookups |
 
 **⚠️ Note**: There are two ADR-0016 entries due to historical numbering; keep both for stable links.
 
@@ -147,7 +148,7 @@ Quick reference to all Architecture Decision Records (decisions/):
 ## 📊 Documentation Statistics
 
 - **Total .md files**: 45+ (including this hub)
-- **ADRs**: 18 (including two ADR-0016 entries; see note above)
+- **ADRs**: 19 (including two ADR-0016 entries; see note above)
 - **Runbooks**: 15+ (bootstrap, operations, observability, CI/CD)
 - **Architecture docs**: 3 (application, infrastructure, decisions)
 - **Supporting docs**: 5+ (IAM, project status, dependencies)
