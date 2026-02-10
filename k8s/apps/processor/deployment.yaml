@@ -20,7 +20,8 @@ spec:
         runAsUser: 10001
       initContainers:
         - name: aircraft-db-download
-          image: amazon/aws-cli:2
+          # ECR Public image; `amazon/aws-cli:2` on Docker Hub is not available.
+          image: public.ecr.aws/aws-cli/aws-cli:2
           imagePullPolicy: IfNotPresent
           command:
             - sh

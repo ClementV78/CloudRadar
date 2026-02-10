@@ -12,6 +12,16 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Resolution:** Pass the `$i` loop payload via single quotes to prevent runner expansion (SSM executes it on the instance).
 - **Refs:** issue #369
 
+## 2026-02-10
+
+### [k8s/app] processor stuck in Init:ImagePullBackOff (invalid aws-cli initContainer image)
+- **Severity:** Medium
+- **Impact:** `processor` rollout blocked; aircraft reference DB download initContainer never started.
+- **Signal:** `Failed to pull image "amazon/aws-cli:2" ... docker.io/amazon/aws-cli:2: not found` and `ImagePullBackOff`.
+- **Analysis:** `amazon/aws-cli:2` is not available on Docker Hub. The initContainer image reference was invalid.
+- **Resolution:** Use the ECR Public AWS CLI image `public.ecr.aws/aws-cli/aws-cli:2` in `k8s/apps/processor/deployment.yaml`.
+- **Refs:** issue #377, PR #378
+
 ## 2026-02-08
 
 ### [infra/dns] Terraform apply failed creating Route 53 records (record already exists)
