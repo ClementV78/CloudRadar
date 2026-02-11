@@ -792,7 +792,7 @@ jobs:
 
   redis-restore:
     name: REDIS-RESTORE
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.redis_backup_restore == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
     runs-on: ubuntu-latest
     needs:
       - argocd-apps
@@ -801,15 +801,6 @@ jobs:
       # Required across multiple steps; avoid "unbound variable" with `set -u`.
       K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.TF_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
       - name: Decide Redis restore mode (dev only)
         id: restore_gate
         shell: bash
@@ -818,18 +809,34 @@ jobs:
         run: |
           set -euo pipefail
 
+          if [[ "${{ inputs.redis_backup_restore }}" != "true" ]]; then
+            echo "::notice title=Redis restore::SKIP - input redis_backup_restore=false."
+            echo "SKIP_REDIS_RESTORE=true" >> "$GITHUB_ENV"
+            echo "REDIS_RESTORE_REASON=input redis_backup_restore=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
           if [[ -z "${BACKUP_BUCKET}" ]]; then
             echo "::notice title=Redis restore::SKIP - TF_BACKUP_BUCKET_NAME not set."
             echo "SKIP_REDIS_RESTORE=true" >> "$GITHUB_ENV"
             echo "REDIS_RESTORE_REASON=TF_BACKUP_BUCKET_NAME is empty" >> "$GITHUB_ENV"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "SKIP_REDIS_RESTORE=false" >> "$GITHUB_ENV"
           echo "REDIS_RESTORE_REASON=restore requested; evaluating backup availability and Redis freshness" >> "$GITHUB_ENV"
           echo "BACKUP_BUCKET=${BACKUP_BUCKET}" >> "$GITHUB_ENV"
-          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: ${{ env.SKIP_REDIS_RESTORE != 'true' }}
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        if: ${{ env.SKIP_REDIS_RESTORE != 'true' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Find latest Redis backup (dev only)
         if: ${{ env.SKIP_REDIS_RESTORE != 'true' }}
@@ -1015,20 +1022,39 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   smoke-tests:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.run_smoke_tests == 'true' }}
+    name: SMOKE-TESTS
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
     runs-on: ubuntu-latest
     needs:
       - argocd-apps
       - redis-restore
       - tf-outputs
     steps:
+      - name: Decide smoke-tests mode (dev only)
+        id: smoke_gate
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ inputs.run_smoke_tests }}" != "true" ]]; then
+            echo "::notice title=Smoke tests::SKIP - input run_smoke_tests=false."
+            echo "SKIP_SMOKE_TESTS=true" >> "$GITHUB_ENV"
+            echo "SMOKE_TESTS_REASON=input run_smoke_tests=false" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          echo "SKIP_SMOKE_TESTS=false" >> "$GITHUB_ENV"
+          echo "SMOKE_TESTS_REASON=enabled; running post-apply smoke checks" >> "$GITHUB_ENV"
+
       - name: Configure AWS credentials
+        if: ${{ env.SKIP_SMOKE_TESTS != 'true' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.TF_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Wait for ArgoCD app sync
+        if: ${{ env.SKIP_SMOKE_TESTS != 'true' }}
         env:
           K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
         run: |
@@ -1165,6 +1191,7 @@ jobs:
           poll_ssm_command "${command_id}" "${K3S_SERVER_INSTANCE_ID}" 600
 
       - name: Wait for healthz deployment
+        if: ${{ env.SKIP_SMOKE_TESTS != 'true' }}
         env:
           K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
           EDGE_PUBLIC_IP: ${{ needs.tf-outputs.outputs.edge_public_ip }}
@@ -1304,6 +1331,7 @@ jobs:
           poll_ssm_command "${command_id}" "${K3S_SERVER_INSTANCE_ID}" 600
 
       - name: Verify /healthz from the Internet
+        if: ${{ env.SKIP_SMOKE_TESTS != 'true' }}
         env:
           EDGE_INSTANCE_ID: ${{ needs.tf-outputs.outputs.edge_instance_id }}
           EDGE_PUBLIC_IP: ${{ needs.tf-outputs.outputs.edge_public_ip }}
@@ -1574,3 +1602,34 @@ jobs:
           check_edge_path "/healthz" 3
           check_edge_path "/grafana/" 6
           check_edge_path "/prometheus/" 6
+
+      - name: Smoke-tests verdict (dev only)
+        if: ${{ always() }}
+        shell: bash
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+
+          verdict="SKIPPED"
+          reason="${SMOKE_TESTS_REASON:-unspecified}"
+          if [[ "${SKIP_SMOKE_TESTS:-false}" != "true" ]]; then
+            if [[ "${JOB_STATUS:-success}" == "success" ]]; then
+              verdict="RUN"
+              reason="completed smoke checks"
+            else
+              verdict="FAILED"
+              if [[ "${reason}" == "unspecified" ]]; then
+                reason="smoke checks did not complete successfully (job status: ${JOB_STATUS:-unknown})"
+              fi
+            fi
+          fi
+
+          echo "::notice title=Smoke-tests verdict::${verdict} - ${reason}"
+          {
+            echo "### Smoke-tests verdict"
+            echo ""
+            echo "- Verdict: \`${verdict}\`"
+            echo "- Reason: ${reason}"
+            echo "- Requested input: \`${{ inputs.run_smoke_tests }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
