@@ -66,6 +66,11 @@ Set GitHub Actions Variables (environment-scoped) and run `ci-infra` with `workf
 - `PROCESSOR_AIRCRAFT_DB_ENABLED` (`true` / `false`)
 - `PROCESSOR_AIRCRAFT_DB_S3_URI` (S3 URI)
 - `PROCESSOR_AIRCRAFT_DB_SHA256` (optional)
+- `AIRCRAFT_REFERENCE_BUCKET_NAME` (recommended when using a custom aircraft DB bucket)
+
+Important:
+- Keep `PROCESSOR_AIRCRAFT_DB_S3_URI` bucket and Terraform `aircraft_reference_bucket_name` aligned.
+- In `ci-infra`, `AIRCRAFT_REFERENCE_BUCKET_NAME` (fallback: `TF_AIRCRAFT_REFERENCE_BUCKET_NAME`) is forwarded to Terraform in `dev` to generate k3s IAM access for the same bucket.
 
 Then deploy:
 ```bash

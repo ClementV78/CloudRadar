@@ -28,6 +28,7 @@ Jobs run in CI to validate Terraform safely (no apply):
 - DNS delegation uses the `DNS_ZONE_NAME` GitHub Actions variable (e.g., `cloudradar.example.com`).
   Keep real domain values out of the repo.
 - Processor aircraft DB (optional) uses GitHub Actions Variables (environment-scoped):
+  - `AIRCRAFT_REFERENCE_BUCKET_NAME` (or fallback `TF_AIRCRAFT_REFERENCE_BUCKET_NAME`) to align k3s IAM access with the aircraft DB bucket used by the processor.
   - `PROCESSOR_AIRCRAFT_DB_ENABLED`, `PROCESSOR_AIRCRAFT_DB_S3_URI`, `PROCESSOR_AIRCRAFT_DB_SHA256`
   - The workflow passes them as Terraform variables so Terraform writes `/cloudradar/processor/aircraft-db/*` SSM parameters for ESO.
 
@@ -175,6 +176,8 @@ Use the dedicated destroy workflow when you need to tear down an environment.
 - `PROCESSOR_AIRCRAFT_DB_ENABLED` (optional, workflow_dispatch only; writes SSM for ESO)
 - `PROCESSOR_AIRCRAFT_DB_S3_URI` (optional, workflow_dispatch only; writes SSM for ESO)
 - `PROCESSOR_AIRCRAFT_DB_SHA256` (optional, workflow_dispatch only; writes SSM for ESO)
+- `AIRCRAFT_REFERENCE_BUCKET_NAME` (optional, dev only; overrides Terraform `aircraft_reference_bucket_name` in `ci-infra`)
+- `TF_AIRCRAFT_REFERENCE_BUCKET_NAME` (optional fallback when `AIRCRAFT_REFERENCE_BUCKET_NAME` is not set)
 
 ## Related files
 
