@@ -39,6 +39,7 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Signal:** K8s `imageID` digest did not match the latest `sha-<commit>` image published for the same code revision.
 - **Analysis:** `.github/workflows/build-and-push.yml` publishes `main/latest/sha-*` tags on `push` to `main`, but semver-like tags (e.g. `0.1.4`) are only published on git tags (`v*`). Manifests pinned `:0.1.4`, so the cluster could stay on an older image even while newer images existed.
 - **Resolution:** Introduce a repo `VERSION` file and publish `:<VERSION>` tags on `main` pushes; bump manifests to the new version when code changes are merged.
+- **Guardrail:** Use `scripts/release/bump-app-version.sh` for a single-command bump+sync, and keep CI check `scripts/ci/check-app-version-sync.sh` enabled in `ci-k8s` so manifest tags cannot drift from `VERSION`.
 - **Refs:** issue #381
 
 ## 2026-02-08
