@@ -60,6 +60,7 @@ public class FlightIngestJob {
   private final java.util.concurrent.atomic.AtomicLong requestsSinceReset = new java.util.concurrent.atomic.AtomicLong(0);
   private final java.util.concurrent.atomic.AtomicLong creditsUsedSinceReset = new java.util.concurrent.atomic.AtomicLong(0);
   private final java.util.concurrent.atomic.AtomicLong eventsSinceReset = new java.util.concurrent.atomic.AtomicLong(0);
+  private final java.util.concurrent.atomic.AtomicLong lastStatesCount = new java.util.concurrent.atomic.AtomicLong(0);
 
   public FlightIngestJob(
       OpenSkyClient openSkyClient,
@@ -106,6 +107,7 @@ public class FlightIngestJob {
       requestCounter.increment();
       requestsSinceReset.incrementAndGet();
       eventsSinceReset.addAndGet(states.size());
+      lastStatesCount.set(states.size());
       fetchCounter.increment(states.size());
 
       List<Map<String, Object>> payloads = states.stream()
@@ -161,6 +163,7 @@ public class FlightIngestJob {
     meterRegistry.gauge("ingester.opensky.credits.used.since_reset", creditsUsedSinceReset);
     meterRegistry.gauge("ingester.opensky.credits.consumed.percent", this, job -> job.consumedPercent());
     meterRegistry.gauge("ingester.opensky.events.since_reset", eventsSinceReset);
+    meterRegistry.gauge("ingester.opensky.states.last_count", lastStatesCount);
     meterRegistry.gauge("ingester.opensky.credits.avg_per_request", this, job -> job.averageCreditsPerRequest());
     meterRegistry.gauge("ingester.opensky.events.avg_per_request", this, job -> job.averageEventsPerRequest());
     meterRegistry.gauge("ingester.opensky.bbox.area.square_degrees", this, job -> job.bboxAreaSquareDegrees());
