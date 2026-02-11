@@ -2,6 +2,17 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-11
+
+### [app/data] processor initContainer failed with S3 403 after aircraft DB enablement
+- **Severity:** High
+- **Impact:** `processor` rollout blocked (`Init:CrashLoopBackOff`), aircraft metadata enrichment unavailable.
+- **Signal:** `fatal error: An error occurred (403) when calling the HeadObject operation: Forbidden` in `aircraft-db-download` initContainer logs.
+- **Analysis:** Runtime SSM/ESO values pointed to `s3://cloudradar-dev-aircraft-db/...`, but k3s node IAM policy allowed only the Terraform default bucket `cloudradar-dev-<account>-reference-data/*`. This bucket mismatch caused S3 read denial.
+- **Resolution:** In `ci-infra`, pass `aircraft_reference_bucket_name` from GitHub Actions variable (`AIRCRAFT_REFERENCE_BUCKET_NAME`, fallback `TF_AIRCRAFT_REFERENCE_BUCKET_NAME`) during dev plan/apply so IAM policy matches the runtime aircraft DB bucket.
+- **Guardrail:** Keep `PROCESSOR_AIRCRAFT_DB_S3_URI` and `aircraft_reference_bucket_name` aligned; verify both SSM and `processor-aircraft-db` Secret before rollout restart.
+- **Refs:** issue #392
+
 ## 2026-02-09
 
 ### [ci/infra] ci-infra-destroy failed (unbound variable in Redis backup step)

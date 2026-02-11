@@ -279,6 +279,7 @@ jobs:
           set -euo pipefail
           BACKUP_BUCKET_NAME="${{ inputs.backup_bucket_name || env.TF_BACKUP_BUCKET_NAME }}"
           DNS_ZONE_NAME="${{ vars.DNS_ZONE_NAME }}"
+          AIRCRAFT_REFERENCE_BUCKET_NAME="${{ vars.AIRCRAFT_REFERENCE_BUCKET_NAME || vars.TF_AIRCRAFT_REFERENCE_BUCKET_NAME }}"
           PROCESSOR_AIRCRAFT_DB_ENABLED="${{ vars.PROCESSOR_AIRCRAFT_DB_ENABLED }}"
           PROCESSOR_AIRCRAFT_DB_S3_URI="${{ vars.PROCESSOR_AIRCRAFT_DB_S3_URI }}"
           PROCESSOR_AIRCRAFT_DB_SHA256="${{ vars.PROCESSOR_AIRCRAFT_DB_SHA256 }}"
@@ -303,6 +304,9 @@ jobs:
               exit 1
             fi
             EXTRA_VARS+=("-var=dns_zone_name=${DNS_ZONE_NAME}")
+            if [[ -n "${AIRCRAFT_REFERENCE_BUCKET_NAME}" ]]; then
+              EXTRA_VARS+=("-var=aircraft_reference_bucket_name=${AIRCRAFT_REFERENCE_BUCKET_NAME}")
+            fi
           elif [[ -n "${DNS_ZONE_NAME}" ]]; then
             EXTRA_VARS+=("-var=dns_zone_name=${DNS_ZONE_NAME}")
           fi
@@ -370,6 +374,7 @@ jobs:
           set -euo pipefail
           BACKUP_BUCKET_NAME="${{ inputs.backup_bucket_name || env.TF_BACKUP_BUCKET_NAME }}"
           DNS_ZONE_NAME="${{ vars.DNS_ZONE_NAME }}"
+          AIRCRAFT_REFERENCE_BUCKET_NAME="${{ vars.AIRCRAFT_REFERENCE_BUCKET_NAME || vars.TF_AIRCRAFT_REFERENCE_BUCKET_NAME }}"
           PROCESSOR_AIRCRAFT_DB_ENABLED="${{ vars.PROCESSOR_AIRCRAFT_DB_ENABLED }}"
           PROCESSOR_AIRCRAFT_DB_S3_URI="${{ vars.PROCESSOR_AIRCRAFT_DB_S3_URI }}"
           PROCESSOR_AIRCRAFT_DB_SHA256="${{ vars.PROCESSOR_AIRCRAFT_DB_SHA256 }}"
@@ -394,6 +399,9 @@ jobs:
               exit 1
             fi
             EXTRA_VARS+=("-var=dns_zone_name=${DNS_ZONE_NAME}")
+            if [[ -n "${AIRCRAFT_REFERENCE_BUCKET_NAME}" ]]; then
+              EXTRA_VARS+=("-var=aircraft_reference_bucket_name=${AIRCRAFT_REFERENCE_BUCKET_NAME}")
+            fi
           elif [[ -n "${DNS_ZONE_NAME}" ]]; then
             EXTRA_VARS+=("-var=dns_zone_name=${DNS_ZONE_NAME}")
           fi
