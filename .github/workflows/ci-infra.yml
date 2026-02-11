@@ -26,11 +26,13 @@ on:
       auto_approve:
         description: "Set to true to run apply"
         required: true
-        default: "false"
+        type: boolean
+        default: false
       run_smoke_tests:
         description: "Set to true to run post-apply network smoke tests"
         required: true
-        default: "false"
+        type: boolean
+        default: false
       backup_bucket_name:
         description: "Optional S3 bucket name for SQLite backups (dev only)"
         required: false
@@ -207,6 +209,27 @@ jobs:
               ;;
           esac
 
+      - name: env-select summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+          TARGET_ENV: ${{ inputs.environment }}
+          TF_DIR: ${{ steps.select.outputs.tf_dir }}
+          TF_KEY: ${{ steps.select.outputs.tf_key }}
+        run: |
+          {
+            echo "### env-select"
+            echo "- Status: \`${JOB_STATUS}\`"
+            echo "- Environment: \`${TARGET_ENV}\`"
+            echo "- Terraform root: \`${TF_DIR:-n/a}\`"
+            echo "- Backend key: \`${TF_KEY:-n/a}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=env-select::${TARGET_ENV} mapped to ${TF_DIR}."
+          else
+            echo "::warning title=env-select::environment mapping failed."
+          fi
+
   tf-validate:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
@@ -235,6 +258,23 @@ jobs:
 
       - name: Terraform validate
         run: terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" validate
+
+      - name: tf-validate summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+          TF_DIR: ${{ needs.env-select.outputs.tf_dir }}
+        run: |
+          {
+            echo "### tf-validate"
+            echo "- Status: \`${JOB_STATUS}\`"
+            echo "- Terraform root: \`${TF_DIR}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=tf-validate::terraform validate passed."
+          else
+            echo "::warning title=tf-validate::terraform validate failed."
+          fi
 
   tf-plan:
     if: ${{ github.event_name == 'workflow_dispatch' }}
@@ -265,7 +305,7 @@ jobs:
             -backend-config="key=${{ needs.env-select.outputs.tf_key }}"
 
       - name: Detach hosted zone from env state (migration, dev only)
-        if: ${{ inputs.environment == 'dev' && inputs.auto_approve == 'true' }}
+        if: ${{ inputs.environment == 'dev' && inputs.auto_approve }}
         run: |
           set -euo pipefail
           TF_DIR="${{ needs.env-select.outputs.tf_dir }}"
@@ -325,6 +365,25 @@ jobs:
           terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" plan -input=false -no-color -var-file=terraform.tfvars \
             "${EXTRA_VARS[@]}"
 
+      - name: tf-plan summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+          TF_DIR: ${{ needs.env-select.outputs.tf_dir }}
+          TARGET_ENV: ${{ inputs.environment }}
+        run: |
+          {
+            echo "### tf-plan"
+            echo "- Status: \`${JOB_STATUS}\`"
+            echo "- Environment: \`${TARGET_ENV}\`"
+            echo "- Terraform root: \`${TF_DIR}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=tf-plan::plan completed successfully."
+          else
+            echo "::warning title=tf-plan::plan failed."
+          fi
+
   tf-apply:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
@@ -346,9 +405,9 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Guard apply confirmation
-        if: ${{ inputs.auto_approve != 'true' }}
+        if: ${{ !inputs.auto_approve }}
         run: |
-          echo "Set auto_approve=true to proceed with apply."
+          echo "Check auto_approve to proceed with apply."
           exit 1
 
       - name: Terraform init (remote backend)
@@ -420,6 +479,27 @@ jobs:
           terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" apply -input=false -auto-approve -var-file=terraform.tfvars \
             "${EXTRA_VARS[@]}"
 
+      - name: tf-apply summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+          TF_DIR: ${{ needs.env-select.outputs.tf_dir }}
+          TARGET_ENV: ${{ inputs.environment }}
+          AUTO_APPROVE: ${{ inputs.auto_approve }}
+        run: |
+          {
+            echo "### tf-apply"
+            echo "- Status: \`${JOB_STATUS}\`"
+            echo "- Environment: \`${TARGET_ENV}\`"
+            echo "- Auto-approve input: \`${AUTO_APPROVE}\`"
+            echo "- Terraform root: \`${TF_DIR}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=tf-apply::apply completed."
+          else
+            echo "::warning title=tf-apply::apply failed or was blocked."
+          fi
+
   setup-eso-secrets:
     name: Setup ESO Secrets (Prometheus auth)
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
@@ -465,6 +545,22 @@ jobs:
           echo "✓ Prometheus auth configured in SSM"
           echo "  - password: /cloudradar/prometheus-password"
           echo "  - htpasswd: /cloudradar/prometheus-htpasswd (admin:bcrypt_hash)"
+
+      - name: setup-eso-secrets summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### setup-eso-secrets"
+            echo "- Status: \`${JOB_STATUS}\`"
+            echo "- Parameters: \`/cloudradar/prometheus-password\`, \`/cloudradar/prometheus-htpasswd\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=setup-eso-secrets::Prometheus auth secrets prepared."
+          else
+            echo "::warning title=setup-eso-secrets::failed to prepare Prometheus auth secrets."
+          fi
 
   tf-outputs:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
@@ -512,6 +608,25 @@ jobs:
           echo "edge_basic_auth_ssm_parameter_name=$(jq -r '.edge_basic_auth_ssm_parameter_name.value' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "dns_zone_id=$(jq -r '.dns_zone_id.value // empty' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
           echo "dns_zone_name=$(jq -r '.dns_zone_name.value // empty' <<< "${outputs_json}")" >> "$GITHUB_OUTPUT"
+
+      - name: tf-outputs summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+          K3S_SERVER_INSTANCE_ID: ${{ steps.outputs.outputs.k3s_server_instance_id }}
+          EDGE_INSTANCE_ID: ${{ steps.outputs.outputs.edge_instance_id }}
+        run: |
+          {
+            echo "### tf-outputs"
+            echo "- Status: \`${JOB_STATUS}\`"
+            echo "- k3s server: \`${K3S_SERVER_INSTANCE_ID:-n/a}\`"
+            echo "- edge instance: \`${EDGE_INSTANCE_ID:-n/a}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=tf-outputs::Terraform outputs loaded."
+          else
+            echo "::warning title=tf-outputs::failed to load Terraform outputs."
+          fi
 
   k3s-ready-check:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
@@ -671,7 +786,7 @@ jobs:
               continue
             fi
 
-            echo "::notice title=SSM::k3s readiness command_id=${command_id} attempt=${attempt}"
+            echo "::notice title=k3s-ready-check::running readiness probe (attempt ${attempt}/${max_attempts})."
 
             if poll_ssm_command "${command_id}" "${K3S_SERVER_INSTANCE_ID}" 600; then
               echo "k3s-ready-check succeeded"
@@ -689,6 +804,23 @@ jobs:
 
           echo "k3s-ready-check failed after ${max_attempts} attempts"
           exit 1
+
+      - name: k3s-ready-check summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+          K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
+        run: |
+          {
+            echo "### k3s-ready-check"
+            echo "- Status: \`${JOB_STATUS}\`"
+            echo "- Instance: \`${K3S_SERVER_INSTANCE_ID}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=k3s-ready-check::all nodes reported Ready."
+          else
+            echo "::warning title=k3s-ready-check::node readiness check failed."
+          fi
 
   prometheus-crds:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
@@ -712,6 +844,22 @@ jobs:
           PROMETHEUS_CRD_REVISION: ${{ github.sha }}
         run: scripts/bootstrap-prometheus-crds.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
 
+      - name: prometheus-crds summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### prometheus-crds"
+            echo "- Status: \`${JOB_STATUS}\`"
+            echo "- Source: \`${{ github.repository }}@${{ github.sha }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=prometheus-crds::CRDs applied."
+          else
+            echo "::warning title=prometheus-crds::CRD apply failed."
+          fi
+
   argocd-install:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
     runs-on: ubuntu-latest
@@ -730,6 +878,21 @@ jobs:
 
       - name: Install ArgoCD via SSM
         run: scripts/bootstrap-argocd-install.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
+
+      - name: argocd-install summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### argocd-install"
+            echo "- Status: \`${JOB_STATUS}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=argocd-install::ArgoCD install/upgrade completed."
+          else
+            echo "::warning title=argocd-install::ArgoCD install/upgrade failed."
+          fi
 
   argocd-platform:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
@@ -754,6 +917,22 @@ jobs:
           ARGOCD_APP_PATH: k8s/platform
         run: scripts/bootstrap-argocd-app.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
 
+      - name: argocd-platform summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### argocd-platform"
+            echo "- Status: \`${JOB_STATUS}\`"
+            echo "- Application: \`cloudradar-platform\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=argocd-platform::platform application bootstrapped."
+          else
+            echo "::warning title=argocd-platform::platform bootstrap failed."
+          fi
+
   eso-ready-check:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
     runs-on: ubuntu-latest
@@ -772,6 +951,21 @@ jobs:
 
       - name: Wait for ESO readiness via SSM
         run: scripts/bootstrap-eso-ready.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
+
+      - name: eso-ready-check summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### eso-ready-check"
+            echo "- Status: \`${JOB_STATUS}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=eso-ready-check::ESO controller and CRDs are ready."
+          else
+            echo "::warning title=eso-ready-check::ESO readiness check failed."
+          fi
 
   argocd-apps:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' }}
@@ -797,6 +991,22 @@ jobs:
           ARGOCD_APP_NAMESPACE: cloudradar
           ARGOCD_APP_PATH: k8s/apps
         run: scripts/bootstrap-argocd-app.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
+
+      - name: argocd-apps summary
+        if: ${{ always() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### argocd-apps"
+            echo "- Status: \`${JOB_STATUS}\`"
+            echo "- Application: \`cloudradar\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${JOB_STATUS}" == "success" ]]; then
+            echo "::notice title=argocd-apps::apps application bootstrapped."
+          else
+            echo "::warning title=argocd-apps::apps bootstrap failed."
+          fi
 
   redis-restore:
     name: REDIS-RESTORE
@@ -936,7 +1146,7 @@ jobs:
             --query "Command.CommandId" \
             --output text)"
 
-          echo "::notice title=SSM::Wait Redis Ready command_id=${command_id}"
+          echo "::notice title=Redis restore::waiting for Redis StatefulSet rollout."
           if ! aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"; then
             aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}" || true
             exit 1
@@ -997,7 +1207,7 @@ jobs:
             --query "Command.CommandId" \
             --output text)"
 
-          echo "::notice title=SSM::Redis restore command_id=${command_id}"
+          echo "::notice title=Redis restore::executing restore script from latest backup."
           if ! aws ssm wait command-executed --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}"; then
             aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}" || true
             exit 1
@@ -1194,7 +1404,7 @@ jobs:
             exit 1
           fi
 
-          echo "::notice title=SSM::argocd app sync command_id=${command_id}"
+          echo "::notice title=SMOKE-TESTS::checking ArgoCD app sync/health."
 
           poll_ssm_command "${command_id}" "${K3S_SERVER_INSTANCE_ID}" 600
 
@@ -1334,7 +1544,7 @@ jobs:
             exit 1
           fi
 
-          echo "::notice title=SSM::healthz rollout command_id=${command_id}"
+          echo "::notice title=SMOKE-TESTS::checking healthz deployment rollout."
 
           poll_ssm_command "${command_id}" "${K3S_SERVER_INSTANCE_ID}" 600
 
@@ -1519,7 +1729,7 @@ jobs:
               return 0
             fi
 
-            echo "::notice title=SSM::k3s diagnostics path=${failed_path} command_id=${diag_command_id}"
+            echo "::notice title=SMOKE-TESTS::collecting k3s diagnostics for ${failed_path}."
             poll_ssm_command "${diag_command_id}" "${K3S_SERVER_INSTANCE_ID}" 300 || true
           }
 
@@ -1540,7 +1750,7 @@ jobs:
               exit 1
             fi
 
-            echo "::notice title=SSM::edge nginx check attempt=$((i+1)) command_id=${command_id}"
+            echo "::notice title=SMOKE-TESTS::edge nginx check attempt $((i+1))/3."
 
             if poll_ssm_command "${command_id}" "${EDGE_INSTANCE_ID}" 120; then
               break
