@@ -127,12 +127,22 @@ variable "processor_aircraft_db_s3_uri" {
   description = "S3 URI to the aircraft reference SQLite artifact (stored in SSM and injected via ESO)."
   type        = string
   default     = ""
+
+  validation {
+    condition     = !var.processor_aircraft_db_enabled || length(trimspace(var.processor_aircraft_db_s3_uri)) > 0
+    error_message = "processor_aircraft_db_s3_uri must be set when processor_aircraft_db_enabled is true."
+  }
 }
 
 variable "processor_aircraft_db_sha256" {
   description = "Optional SHA256 for the aircraft reference SQLite artifact (stored in SSM and injected via ESO)."
   type        = string
   default     = ""
+
+  validation {
+    condition     = trimspace(var.processor_aircraft_db_sha256) == "" || can(regex("^[A-Fa-f0-9]{64}$", trimspace(var.processor_aircraft_db_sha256)))
+    error_message = "processor_aircraft_db_sha256 must be empty or a 64-character hexadecimal SHA256."
+  }
 }
 
 variable "edge_instance_type" {
