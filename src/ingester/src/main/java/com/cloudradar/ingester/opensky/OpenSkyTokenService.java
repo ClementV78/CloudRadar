@@ -35,6 +35,12 @@ public class OpenSkyTokenService {
   private String accessToken;
   private Instant expiry;
 
+  private static final class CountedTokenHttpFailure extends RuntimeException {
+    private CountedTokenHttpFailure(String message) {
+      super(message);
+    }
+  }
+
   public OpenSkyTokenService(
       OpenSkyEndpointProvider endpointProvider,
       OpenSkyProperties properties,
@@ -111,7 +117,7 @@ public class OpenSkyTokenService {
         } else {
           tokenRequestClientErrorCounter.increment();
         }
-        throw new RuntimeException("Failed to get token from " + tokenUrl + ": " + response.statusCode());
+        throw new CountedTokenHttpFailure("Failed to get token from " + tokenUrl + ": " + response.statusCode());
       }
       tokenRequestSuccessCounter.increment();
 
@@ -123,6 +129,12 @@ public class OpenSkyTokenService {
       log.info("OpenSky token refreshed, expires in {} seconds", expiresIn);
       return accessToken;
 
+    } catch (CountedTokenHttpFailure e) {
+      if (!recorded && httpStartNs > 0) {
+        tokenRequestTimer.record(System.nanoTime() - httpStartNs, TimeUnit.NANOSECONDS);
+      }
+      log.error("Failed to get OpenSky token", e);
+      throw new RuntimeException("Token refresh failed: " + e.getMessage(), e);
     } catch (Exception e) {
       if (!recorded && httpStartNs > 0) {
         tokenRequestTimer.record(System.nanoTime() - httpStartNs, TimeUnit.NANOSECONDS);

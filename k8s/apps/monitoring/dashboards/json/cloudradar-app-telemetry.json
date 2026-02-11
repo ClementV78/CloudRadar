@@ -26,6 +26,314 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "description": "OpenSky API health inferred from successful /states requests over the last 5 minutes.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 101,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "(sum(rate(ingester_opensky_states_http_requests_total{outcome=\"success\"}[5m])) / clamp_min(sum(rate(ingester_opensky_states_http_requests_total[5m])), 0.001)) > bool 0.8",
+          "legendFormat": "opensky_api",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "OpenSky API",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Ingester deployment availability in namespace cloudradar.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 102,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(kube_deployment_status_replicas_available{namespace=\"cloudradar\",deployment=\"ingester\"}) > bool 0",
+          "legendFormat": "ingester",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Ingester",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Processor deployment availability in namespace cloudradar.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 103,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(kube_deployment_status_replicas_available{namespace=\"cloudradar\",deployment=\"processor\"}) > bool 0",
+          "legendFormat": "processor",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Processor",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Processor aircraft DB enrichment feature flag (1 enabled, 0 disabled).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DISABLED",
+                  "color": "orange"
+                },
+                "1": {
+                  "text": "ENABLED",
+                  "color": "green"
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 104,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(processor_aircraft_db_enabled) > bool 0",
+          "legendFormat": "enrichment",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Enrichment",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "description": "Telemetry events ingested from OpenSky (events per second).",
       "fieldConfig": {
         "defaults": {
@@ -59,7 +367,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 0
+        "y": 4
       },
       "id": 1,
       "options": {
@@ -126,7 +434,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 0
+        "y": 4
       },
       "id": 2,
       "options": {
@@ -185,7 +493,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 0
+        "y": 4
       },
       "id": 3,
       "options": {
@@ -252,7 +560,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 0
+        "y": 4
       },
       "id": 4,
       "options": {
@@ -294,7 +602,7 @@
           "mappings": [
             {
               "options": {
-                "from": -1e+12,
+                "from": -1E+12,
                 "result": {
                   "text": "Decreasing"
                 },
@@ -318,7 +626,7 @@
                 "result": {
                   "text": "Increasing"
                 },
-                "to": 1e+12
+                "to": 1E+12
               },
               "type": "range"
             }
@@ -344,7 +652,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 4
+        "y": 8
       },
       "id": 5,
       "options": {
@@ -411,7 +719,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 4
+        "y": 8
       },
       "id": 6,
       "options": {
@@ -478,7 +786,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 4
+        "y": 8
       },
       "id": 7,
       "options": {
@@ -545,7 +853,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 4
+        "y": 8
       },
       "id": 8,
       "options": {
@@ -620,7 +928,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 8
+        "y": 12
       },
       "id": 13,
       "options": {
@@ -654,7 +962,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "OpenSky /states/all request errors per second (non-success outcomes).",
+      "description": "OpenSky request errors per second across /states and token endpoints (non-success outcomes).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -687,7 +995,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 8
+        "y": 12
       },
       "id": 14,
       "options": {
@@ -707,13 +1015,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(ingester_opensky_states_http_requests_total{outcome!=\"success\"}[5m]))",
+          "expr": "sum(rate(ingester_opensky_states_http_requests_total{outcome!=\"success\"}[5m])) + sum(rate(ingester_opensky_token_http_requests_total{outcome=~\"client_error|server_error|exception\"}[5m]))",
           "legendFormat": "errors",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "OpenSky Errors (req/s)",
+      "title": "OpenSky Errors (req/s, states+token)",
       "type": "stat"
     },
     {
@@ -736,7 +1044,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 12
+        "y": 16
       },
       "id": 9,
       "options": {
@@ -804,7 +1112,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 12
+        "y": 16
       },
       "id": 10,
       "options": {
@@ -848,7 +1156,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 20
+        "y": 24
       },
       "id": 11,
       "options": {
@@ -910,7 +1218,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 20
+        "y": 24
       },
       "id": 12,
       "options": {
@@ -937,6 +1245,140 @@
         }
       ],
       "title": "Unknown Category Share (%)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Seconds since processor handled the last event (freshness signal). Lower is better.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 120
+              },
+              {
+                "color": "red",
+                "value": 300
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 12
+      },
+      "id": 105,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "clamp_min(time() - max(processor_last_processed_epoch > 0), 0)",
+          "legendFormat": "freshness",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Pipeline Freshness (s)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "OpenSky token endpoint latency p95 over the last 5 minutes.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 500
+              },
+              {
+                "color": "red",
+                "value": 1200
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 12
+      },
+      "id": 106,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "1000 * histogram_quantile(0.95, sum(rate(ingester_opensky_token_http_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "token_p95",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "OpenSky Token Latency p95 (ms)",
       "type": "stat"
     }
   ],

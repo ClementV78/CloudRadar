@@ -88,6 +88,7 @@ Key processor metrics exposed at `/metrics/prometheus`:
 - `processor_bbox_count` — current count of aircraft inside the bbox.
 - `processor_last_processed_epoch` — Unix epoch (seconds) of last processed event.
 - `processor_queue_depth` — current Redis ingestion queue depth (LLEN).
+- `processor_aircraft_db_enabled` — aircraft DB enrichment flag (`1` enabled, `0` disabled).
 - `processor_aircraft_category_events_total{category=...}` — events per aircraft category (requires aircraft DB enabled).
 
 Example (local port-forward):

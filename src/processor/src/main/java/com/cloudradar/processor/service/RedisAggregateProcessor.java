@@ -58,6 +58,11 @@ public class RedisAggregateProcessor {
     this.bboxCount = meterRegistry.gauge("processor.bbox.count", new AtomicInteger(0));
     this.lastProcessedEpoch = meterRegistry.gauge("processor.last_processed_epoch", new AtomicLong(0));
     this.queueDepth = meterRegistry.gauge("processor.queue.depth", new AtomicLong(0));
+    meterRegistry.gauge(
+        "processor.aircraft_db.enabled",
+        properties.getAircraftDb(),
+        db -> db.isEnabled() ? 1 : 0
+    );
   }
 
   @jakarta.annotation.PostConstruct
