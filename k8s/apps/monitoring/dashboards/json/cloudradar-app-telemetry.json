@@ -513,7 +513,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max(processor_bbox_count)",
+          "expr": "max(ingester_opensky_states_last_count)",
           "legendFormat": "aircraft",
           "range": true,
           "refId": "A"
@@ -527,7 +527,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Density index: aircraft per 10,000 km2 (processor count / ingester bbox area).",
+      "description": "Density index: aircraft per 10,000 km2 (latest OpenSky states count / ingester bbox area).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -578,7 +578,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max(processor_bbox_count) / (clamp_min(max(ingester_opensky_bbox_area_km2), 1) / 10000)",
+          "expr": "max(ingester_opensky_states_last_count) / (clamp_min(max(ingester_opensky_bbox_area_km2), 1) / 10000)",
           "legendFormat": "density",
           "range": true,
           "refId": "A"
@@ -592,7 +592,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Slope of active aircraft count (derivative over 5m). Positive means increasing traffic.",
+      "description": "Slope of latest OpenSky states count over the active dashboard time range interval. Positive means increasing traffic.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -672,13 +672,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "max(deriv(processor_bbox_count[5m]))",
+          "expr": "max(deriv(ingester_opensky_states_last_count[$__rate_interval]))",
           "legendFormat": "trend",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Traffic Trend (5m)",
+      "title": "Traffic Trend (Adaptive)",
       "type": "stat"
     },
     {
@@ -948,7 +948,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100 * max(processor_bbox_count) / clamp_min(max(avg_over_time(processor_bbox_count[24h])), 1)",
+          "expr": "100 * max(ingester_opensky_states_last_count) / clamp_min(max(avg_over_time(ingester_opensky_states_last_count[24h])), 1)",
           "legendFormat": "vs avg",
           "range": true,
           "refId": "A"
@@ -1153,8 +1153,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 10,
+        "w": 16,
         "x": 0,
         "y": 24
       },
@@ -1171,81 +1171,14 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "topk(10, sum by (category) (rate(processor_aircraft_category_events_total[5m])))",
+          "expr": "topk(8, sum by (category) (rate(processor_aircraft_category_events_total[$__rate_interval])))",
           "legendFormat": "{{category}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Aircraft Category Mix (events/s, top 10)",
+      "title": "Aircraft Category Mix (events/s, top 8)",
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "Share of 'unknown' aircraft category (events per second).",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 1,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 10
-              },
-              {
-                "color": "red",
-                "value": 25
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 24
-      },
-      "id": 12,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "100 * sum(rate(processor_aircraft_category_events_total{category=\"unknown\"}[5m])) / clamp_min(sum(rate(processor_aircraft_category_events_total[5m])), 1)",
-          "legendFormat": "unknown",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Unknown Category Share (%)",
-      "type": "stat"
     },
     {
       "datasource": {
@@ -1312,73 +1245,6 @@
         }
       ],
       "title": "Pipeline Freshness (s)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "OpenSky token endpoint latency p95 over the last 5 minutes.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 500
-              },
-              {
-                "color": "red",
-                "value": 1200
-              }
-            ]
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 12,
-        "y": 12
-      },
-      "id": 106,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "1000 * histogram_quantile(0.95, sum(rate(ingester_opensky_token_http_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "token_p95",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "OpenSky Token Latency p95 (ms)",
       "type": "stat"
     }
   ],

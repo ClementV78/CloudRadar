@@ -113,6 +113,7 @@ OpenSky performance:
 Throughput (telemetry ingestion):
 - `ingester_fetch_total` (counter; increments by number of states fetched)
 - `ingester_push_total` (counter; increments by number of events pushed to Redis)
+- `ingester_opensky_states_last_count` (gauge; number of states returned by the latest OpenSky poll)
 
 ## Deployment notes
 - For Kubernetes, use a Secret named `opensky-secret` with keys:
