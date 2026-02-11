@@ -63,10 +63,10 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
 11. `argocd-apps` (dev): bootstrap root apps from `k8s/apps`.
 12. `REDIS-RESTORE` (dev): restore Redis from the latest backup.
    - Visible as a dedicated job in the Actions graph.
-   - Runs only when `redis_backup_restore=true`; otherwise the job is shown as `skipped`.
-   - Even when requested, restore is skipped safely when no backup is found or when Redis `/data` is not empty.
-   - The job prints an explicit final verdict in logs and Step Summary: `RUN` or `SKIPPED` with reason.
+   - Logs explicit decision and reason (`RUN` / `SKIPPED`) in both logs and Step Summary.
+   - Skips restore safely when disabled by input, when no backup is found, or when Redis `/data` is not empty.
 13. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
+   - Logs explicit decision and reason (`RUN` / `SKIPPED`) in both logs and Step Summary.
 
 ## Workflow diagram (Mermaid)
 
@@ -119,9 +119,10 @@ flowchart TB
 - ArgoCD then syncs `k8s/apps` to the cluster automatically.
 - For dev applies, the workflow verifies k3s readiness with retries, then executes the full GitOps bootstrap chain (`prometheus-crds` -> `argocd-install` -> `argocd-platform` -> `eso-ready-check` -> `argocd-apps`).
 - The Redis restore phase is represented by a dedicated job named `REDIS-RESTORE` in the graph.
-  - If `redis_backup_restore=false`, the job is explicitly shown as `skipped`.
+  - If `redis_backup_restore=false`, the job emits an explicit skip reason in logs and summary.
   - If restore is requested, the job still protects data by skipping restore when Redis data is not fresh.
 - When `run_smoke_tests=true` (dev only), it also waits for the ArgoCD app to be Synced/Healthy, waits for the `healthz` deployment rollout, then curls `/healthz` from the Internet.
+  - If `run_smoke_tests=false`, the smoke-tests job emits an explicit skip reason in logs and summary.
 - The smoke test verifies edge Nginx via SSM (3 retries with 10s delay) before running the external `/healthz` curl.
   - On failure, it prints `systemctl status nginx`, recent `journalctl` logs, and the 443 listen check to speed up diagnostics.
 - The workflow now waits for **SSM PingStatus=Online** before sending commands, and retries `send-command` on transient `InvalidInstanceId` errors.
