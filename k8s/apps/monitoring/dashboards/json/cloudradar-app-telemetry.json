@@ -1015,7 +1015,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(ingester_opensky_states_http_requests_total{outcome!=\"success\"}[5m])) + sum(rate(ingester_opensky_token_http_requests_total{outcome!=\"success\"}[5m]))",
+          "expr": "sum(rate(ingester_opensky_states_http_requests_total{outcome!=\"success\"}[5m])) + sum(rate(ingester_opensky_token_http_requests_total{outcome=~\"client_error|server_error|exception\"}[5m]))",
           "legendFormat": "errors",
           "range": true,
           "refId": "A"
@@ -1305,7 +1305,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "clamp_min(time() - max(processor_last_processed_epoch), 0)",
+          "expr": "clamp_min(time() - max(processor_last_processed_epoch > 0), 0)",
           "legendFormat": "freshness",
           "range": true,
           "refId": "A"
