@@ -51,6 +51,24 @@ If tags drift, CI fails with an instruction to run:
 scripts/release/bump-app-version.sh --set "$(cat VERSION)"
 ```
 
+### Local pre-push guard (optional, recommended)
+
+Install the repository pre-push hook to fail fast before pushing commits that modify `src/**` without bumping `VERSION`:
+
+```bash
+scripts/git-hooks/install.sh
+```
+
+Behavior:
+- blocks `git push` if pushed commits include `src/**` changes but no `VERSION` change
+- prints the exact remediation command (`scripts/release/bump-app-version.sh`)
+
+Temporary local bypass (for exceptional cases only):
+
+```bash
+SKIP_VERSION_GUARD=1 git push
+```
+
 ## What happens
 
 The workflow uses a **matrix strategy** to build all services in **parallel**:
