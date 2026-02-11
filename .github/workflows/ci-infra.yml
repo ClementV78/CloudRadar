@@ -791,7 +791,8 @@ jobs:
         run: scripts/bootstrap-argocd-app.sh "${{ needs.tf-outputs.outputs.k3s_server_instance_id }}" "${AWS_REGION}"
 
   redis-restore:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.redis_backup_restore }}
+    name: REDIS-RESTORE
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.redis_backup_restore == 'true' }}
     runs-on: ubuntu-latest
     needs:
       - argocd-apps
@@ -809,7 +810,8 @@ jobs:
           role-to-assume: ${{ env.TF_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Guard Redis backup bucket (dev only)
+      - name: Decide Redis restore mode (dev only)
+        id: restore_gate
         shell: bash
         env:
           BACKUP_BUCKET: ${{ env.TF_BACKUP_BUCKET_NAME }}
@@ -817,12 +819,17 @@ jobs:
           set -euo pipefail
 
           if [[ -z "${BACKUP_BUCKET}" ]]; then
-            echo "::notice title=Redis restore::TF_BACKUP_BUCKET_NAME not set; skipping Redis restore."
+            echo "::notice title=Redis restore::SKIP - TF_BACKUP_BUCKET_NAME not set."
             echo "SKIP_REDIS_RESTORE=true" >> "$GITHUB_ENV"
+            echo "REDIS_RESTORE_REASON=TF_BACKUP_BUCKET_NAME is empty" >> "$GITHUB_ENV"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
           echo "SKIP_REDIS_RESTORE=false" >> "$GITHUB_ENV"
+          echo "REDIS_RESTORE_REASON=restore requested; evaluating backup availability and Redis freshness" >> "$GITHUB_ENV"
           echo "BACKUP_BUCKET=${BACKUP_BUCKET}" >> "$GITHUB_ENV"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Find latest Redis backup (dev only)
         if: ${{ env.SKIP_REDIS_RESTORE != 'true' }}
@@ -838,8 +845,9 @@ jobs:
             --output text | tr '\t' '\n' | sed '/^$/d' | sort | tail -n 1 || true)"
 
           if [[ -z "${latest_prefix}" ]]; then
-            echo "::notice title=Redis restore::No Redis backups found; skipping restore."
+            echo "::notice title=Redis restore::SKIP - no Redis backups found in s3://${BACKUP_BUCKET}/redis-backups/."
             echo "SKIP_REDIS_RESTORE=true" >> "$GITHUB_ENV"
+            echo "REDIS_RESTORE_REASON=no Redis backup found in S3" >> "$GITHUB_ENV"
             exit 0
           fi
 
@@ -950,7 +958,8 @@ jobs:
       - name: Skip restore (Redis not fresh) (dev only)
         if: ${{ env.SKIP_REDIS_RESTORE != 'true' && steps.redis_fresh.outputs.fresh != 'true' }}
         run: |
-          echo "::notice title=Redis restore::Redis /data is not empty; skipping restore to avoid data loss."
+          echo "::notice title=Redis restore::SKIP - Redis /data is not empty (protect existing data)."
+          echo "REDIS_RESTORE_REASON=Redis /data is not empty" >> "$GITHUB_ENV"
 
       - name: "SSM: restore Redis from S3 (dev only)"
         if: ${{ env.SKIP_REDIS_RESTORE != 'true' && steps.redis_fresh.outputs.fresh == 'true' }}
@@ -978,6 +987,32 @@ jobs:
             aws ssm get-command-invocation --command-id "${command_id}" --instance-id "${K3S_SERVER_INSTANCE_ID}" || true
             exit 1
           fi
+          echo "REDIS_RESTORE_EXECUTED=true" >> "$GITHUB_ENV"
+
+      - name: Redis restore verdict (dev only)
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          verdict="SKIPPED"
+          reason="${REDIS_RESTORE_REASON:-unspecified}"
+
+          if [[ "${SKIP_REDIS_RESTORE:-false}" != "true" ]] && [[ "${REDIS_RESTORE_EXECUTED:-false}" == "true" ]]; then
+            verdict="RUN"
+            reason="restored from ${S3_URI:-unknown}"
+          fi
+
+          echo "::notice title=Redis restore verdict::${verdict} - ${reason}"
+          {
+            echo "### Redis restore verdict"
+            echo ""
+            echo "- Verdict: \`${verdict}\`"
+            echo "- Reason: ${reason}"
+            echo "- Requested input: \`${{ inputs.redis_backup_restore }}\`"
+            echo "- Backup bucket: \`${BACKUP_BUCKET:-n/a}\`"
+            echo "- Backup artifact: \`${S3_URI:-n/a}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   smoke-tests:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.environment == 'dev' && inputs.run_smoke_tests == 'true' }}

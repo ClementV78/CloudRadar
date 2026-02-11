@@ -27,6 +27,24 @@ kubectl -n data get svc redis
 
 ## Backup & Restore (scripts)
 
+## Automated backup/restore in CI
+
+For dev environment rebuilds, Redis data lifecycle is automated by GitHub Actions:
+
+- `ci-infra-destroy`:
+  - when `redis_backup_restore=true`, runs Redis backup to S3 and rotates old backups (keeps last 3).
+  - if disabled or backup bucket is missing, backup is skipped with an explicit log reason.
+- `ci-infra` (deploy):
+  - job `REDIS-RESTORE` attempts restore from the latest backup.
+  - job is visible in the workflow graph.
+  - restore is skipped safely when no backup is found or when Redis `/data` is not empty.
+  - final verdict is printed in logs and Step Summary (`RUN` or `SKIPPED` with reason).
+
+References:
+- `docs/runbooks/ci-cd/ci-infra.md`
+- `.github/workflows/ci-infra.yml`
+- `.github/workflows/ci-infra-destroy.yml`
+
 Backup (creates a `.tgz` + `.sha256`, optional S3 upload):
 ```bash
 scripts/redis-backup.sh --s3-bucket cloudradar-dev-<account-id>-sqlite-backups

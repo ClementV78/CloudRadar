@@ -56,9 +56,17 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
 4. `tf-apply`: guarded apply (requires `auto_approve=true`).
 5. `tf-outputs` (dev only): load Terraform outputs for SSM/edge checks.
 6. `k3s-ready-check` (dev): wait for k3s nodes via SSM.
-7. `argocd-bootstrap` (dev): bootstrap ArgoCD via SSM after k3s readiness.
-8. `redis-restore` (dev): restore Redis from the latest backup (guarded: only runs when `redis_backup_restore=true`, and only restores when Redis `/data` is empty).
-9. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
+7. `prometheus-crds` (dev): apply Prometheus CRDs before ArgoCD bootstrap.
+8. `argocd-install` (dev): install ArgoCD via SSM.
+9. `argocd-platform` (dev): bootstrap platform apps (ESO/operator prerequisites).
+10. `eso-ready-check` (dev): wait for ESO readiness.
+11. `argocd-apps` (dev): bootstrap root apps from `k8s/apps`.
+12. `REDIS-RESTORE` (dev): restore Redis from the latest backup.
+   - Visible as a dedicated job in the Actions graph.
+   - Runs only when `redis_backup_restore=true`; otherwise the job is shown as `skipped`.
+   - Even when requested, restore is skipped safely when no backup is found or when Redis `/data` is not empty.
+   - The job prints an explicit final verdict in logs and Step Summary: `RUN` or `SKIPPED` with reason.
+13. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
 
 ## Workflow diagram (Mermaid)
 
@@ -81,12 +89,16 @@ flowchart TB
     tf-apply[tf-apply]
     tf-outputs[tf-outputs]
     k3s-ready-check[k3s-ready-check]
-    argocd-bootstrap[argocd-bootstrap]
-    redis-restore[redis-restore]
+    prometheus-crds[prometheus-crds]
+    argocd-install[argocd-install]
+    argocd-platform[argocd-platform]
+    eso-ready-check[eso-ready-check]
+    argocd-apps[argocd-apps]
+    redis-restore[REDIS-RESTORE]
     smoke-tests[smoke-tests]
 
     env-select --> tf-validate --> tf-plan --> tf-apply --> tf-outputs
-    tf-outputs --> k3s-ready-check --> argocd-bootstrap --> redis-restore --> smoke-tests
+    tf-outputs --> k3s-ready-check --> prometheus-crds --> argocd-install --> argocd-platform --> eso-ready-check --> argocd-apps --> redis-restore --> smoke-tests
   end
 
   PR --> Dispatch
@@ -102,10 +114,13 @@ flowchart TB
 - Uses the same S3/DynamoDB backend and the OIDC role.
 - Uses `terraform.tfvars` for required inputs.
 - `terraform.tfvars.example` is a reference template only.
-- After apply (dev only), the workflow boots ArgoCD via SSM and applies the root GitOps Application.
+- After apply (dev only), the workflow applies Prometheus CRDs, installs ArgoCD via SSM, bootstraps platform/apps, and then runs the optional Redis restore phase.
 - The bootstrap uses the k3s server instance ID from Terraform outputs and requires SSM connectivity.
 - ArgoCD then syncs `k8s/apps` to the cluster automatically.
-- For dev applies, the workflow verifies k3s readiness with retries, then bootstraps ArgoCD.
+- For dev applies, the workflow verifies k3s readiness with retries, then executes the full GitOps bootstrap chain (`prometheus-crds` -> `argocd-install` -> `argocd-platform` -> `eso-ready-check` -> `argocd-apps`).
+- The Redis restore phase is represented by a dedicated job named `REDIS-RESTORE` in the graph.
+  - If `redis_backup_restore=false`, the job is explicitly shown as `skipped`.
+  - If restore is requested, the job still protects data by skipping restore when Redis data is not fresh.
 - When `run_smoke_tests=true` (dev only), it also waits for the ArgoCD app to be Synced/Healthy, waits for the `healthz` deployment rollout, then curls `/healthz` from the Internet.
 - The smoke test verifies edge Nginx via SSM (3 retries with 10s delay) before running the external `/healthz` curl.
   - On failure, it prints `systemctl status nginx`, recent `journalctl` logs, and the 443 listen check to speed up diagnostics.
