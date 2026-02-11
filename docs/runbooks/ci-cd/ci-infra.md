@@ -22,8 +22,8 @@ Jobs run in CI to validate Terraform safely (no apply):
 
 - `environment`: target env (`dev` or `prod`).
 - `redis_backup_restore`: when `true` (default, dev only), restores Redis from the latest backup after apps are bootstrapped.
-- `auto_approve`: must be `true` to run apply.
-- `run_smoke_tests`: when `true`, runs post-apply readiness and health checks (k3s, ArgoCD, healthz).
+- `auto_approve` (checkbox): must be checked to run apply.
+- `run_smoke_tests` (checkbox): when checked, runs post-apply readiness and health checks (k3s, ArgoCD, healthz).
 - `backup_bucket_name`: optional override for the dev SQLite backup bucket.
 - DNS delegation uses the `DNS_ZONE_NAME` GitHub Actions variable (e.g., `cloudradar.example.com`).
   Keep real domain values out of the repo.
@@ -55,7 +55,7 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
 1. `env-select`: select `dev` or `prod`, expose `TF_DIR`/`TF_KEY`.
 2. `tf-validate`: init + validate (remote backend).
 3. `tf-plan`: init + plan with `terraform.tfvars`.
-4. `tf-apply`: guarded apply (requires `auto_approve=true`).
+4. `tf-apply`: guarded apply (requires `auto_approve` checked).
 5. `tf-outputs` (dev only): load Terraform outputs for SSM/edge checks.
 6. `k3s-ready-check` (dev): wait for k3s nodes via SSM.
 7. `prometheus-crds` (dev): apply Prometheus CRDs before ArgoCD bootstrap.
@@ -69,6 +69,9 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
    - Skips restore safely when disabled by input, when no backup is found, or when Redis `/data` is not empty.
 13. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
    - Logs explicit decision and reason (`RUN` / `SKIPPED`) in both logs and Step Summary.
+   - Uses signal-focused annotations (decision/outcome) instead of internal `command_id` noise.
+
+All manual-dispatch jobs now emit a short Step Summary block (status + key signal) to make run diagnostics scannable from the workflow page.
 
 ## Workflow diagram (Mermaid)
 
@@ -112,7 +115,7 @@ flowchart TB
 - Workloads (auto-generated): ![CloudRadar workloads diagram](../architecture/diagrams/cloudradar-workload-grid3.png)
 
 - Select `environment` (`dev` or `prod`).
-- Set `auto_approve=true` to allow apply.
+- Check `auto_approve` to allow apply.
 - Uses the same S3/DynamoDB backend and the OIDC role.
 - Uses `terraform.tfvars` for required inputs.
 - `terraform.tfvars.example` is a reference template only.

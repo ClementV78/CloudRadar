@@ -141,7 +141,8 @@ ssm_run_commands() {
     --query "Command.CommandId" \
     --output text)"
 
-  echo "::notice title=SSM::${notice_title} command_id=${command_id}"
+  echo "SSM ${notice_title} command_id=${command_id}"
+  echo "::notice title=SSM::${notice_title} command submitted."
 
   wait_for_ssm_command "${region}" "${command_id}" "${instance_id}" "${timeout_seconds}"
 
