@@ -155,6 +155,31 @@ kubectl -n argocd describe app cloudradar-platform | tail -n 50
 
 ---
 
+### 3.5 Break-Glass: Serial Console access when SSM is offline
+
+**Use only for emergency diagnostics.**
+
+**Goal**
+- Temporarily enable local password login for `ec2-user` on the k3s server via cloud-init.
+
+**Procedure**
+```bash
+# 1) Generate a SHA-512 password hash locally
+openssl passwd -6 'change-me'
+
+# 2) Export it locally (do not commit)
+export TF_VAR_k3s_server_serial_console_password_hash="$6$..."
+```
+
+3. Apply Terraform with a replace of the k3s server instance so cloud-init re-runs.
+4. Perform diagnostics using EC2 Serial Console.
+5. Remove the variable and replace the instance again to revert.
+
+**Note**
+- This keeps SSH password auth disabled while enabling temporary Serial Console access.
+
+---
+
 ## 4) Networking & Traffic
 
 ### 4.1 Networking / DNS / CNI
