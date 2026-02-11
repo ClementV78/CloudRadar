@@ -21,6 +21,11 @@ errors=0
 for entry in "${services[@]}"; do
   service="${entry%%:*}"
   file="${entry#*:}"
+  if [[ ! -f "${file}" ]]; then
+    echo "ERROR: Expected manifest file not found: ${file}" >&2
+    errors=1
+    continue
+  fi
   image_ref="$(grep -Eo "ghcr.io/clementv78/cloudradar/${service}:[^\"'[:space:]]+" "${file}" | head -n1 || true)"
   actual_version="${image_ref##*:}"
   if [[ -z "${image_ref}" ]]; then

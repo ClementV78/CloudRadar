@@ -24,12 +24,12 @@ This workflow supports two distinct behaviors:
 
 1. **Main builds** (not a release):
    - Trigger: push to `main` with app changes.
-   - Tags produced: `main`, `latest`, `main-<sha>`.
+   - Tags produced: `main`, `latest`, `sha-<short-sha>`.
    - Use case: continuous delivery for dev/testing.
 
 2. **Release builds** (versioned):
    - Trigger: push a Git tag like `v0.1.2`.
-   - Tags produced: `<version>`, `<sha>` (example: `0.1.2`, `5f3a2c1`).
+   - Tags produced: `<version>`, `sha-<short-sha>` (example: `0.1.2`, `sha-5f3a2c1`).
    - Use case: immutable, versioned images for deployments.
 
 ### Recommended deployment version steps
@@ -89,10 +89,10 @@ Tags are **explicit and context-aware** for clarity and traceability.
 
 | Context | Tag Format | Lisibilité | Use Case |
 | --- | --- | --- | --- |
-| PR | `pr-173`, `85591c6` | ✅ PR number visible | Test image from PR #173 |
-| Branch | `feature-xyz`, `feature-xyz-85591c6` | ✅ Branch name visible | Feature branch builds |
-| Main | `main`, `latest`, `main-85591c6` | ✅ Latest release | Stable builds |
-| Tag (semver) | `1.0.0`, `85591c6` | ✅ Release version | Release-pinned versions |
+| PR | `pr-173`, `sha-85591c6` | ✅ PR number visible | Test image from PR #173 |
+| Branch | `feature-xyz`, `sha-85591c6` | ✅ Branch name visible | Feature branch builds |
+| Main | `main`, `latest`, `sha-85591c6` | ✅ Latest release | Stable builds |
+| Tag (semver) | `1.0.0`, `sha-85591c6` | ✅ Release version | Release-pinned versions |
 
 ### Examples per context
 
@@ -100,7 +100,7 @@ Tags are **explicit and context-aware** for clarity and traceability.
 
 ```
 ghcr.io/clementv78/cloudradar/ingester:pr-173
-ghcr.io/clementv78/cloudradar/ingester:85591c6
+ghcr.io/clementv78/cloudradar/ingester:sha-85591c6
 ```
 
 **Use case**: Test image from a specific PR without affecting main.
@@ -109,7 +109,7 @@ ghcr.io/clementv78/cloudradar/ingester:85591c6
 
 ```
 ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter
-ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter-85591c6
+ghcr.io/clementv78/cloudradar/ingester:sha-85591c6
 ```
 
 **Use case**: Build and test from feature branches before merge.
@@ -119,7 +119,7 @@ ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter-85591c6
 ```
 ghcr.io/clementv78/cloudradar/ingester:main
 ghcr.io/clementv78/cloudradar/ingester:latest
-ghcr.io/clementv78/cloudradar/ingester:main-85591c6
+ghcr.io/clementv78/cloudradar/ingester:sha-85591c6
 ```
 
 **Use case**: Stable release images; `latest` points to main.
@@ -128,7 +128,7 @@ ghcr.io/clementv78/cloudradar/ingester:main-85591c6
 
 ```
 ghcr.io/clementv78/cloudradar/ingester:1.0.0
-ghcr.io/clementv78/cloudradar/ingester:85591c6
+ghcr.io/clementv78/cloudradar/ingester:sha-85591c6
 ```
 
 **Use case**: Release-pinned versions.
@@ -148,7 +148,7 @@ Note: We use **repo-scoped** package paths (not user-scoped) to keep permissions
 Example:
 ```
 ghcr.io/clementv78/cloudradar/ingester:latest
-ghcr.io/clementv78/cloudradar/ingester:main-5f3a2c1d
+ghcr.io/clementv78/cloudradar/ingester:sha-5f3a2c1d
 ghcr.io/clementv78/cloudradar/processor:1.0.0
 ```
 

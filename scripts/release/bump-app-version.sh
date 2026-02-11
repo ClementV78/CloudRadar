@@ -47,6 +47,10 @@ services=(
 for entry in "${services[@]}"; do
   service="${entry%%:*}"
   file="${entry#*:}"
+  if [[ ! -f "${file}" ]]; then
+    echo "ERROR: Expected manifest file not found: ${file}" >&2
+    exit 1
+  fi
   sed -Ei "s#(ghcr\\.io/clementv78/cloudradar/${service}:)[^\"'[:space:]]+#\\1${next_version}#g" "${file}"
 done
 
@@ -57,6 +61,17 @@ echo "- VERSION=$(tr -d '[:space:]' < VERSION)"
 for entry in "${services[@]}"; do
   service="${entry%%:*}"
   file="${entry#*:}"
-  image_ref="$(grep -Eo "ghcr.io/clementv78/cloudradar/${service}:[^\"'[:space:]]+" "${file}" | head -n1)"
+  image_ref="$(grep -Eo "ghcr.io/clementv78/cloudradar/${service}:[^\"'[:space:]]+" "${file}" | head -n1 || true)"
+  if [[ -z "${image_ref}" ]]; then
+    echo "ERROR: Could not find image reference for ${service} in ${file}" >&2
+    exit 1
+  fi
+  image_tag="${image_ref##*:}"
+  if [[ "${image_tag}" != "${next_version}" ]]; then
+    echo "ERROR: Image tag for ${service} (${image_tag}) does not match VERSION (${next_version})" >&2
+    exit 1
+  fi
   echo "- ${service}: ${image_ref}"
 done
+
+scripts/ci/check-app-version-sync.sh
