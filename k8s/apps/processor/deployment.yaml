@@ -29,15 +29,20 @@ spec:
             - sh
             - -ec
             - |
-              if [ -z "${AIRCRAFT_DB_S3_URI:-}" ]; then
-                echo "AIRCRAFT_DB_S3_URI is empty; skipping aircraft DB download"
+              if [ "${PROCESSOR_AIRCRAFT_DB_ENABLED:-false}" != "true" ]; then
+                echo "Aircraft DB enrichment disabled; skipping aircraft DB download"
+                exit 0
+              fi
+
+              if [ -z "${AIRCRAFT_DB_S3_URI:-}" ] || [ "${AIRCRAFT_DB_S3_URI}" = "__disabled__" ]; then
+                echo "AIRCRAFT_DB_S3_URI is not configured; skipping aircraft DB download"
                 exit 0
               fi
 
               echo "Downloading aircraft DB from ${AIRCRAFT_DB_S3_URI} ..."
               aws s3 cp "${AIRCRAFT_DB_S3_URI}" /refdata/aircraft.db
 
-              if command -v sha256sum >/dev/null 2>&1 && [ -n "${AIRCRAFT_DB_SHA256:-}" ]; then
+              if command -v sha256sum >/dev/null 2>&1 && echo "${AIRCRAFT_DB_SHA256:-}" | grep -Eq '^[A-Fa-f0-9]{64}$'; then
                 echo "${AIRCRAFT_DB_SHA256}  /refdata/aircraft.db" | sha256sum -c -
               fi
 
@@ -46,6 +51,12 @@ spec:
           env:
             - name: AWS_REGION
               value: us-east-1
+            - name: PROCESSOR_AIRCRAFT_DB_ENABLED
+              valueFrom:
+                secretKeyRef:
+                  name: processor-aircraft-db
+                  key: enabled
+                  optional: true
             - name: AIRCRAFT_DB_S3_URI
               valueFrom:
                 secretKeyRef:
