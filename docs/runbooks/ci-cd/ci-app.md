@@ -32,19 +32,24 @@ This workflow supports two distinct behaviors:
    - Tags produced: `<version>`, `<sha>` (example: `0.1.2`, `5f3a2c1`).
    - Use case: immutable, versioned images for deployments.
 
-### Recommended release steps
+### Recommended deployment version steps
 
-1. Merge changes to `main`.
-2. Create a version tag and push it:
+1. Bump app version and sync Kubernetes app image tags in one command:
    ```bash
-   git checkout main
-   git pull
-   git tag v0.1.2
-   git push origin v0.1.2
+   scripts/release/bump-app-version.sh
    ```
-3. Update Kubernetes manifests to use the versioned tag:
-   - Example: `ghcr.io/clementv78/CloudRadar/health:0.1.2`
-4. Let ArgoCD sync the new image.
+2. Commit and open a PR with `VERSION` + `k8s/apps/*/deployment.yaml` updates.
+3. Merge PR to `main` and wait for `build-and-push` to publish `:<VERSION>` images.
+4. Let ArgoCD sync the new images.
+
+### Guardrail (CI)
+
+`ci-k8s` enforces that all app deployment image tags are aligned with `VERSION`.
+If tags drift, CI fails with an instruction to run:
+
+```bash
+scripts/release/bump-app-version.sh --set "$(cat VERSION)"
+```
 
 ## What happens
 
@@ -94,8 +99,8 @@ Tags are **explicit and context-aware** for clarity and traceability.
 #### On pull requests
 
 ```
-ghcr.io/clementv78/CloudRadar/ingester:pr-173
-ghcr.io/clementv78/CloudRadar/ingester:85591c6
+ghcr.io/clementv78/cloudradar/ingester:pr-173
+ghcr.io/clementv78/cloudradar/ingester:85591c6
 ```
 
 **Use case**: Test image from a specific PR without affecting main.
@@ -103,8 +108,8 @@ ghcr.io/clementv78/CloudRadar/ingester:85591c6
 #### On branches (e.g., `feature/prometheus-exporter`)
 
 ```
-ghcr.io/clementv78/CloudRadar/ingester:feature-prometheus-exporter
-ghcr.io/clementv78/CloudRadar/ingester:feature-prometheus-exporter-85591c6
+ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter
+ghcr.io/clementv78/cloudradar/ingester:feature-prometheus-exporter-85591c6
 ```
 
 **Use case**: Build and test from feature branches before merge.
@@ -112,9 +117,9 @@ ghcr.io/clementv78/CloudRadar/ingester:feature-prometheus-exporter-85591c6
 #### On main (default branch)
 
 ```
-ghcr.io/clementv78/CloudRadar/ingester:main
-ghcr.io/clementv78/CloudRadar/ingester:latest
-ghcr.io/clementv78/CloudRadar/ingester:main-85591c6
+ghcr.io/clementv78/cloudradar/ingester:main
+ghcr.io/clementv78/cloudradar/ingester:latest
+ghcr.io/clementv78/cloudradar/ingester:main-85591c6
 ```
 
 **Use case**: Stable release images; `latest` points to main.
@@ -122,8 +127,8 @@ ghcr.io/clementv78/CloudRadar/ingester:main-85591c6
 #### On tags (e.g., `v1.0.0`)
 
 ```
-ghcr.io/clementv78/CloudRadar/ingester:1.0.0
-ghcr.io/clementv78/CloudRadar/ingester:85591c6
+ghcr.io/clementv78/cloudradar/ingester:1.0.0
+ghcr.io/clementv78/cloudradar/ingester:85591c6
 ```
 
 **Use case**: Release-pinned versions.
@@ -142,9 +147,9 @@ Note: We use **repo-scoped** package paths (not user-scoped) to keep permissions
 
 Example:
 ```
-ghcr.io/clementv78/CloudRadar/ingester:latest
-ghcr.io/clementv78/CloudRadar/ingester:main-5f3a2c1d
-ghcr.io/clementv78/CloudRadar/processor:1.0.0
+ghcr.io/clementv78/cloudradar/ingester:latest
+ghcr.io/clementv78/cloudradar/ingester:main-5f3a2c1d
+ghcr.io/clementv78/cloudradar/processor:1.0.0
 ```
 
 ## Accessing GHCR images
@@ -154,12 +159,12 @@ After images are pushed:
 1. **List packages**: [GHCR packages](https://github.com/ClementV78?tab=packages)
 2. **Pull an image**:
    ```bash
-   docker pull ghcr.io/clementv78/CloudRadar/ingester:latest
+   docker pull ghcr.io/clementv78/cloudradar/ingester:latest
    ```
 3. **Authentication** (if image is private):
    ```bash
    echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_ACTOR --password-stdin
-   docker pull ghcr.io/clementv78/CloudRadar/ingester:latest
+   docker pull ghcr.io/clementv78/cloudradar/ingester:latest
    ```
 
 ## Workflow diagram (Mermaid)
