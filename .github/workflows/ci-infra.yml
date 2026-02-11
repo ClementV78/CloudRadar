@@ -801,15 +801,6 @@ jobs:
       # Required across multiple steps; avoid "unbound variable" with `set -u`.
       K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ env.TF_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
       - name: Decide Redis restore mode (dev only)
         id: restore_gate
         shell: bash
@@ -822,7 +813,6 @@ jobs:
             echo "::notice title=Redis restore::SKIP - input redis_backup_restore=false."
             echo "SKIP_REDIS_RESTORE=true" >> "$GITHUB_ENV"
             echo "REDIS_RESTORE_REASON=input redis_backup_restore=false" >> "$GITHUB_ENV"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -830,14 +820,23 @@ jobs:
             echo "::notice title=Redis restore::SKIP - TF_BACKUP_BUCKET_NAME not set."
             echo "SKIP_REDIS_RESTORE=true" >> "$GITHUB_ENV"
             echo "REDIS_RESTORE_REASON=TF_BACKUP_BUCKET_NAME is empty" >> "$GITHUB_ENV"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           echo "SKIP_REDIS_RESTORE=false" >> "$GITHUB_ENV"
           echo "REDIS_RESTORE_REASON=restore requested; evaluating backup availability and Redis freshness" >> "$GITHUB_ENV"
           echo "BACKUP_BUCKET=${BACKUP_BUCKET}" >> "$GITHUB_ENV"
-          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: ${{ env.SKIP_REDIS_RESTORE != 'true' }}
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        if: ${{ env.SKIP_REDIS_RESTORE != 'true' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Find latest Redis backup (dev only)
         if: ${{ env.SKIP_REDIS_RESTORE != 'true' }}
@@ -1607,14 +1606,23 @@ jobs:
       - name: Smoke-tests verdict (dev only)
         if: ${{ always() }}
         shell: bash
+        env:
+          JOB_STATUS: ${{ job.status }}
         run: |
           set -euo pipefail
 
           verdict="SKIPPED"
           reason="${SMOKE_TESTS_REASON:-unspecified}"
           if [[ "${SKIP_SMOKE_TESTS:-false}" != "true" ]]; then
-            verdict="RUN"
-            reason="completed smoke checks"
+            if [[ "${JOB_STATUS:-success}" == "success" ]]; then
+              verdict="RUN"
+              reason="completed smoke checks"
+            else
+              verdict="FAILED"
+              if [[ "${reason}" == "unspecified" ]]; then
+                reason="smoke checks did not complete successfully (job status: ${JOB_STATUS:-unknown})"
+              fi
+            fi
           fi
 
           echo "::notice title=Smoke-tests verdict::${verdict} - ${reason}"
