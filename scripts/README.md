@@ -34,6 +34,14 @@ Notes:
 ## build-aircraft-sqlite.py
 
 Builds a lightweight aircraft reference database (`aircraft.db`) from a large CSV dataset.
+Optionally merges a secondary NDJSON dataset to:
+- add missing ICAO24 rows
+- enrich existing rows with `military_hint`, `year_built`, and `owner_operator`
+- fill empty metadata fields when available (`registration`, `manufacturer_name`, `model`, `typecode`, `icao_aircraft_class`)
+
+Data sources:
+- Primary CSV dataset: OpenSky Network open data aircraft database export.
+- Optional NDJSON enrichment dataset: ADSB Exchange (`adsbexchange.com`), "World's largest source of unfiltered flight data".
 
 This is intended for local/offline use. Do not commit the raw CSV nor the generated SQLite file.
 
@@ -43,5 +51,15 @@ Usage:
 python3 scripts/build-aircraft-sqlite.py \
   --input .local/.tmp/aircraft-database-complete-2025-08.csv \
   --output .local/.tmp/aircraft.db \
+  --drop-existing
+```
+
+Usage with merge:
+
+```bash
+python3 scripts/build-aircraft-sqlite.py \
+  --input .local/.tmp/aircraft-database-complete-2025-08.csv \
+  --output .local/.tmp/aircraft.db \
+  --merge-basic-json .local/.tmp/adsb-reference.ndjson \
   --drop-existing
 ```

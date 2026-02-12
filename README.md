@@ -18,6 +18,7 @@
 **CloudRadar** is a **DevOps & Cloud Architecture showcase**: a lightweight AWS platform that runs a **queue-driven telemetry pipeline** (ingester → Redis list → consumers) on a minimal k3s stack. It focuses on cost-efficient infrastructure choices, GitOps delivery, and operational readiness.
 
 **Functional Overview:** Ingest live flight telemetry from OpenSky, aggregate events, and expose data for a map dashboard with alertable zones.
+Live telemetry is enriched with a dual aircraft reference strategy: OpenSky open data aircraft dataset (primary) plus a secondary ADSB Exchange NDJSON export to improve coverage and metadata completeness (aircraft type/class, categories, military hint, owner/operator, year).
 
 **Technical Overview:** Terraform provisions AWS (k3s on EC2, IAM, S3, VPC). GitHub Actions runs infra CI; ArgoCD syncs `k8s/apps`. Prometheus/Grafana observability is implemented (GitOps-provisioned dashboards).
 
@@ -77,6 +78,7 @@ This repository represents **Version 1 (MVP)** of the platform.
 - Public Edge: **Nginx reverse proxy (EC2)** (dev implemented), **CloudFront** (planned)
 - Private compute: **k3s cluster (2 EC2 nodes: 1 control plane + 1 worker)**
 - Event buffering: **Redis**
+- Metadata enrichment: **dual aircraft datasets** (OpenSky + ADSB Exchange "World's largest source of unfiltered flight data")
 - MVP storage: **SQLite (PV / EBS)**
 - Observability: **Prometheus + Grafana** (7d retention, $0.50/month) + **CloudWatch datasource** (AWS-native metrics + VPC Flow Logs)
 - Backups (planned): **Daily SQLite to Amazon S3**
