@@ -14,6 +14,15 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Guardrail:** Do not rely on ESO pod readiness alone for app startup ordering; gate on application-level `ExternalSecret` readiness and target Secret materialization.
 - **Refs:** issue #404
 
+### [gitops/argocd] ingester runtime replicas reset to manifest value on sync
+- **Severity:** Medium
+- **Impact:** Ingestion stopped unexpectedly after bootstrap/sync because `ingester` replicas could return to `0`.
+- **Signal:** `ingester` had been manually/runtime scaled to `>=1`, then dropped back to `0` after app sync/redeploy.
+- **Analysis:** `ignoreDifferences` was set for `Deployment/ingester` `/spec/replicas`, but sync behavior may still re-apply manifest fields unless `RespectIgnoreDifferences=true` is included in sync options.
+- **Resolution:** In `bootstrap-argocd-app.sh`, when `IGNORE_INGESTER_REPLICAS=true`, also set `syncOptions: RespectIgnoreDifferences=true` with the existing replica ignore rule.
+- **Guardrail:** Keep runtime scaling use-cases protected by pairing `ignoreDifferences` with `RespectIgnoreDifferences=true`.
+- **Refs:** issue #405
+
 ## 2026-02-11
 
 ### [app/data] processor initContainer failed with S3 403 after aircraft DB enablement
