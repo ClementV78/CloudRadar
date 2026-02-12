@@ -89,11 +89,11 @@ Key processor metrics exposed at `/metrics/prometheus`:
 - `processor_last_processed_epoch` — Unix epoch (seconds) of last processed event.
 - `processor_queue_depth` — current Redis ingestion queue depth (LLEN).
 - `processor_aircraft_db_enabled` — aircraft DB enrichment flag (`1` enabled, `0` disabled).
-- `processor_aircraft_category_events_total{category=...}` — events per aircraft category (requires aircraft DB enabled).
-- `processor_aircraft_country_events_total{country=...}` — events per aircraft country.
-- `processor_aircraft_military_events_total{military=true|false|unknown}` — events split by military hint status.
-- `processor_aircraft_military_typecode_events_total{typecode=...}` — military events split by aircraft typecode.
-- `processor_aircraft_enrichment_events_total{field=year_built|owner_operator,status=present|missing}` — enrichment coverage counters.
+- `processor_aircraft_category_events_total{category=...}` — events per aircraft category (requires aircraft DB enrichment enabled).
+- `processor_aircraft_country_events_total{country=...}` — events per aircraft country (requires aircraft DB enrichment enabled).
+- `processor_aircraft_military_events_total{military=true|false|unknown}` — events split by military hint status (requires aircraft DB enrichment enabled).
+- `processor_aircraft_military_typecode_events_total{typecode=...}` — military events split by aircraft typecode (requires aircraft DB enrichment enabled).
+- `processor_aircraft_enrichment_events_total{field=year_built|owner_operator,status=present|missing}` — enrichment coverage counters (requires aircraft DB enrichment enabled).
 
 Example (local port-forward):
 

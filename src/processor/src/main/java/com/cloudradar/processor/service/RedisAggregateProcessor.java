@@ -147,10 +147,12 @@ public class RedisAggregateProcessor {
     }
 
     updateBboxState(event, redisIcao);
-    Optional<AircraftMetadata> metadata = resolveMetadata(redisIcao);
-    recordAircraftCategory(metadata);
-    recordAircraftCountry(metadata);
-    recordAircraftEnrichment(metadata);
+    if (aircraftRepo.isPresent()) {
+      Optional<AircraftMetadata> metadata = resolveMetadata(redisIcao);
+      recordAircraftCategory(metadata);
+      recordAircraftCountry(metadata);
+      recordAircraftEnrichment(metadata);
+    }
     processedCounter.increment();
     lastProcessedEpoch.set(System.currentTimeMillis() / 1000);
   }

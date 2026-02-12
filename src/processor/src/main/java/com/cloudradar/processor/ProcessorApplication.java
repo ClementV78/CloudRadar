@@ -4,14 +4,14 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
-@SpringBootApplication
-@ConfigurationPropertiesScan
 /**
  * Spring Boot entrypoint for the processor service.
  *
  * <p>The processor consumes telemetry events from Redis, maintains aggregates, and exposes
  * operational metrics and health endpoints.
  */
+@SpringBootApplication
+@ConfigurationPropertiesScan
 public class ProcessorApplication {
   /**
    * Starts the processor application.

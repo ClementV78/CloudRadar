@@ -2,13 +2,13 @@ package com.cloudradar.processor.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "processor")
 /**
  * Typed configuration for the processor service.
  *
  * <p>Values are bound from {@code application.yml} and environment variables under the
  * {@code processor.*} prefix.
  */
+@ConfigurationProperties(prefix = "processor")
 public class ProcessorProperties {
   private final Redis redis = new Redis();
   private final Bbox bbox = new Bbox();

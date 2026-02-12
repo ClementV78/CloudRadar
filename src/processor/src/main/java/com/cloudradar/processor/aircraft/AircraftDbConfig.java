@@ -6,13 +6,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-@Configuration
 /**
  * Spring configuration for optional aircraft metadata enrichment.
  *
  * <p>When enabled, this configuration exposes a read-only SQLite-backed repository used by the
  * processor to enrich events and metrics.
  */
+@Configuration
 public class AircraftDbConfig {
 
   /**

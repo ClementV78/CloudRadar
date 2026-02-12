@@ -100,20 +100,11 @@ public class AircraftDbConfig {
 - ✅ **Fallback gracieux** : Si DB désactivée ou entrée non trouvée → catégorie "unknown"
 
 ```java
-private void recordAircraftCategory(String icao24) {
-  if (aircraftRepo.isEmpty()) {
-    return;
-  }
-  String category = aircraftRepo.get().findByIcao24(icao24)
-      .map(meta -> meta.categoryOrFallback())
-      .orElse("unknown");
-  
-  Counter counter = categoryCounters.computeIfAbsent(
-      category,
-      c -> meterRegistry.counter("processor.aircraft.category.events", "category", c)
-  );
-  counter.increment();
-}
+// Note: keep this document concise and avoid duplicating full implementation snippets
+// that drift quickly. The authoritative logic is in:
+// RedisAggregateProcessor#processPayload(...)
+// RedisAggregateProcessor#recordAircraftCategory(...)
+// RedisAggregateProcessor#recordAircraftEnrichment(...)
 ```
 
 **Intelligent:**
@@ -342,4 +333,3 @@ Collections.synchronizedMap(new LinkedHashMap(...) { ... })
 | Production-ready | ✅ Oui |
 
 **Recommandation:** Merger tel quel. Améliorations optionnelles (circuit breaker pour aircraft DB, cache Caffeine si multi-threaded) en v1.1+.
-
