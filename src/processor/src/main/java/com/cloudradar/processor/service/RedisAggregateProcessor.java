@@ -1,6 +1,7 @@
 package com.cloudradar.processor.service;
 
 import com.cloudradar.processor.aircraft.AircraftMetadataRepository;
+import com.cloudradar.processor.aircraft.AircraftMetadata;
 import com.cloudradar.processor.config.ProcessorProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Counter;
@@ -18,6 +19,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+/**
+ * Main processing loop for Redis-backed event aggregation.
+ *
+ * <p>This component:
+ * <ul>
+ *   <li>consumes telemetry payloads from the Redis input list</li>
+ *   <li>updates last-position / track / bbox aggregates</li>
+ *   <li>emits low-cardinality operational and enrichment metrics</li>
+ * </ul>
+ */
 @Component
 public class RedisAggregateProcessor {
   private static final Logger LOGGER = LoggerFactory.getLogger(RedisAggregateProcessor.class);
@@ -31,6 +42,10 @@ public class RedisAggregateProcessor {
   private final Counter processedCounter;
   private final Counter errorCounter;
   private final ConcurrentHashMap<String, Counter> categoryCounters;
+  private final ConcurrentHashMap<String, Counter> militaryCounters;
+  private final ConcurrentHashMap<String, Counter> countryCounters;
+  private final ConcurrentHashMap<String, Counter> militaryTypecodeCounters;
+  private final ConcurrentHashMap<String, Counter> enrichmentCounters;
   private final AtomicInteger bboxCount;
   private final AtomicLong lastProcessedEpoch;
   private final AtomicLong queueDepth;
@@ -55,6 +70,10 @@ public class RedisAggregateProcessor {
     this.processedCounter = meterRegistry.counter("processor.events.processed");
     this.errorCounter = meterRegistry.counter("processor.events.errors");
     this.categoryCounters = new ConcurrentHashMap<>();
+    this.militaryCounters = new ConcurrentHashMap<>();
+    this.countryCounters = new ConcurrentHashMap<>();
+    this.militaryTypecodeCounters = new ConcurrentHashMap<>();
+    this.enrichmentCounters = new ConcurrentHashMap<>();
     this.bboxCount = meterRegistry.gauge("processor.bbox.count", new AtomicInteger(0));
     this.lastProcessedEpoch = meterRegistry.gauge("processor.last_processed_epoch", new AtomicLong(0));
     this.queueDepth = meterRegistry.gauge("processor.queue.depth", new AtomicLong(0));
@@ -65,11 +84,13 @@ public class RedisAggregateProcessor {
     );
   }
 
+  /** Starts the background processing loop after Spring context initialization. */
   @jakarta.annotation.PostConstruct
   public void start() {
     executor.submit(this::runLoop);
   }
 
+  /** Stops the processing loop and waits briefly for a clean shutdown. */
   @jakarta.annotation.PreDestroy
   public void stop() {
     executor.shutdownNow();
@@ -126,16 +147,25 @@ public class RedisAggregateProcessor {
     }
 
     updateBboxState(event, redisIcao);
-    recordAircraftCategory(redisIcao);
+    if (aircraftRepo.isPresent()) {
+      Optional<AircraftMetadata> metadata = resolveMetadata(redisIcao);
+      recordAircraftCategory(metadata);
+      recordAircraftCountry(metadata);
+      recordAircraftEnrichment(metadata);
+    }
     processedCounter.increment();
     lastProcessedEpoch.set(System.currentTimeMillis() / 1000);
   }
 
-  private void recordAircraftCategory(String icao24) {
+  private Optional<AircraftMetadata> resolveMetadata(String icao24) {
     if (aircraftRepo.isEmpty()) {
-      return;
+      return Optional.empty();
     }
-    String category = aircraftRepo.get().findByIcao24(icao24)
+    return aircraftRepo.get().findByIcao24(icao24);
+  }
+
+  private void recordAircraftCategory(Optional<AircraftMetadata> metadata) {
+    String category = metadata
         .map(meta -> meta.categoryOrFallback())
         .orElse("unknown");
 
@@ -143,6 +173,67 @@ public class RedisAggregateProcessor {
     Counter counter = categoryCounters.computeIfAbsent(
         category,
         c -> meterRegistry.counter("processor.aircraft.category.events", "category", c)
+    );
+    counter.increment();
+  }
+
+  private void recordAircraftCountry(Optional<AircraftMetadata> metadata) {
+    String country = metadata
+        .map(AircraftMetadata::country)
+        .filter(v -> v != null && !v.isBlank())
+        .map(String::trim)
+        .orElse("unknown");
+    Counter counter = countryCounters.computeIfAbsent(
+        country,
+        c -> meterRegistry.counter("processor.aircraft.country.events", "country", c)
+    );
+    counter.increment();
+  }
+
+  private void recordAircraftEnrichment(Optional<AircraftMetadata> metadata) {
+    String militaryLabel = metadata
+        .map(AircraftMetadata::militaryLabel)
+        .orElse("unknown");
+    Counter militaryCounter = militaryCounters.computeIfAbsent(
+        militaryLabel,
+        label -> meterRegistry.counter("processor.aircraft.military.events", "military", label)
+    );
+    militaryCounter.increment();
+    if ("true".equals(militaryLabel)) {
+      String typecode = metadata
+          .map(AircraftMetadata::typecode)
+          .filter(v -> v != null && !v.isBlank())
+          .map(String::trim)
+          .map(String::toUpperCase)
+          .filter(v -> v.length() <= 8)
+          .orElse("unknown");
+      Counter typeCounter = militaryTypecodeCounters.computeIfAbsent(
+          typecode,
+          code -> meterRegistry.counter("processor.aircraft.military.typecode.events", "typecode", code)
+      );
+      typeCounter.increment();
+    }
+
+    recordEnrichmentCoverage(
+        "year_built",
+        metadata.map(m -> m.yearBuilt() != null).orElse(false)
+    );
+    recordEnrichmentCoverage(
+        "owner_operator",
+        metadata.map(m -> m.ownerOperator() != null && !m.ownerOperator().isBlank()).orElse(false)
+    );
+  }
+
+  private void recordEnrichmentCoverage(String field, boolean present) {
+    String status = present ? "present" : "missing";
+    String key = field + ":" + status;
+    Counter counter = enrichmentCounters.computeIfAbsent(
+        key,
+        ignored -> meterRegistry.counter(
+            "processor.aircraft.enrichment.events",
+            "field", field,
+            "status", status
+        )
     );
     counter.increment();
   }

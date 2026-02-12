@@ -2,6 +2,12 @@ package com.cloudradar.processor.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/**
+ * Typed configuration for the processor service.
+ *
+ * <p>Values are bound from {@code application.yml} and environment variables under the
+ * {@code processor.*} prefix.
+ */
 @ConfigurationProperties(prefix = "processor")
 public class ProcessorProperties {
   private final Redis redis = new Redis();
@@ -38,6 +44,7 @@ public class ProcessorProperties {
     this.pollTimeoutSeconds = pollTimeoutSeconds;
   }
 
+  /** Redis key names used by the processor read/write path. */
   public static class Redis {
     private String inputKey = "cloudradar:ingest:queue";
     private String lastPositionsKey = "cloudradar:aircraft:last";
@@ -77,6 +84,7 @@ public class ProcessorProperties {
     }
   }
 
+  /** Geographic bounding box used to maintain the in-bbox aircraft set. */
   public static class Bbox {
     private double latMin = 46.8296;
     private double latMax = 50.8836;
@@ -116,6 +124,7 @@ public class ProcessorProperties {
     }
   }
 
+  /** Aircraft reference DB settings used by optional metadata enrichment. */
   public static class AircraftDb {
     private boolean enabled = false;
     private String path = "";

@@ -99,5 +99,16 @@ kubectl -n cloudradar get secret processor-aircraft-db
 - The processor uses a blocking pop with a short timeout to minimize CPU when the queue is empty.
 - Bbox limits are configured via env vars (`PROCESSOR_LAT_MIN`, `PROCESSOR_LAT_MAX`, `PROCESSOR_LON_MIN`, `PROCESSOR_LON_MAX`).
 - Metrics exposed via Actuator: `/metrics/prometheus` and `/healthz`.
+- Main enrichment metrics (when aircraft DB is enabled):
+  - `processor_aircraft_category_events_total{category=...}`
+  - `processor_aircraft_country_events_total{country=...}`
+  - `processor_aircraft_military_events_total{military=true|false|unknown}`
+  - `processor_aircraft_military_typecode_events_total{typecode=...}`
+  - `processor_aircraft_enrichment_events_total{field=year_built|owner_operator,status=present|missing}`
+- App Telemetry dashboard includes dedicated military/enrichment panels:
+  - Top 5 countries
+  - Military activity share (%)
+  - Unusual military activity index (vs rolling 24h baseline)
+  - Military aircraft seen (top typecodes in selected period)
 - Persistence to SQLite is tracked in #165 and is out of scope for v1.
 - Track length defaults to 180 points (roughly 30 minutes at 10s refresh).

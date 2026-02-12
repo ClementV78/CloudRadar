@@ -21,7 +21,7 @@ spec:
         runAsUser: 10001
       containers:
         - name: admin-scale
-          image: ghcr.io/clementv78/cloudradar/admin-scale:0.1.8
+          image: ghcr.io/clementv78/cloudradar/admin-scale:0.1.10
           imagePullPolicy: IfNotPresent
           env:
             - name: ADMIN_TOKEN_SSM_NAME
