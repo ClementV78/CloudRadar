@@ -3,6 +3,11 @@ package com.cloudradar.processor.service;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+/**
+ * Normalized telemetry payload consumed by the processor from Redis.
+ *
+ * <p>Unknown JSON attributes are ignored to keep ingestion resilient to upstream schema drift.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record PositionEvent(
   @JsonProperty("icao24") String icao24,

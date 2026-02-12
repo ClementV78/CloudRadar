@@ -7,8 +7,20 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+/**
+ * Spring configuration for optional aircraft metadata enrichment.
+ *
+ * <p>When enabled, this configuration exposes a read-only SQLite-backed repository used by the
+ * processor to enrich events and metrics.
+ */
 public class AircraftDbConfig {
 
+  /**
+   * Creates the aircraft metadata repository when {@code processor.aircraft-db.enabled=true}.
+   *
+   * @param properties processor configuration properties
+   * @return repository backed by the local SQLite artifact
+   */
   @Bean(destroyMethod = "close")
   @ConditionalOnProperty(prefix = "processor.aircraft-db", name = "enabled", havingValue = "true")
   public AircraftMetadataRepository aircraftMetadataRepository(ProcessorProperties properties) {
@@ -19,4 +31,3 @@ public class AircraftDbConfig {
     return new SqliteAircraftMetadataRepository(Path.of(path), properties.getAircraftDb().getCacheSize());
   }
 }
-

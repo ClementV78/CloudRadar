@@ -1185,6 +1185,329 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "description": "Event flow split by military hint status from aircraft enrichment metadata.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 24
+      },
+      "id": 112,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (military) (rate(processor_aircraft_military_events_total[$__rate_interval]))",
+          "legendFormat": "{{military}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Military Hint Mix (events/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Coverage ratio for key enrichment fields (present vs total events).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 8,
+        "x": 16,
+        "y": 29
+      },
+      "id": 113,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * sum(rate(processor_aircraft_enrichment_events_total{field=\"year_built\",status=\"present\"}[$__rate_interval])) / clamp_min(sum(rate(processor_aircraft_enrichment_events_total{field=\"year_built\"}[$__rate_interval])), 1e-9)",
+          "legendFormat": "year_built",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "100 * sum(rate(processor_aircraft_enrichment_events_total{field=\"owner_operator\",status=\"present\"}[$__rate_interval])) / clamp_min(sum(rate(processor_aircraft_enrichment_events_total{field=\"owner_operator\"}[$__rate_interval])), 1e-9)",
+          "legendFormat": "owner_operator",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Enrichment Coverage (%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Top 5 countries by event flow in the selected Grafana time range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "mappings": [],
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 34
+      },
+      "id": 114,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "topk(5, sum by (country) (rate(processor_aircraft_country_events_total[$__rate_interval])))",
+          "legendFormat": "{{country}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Top 5 Countries (events/s)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Global share of military-hinted events over all enriched events in selected range.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 15
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 34
+      },
+      "id": 115,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * sum(rate(processor_aircraft_military_events_total{military=\"true\"}[$__rate_interval])) / clamp_min(sum(rate(processor_aircraft_military_events_total[$__rate_interval])), 1e-9)",
+          "legendFormat": "military %",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Military Activity Share (%)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Current military event rate divided by a rolling 24h baseline (values > 1 indicate above-baseline activity).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1.5
+              },
+              {
+                "color": "red",
+                "value": 2.5
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 34
+      },
+      "id": 116,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(processor_aircraft_military_events_total{military=\"true\"}[$__rate_interval])) / clamp_min(avg_over_time(sum(rate(processor_aircraft_military_events_total{military=\"true\"}[5m]))[24h:5m]), 1e-9)",
+          "legendFormat": "anomaly index",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Unusual Military Activity (Index)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Top military aircraft typecodes seen during the selected Grafana period.",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 38
+      },
+      "id": 117,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "topk(20, sum by (typecode) (increase(processor_aircraft_military_typecode_events_total[$__range])))",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "{{typecode}}",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "Military Aircraft Seen (Top Typecodes, period)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "description": "Seconds since processor handled the last event (freshness signal). Lower is better.",
       "fieldConfig": {
         "defaults": {
