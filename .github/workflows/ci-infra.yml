@@ -1144,13 +1144,14 @@ jobs:
           }
 
           params="$(jq -cn \
-            --arg c0 "i=0; while [ \$i -lt 36 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 360s\"; exit 1; fi" \
-            --arg c1 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
-            --arg c2 "count=\$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get externalsecret -A --no-headers 2>/dev/null | wc -l | tr -d ' '); if [ \"\${count}\" -eq 0 ]; then echo \"No ExternalSecret resources found\"; exit 1; fi; echo \"Found \${count} ExternalSecret resources.\"" \
-            --arg c3 "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait externalsecret --all --all-namespaces --for=condition=Ready --timeout=600s" \
-            --arg c4 "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get externalsecret -A -o jsonpath='{range .items[*]}{.metadata.namespace}{\"|\"}{.metadata.name}{\"|\"}{.spec.target.name}{\"\\n\"}{end}' >/tmp/external-secrets-targets.txt" \
-            --arg c5 "while IFS='|' read -r ns es target; do [ -n \"\${target}\" ] || target=\"\${es}\"; echo \"Checking secret \${ns}/\${target} (from ExternalSecret \${es})\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n \"\${ns}\" get secret \"\${target}\" >/dev/null 2>&1 || { echo \"Missing secret \${ns}/\${target}\"; exit 1; }; done </tmp/external-secrets-targets.txt; echo \"All ExternalSecrets are Ready and target Secrets exist.\"" \
-            '{commands: [$c0, $c1, $c2, $c3, $c4, $c5]}')"
+            --arg c0 "set -eu" \
+            --arg c1 "i=0; while [ \$i -lt 36 ]; do if [ -x /usr/local/bin/kubectl ]; then break; fi; echo \"Waiting for kubectl...\"; sleep 10; i=\$((i+1)); done; if [ ! -x /usr/local/bin/kubectl ]; then echo \"kubectl not found after 360s\"; exit 1; fi" \
+            --arg c2 "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" \
+            --arg c3 "max_wait=300; waited=0; while :; do count=\$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get externalsecret -A --no-headers 2>/dev/null | wc -l | tr -d ' '); if [ \"\${count}\" -gt 0 ]; then echo \"Found \${count} ExternalSecret resources.\"; break; fi; if [ \"\${waited}\" -ge \"\${max_wait}\" ]; then echo \"No ExternalSecret resources found after \${max_wait}s\"; exit 1; fi; echo \"No ExternalSecret resources found yet, waiting 10s...\"; sleep 10; waited=\$((waited + 10)); done" \
+            --arg c4 "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl wait externalsecret --all --all-namespaces --for=condition=Ready --timeout=600s" \
+            --arg c5 "sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl get externalsecret -A -o jsonpath='{range .items[*]}{.metadata.namespace}{\"|\"}{.metadata.name}{\"|\"}{.spec.target.name}{\"\\n\"}{end}' >/tmp/external-secrets-targets.txt" \
+            --arg c6 "while IFS='|' read -r ns es target; do [ -n \"\${target}\" ] || target=\"\${es}\"; echo \"Checking secret \${ns}/\${target} (from ExternalSecret \${es})\"; sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n \"\${ns}\" get secret \"\${target}\" >/dev/null 2>&1 || { echo \"Missing secret \${ns}/\${target}\"; exit 1; }; done </tmp/external-secrets-targets.txt; echo \"All ExternalSecrets are Ready and target Secrets exist.\"" \
+            '{commands: [$c0, $c1, $c2, $c3, $c4, $c5, $c6]}')"
 
           wait_for_instance_ready "${K3S_SERVER_INSTANCE_ID}"
           command_id="$(send_ssm_command "${K3S_SERVER_INSTANCE_ID}" "${params}" 900)"
