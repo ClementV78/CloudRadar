@@ -69,6 +69,12 @@ ARGOCD_APP_PATH=k8s/apps \
 scripts/bootstrap-argocd-app.sh <instance-id> us-east-1
 ```
 
+When `IGNORE_INGESTER_REPLICAS=true`, the bootstrap script also sets:
+- `syncOptions: RespectIgnoreDifferences=true`
+- `ignoreDifferences` for `Deployment cloudradar/ingester` on `/spec/replicas`
+
+This ensures ArgoCD sync does not reset runtime ingester scaling back to manifest value.
+
 Optional overrides (all have defaults):
 ```bash
 ARGOCD_NAMESPACE=argocd \
@@ -144,10 +150,19 @@ Note: the script exports `KUBECONFIG=/etc/rancher/k3s/k3s.yaml` and preserves it
 The apps bootstrap can configure ArgoCD to ignore `spec.replicas` for the `ingester` deployment.
 This allows the admin scale API to change replicas without ArgoCD reverting them.
 
+Important:
+- `ignoreDifferences` should be paired with `syncOptions: RespectIgnoreDifferences=true` so sync operations honor the replica-field ignore rule.
+
 If the Application already exists, you can patch it manually:
 ```bash
 kubectl -n argocd patch app cloudradar --type merge -p '{
   "spec": {
+    "syncPolicy": {
+      "syncOptions": [
+        "CreateNamespace=true",
+        "RespectIgnoreDifferences=true"
+      ]
+    },
     "ignoreDifferences": [
       {
         "group": "apps",

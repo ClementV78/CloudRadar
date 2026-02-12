@@ -123,6 +123,7 @@ if [[ "${ARGOCD_SERVER_SIDE_APPLY}" == "true" ]]; then
 fi
 
 if [[ "${IGNORE_INGESTER_REPLICAS}" == "true" ]]; then
+  app_lines+=("      - RespectIgnoreDifferences=true")
   app_lines+=(
     "  ignoreDifferences:"
     "  - group: apps"
