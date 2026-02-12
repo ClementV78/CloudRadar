@@ -29,18 +29,32 @@ spec:
             - sh
             - -ec
             - |
-              if [ "${PROCESSOR_AIRCRAFT_DB_ENABLED:-false}" != "true" ]; then
-                echo "Aircraft DB enrichment disabled; skipping aircraft DB download"
-                exit 0
-              fi
+              enabled="${PROCESSOR_AIRCRAFT_DB_ENABLED:-}"
+              case "${enabled}" in
+                true)
+                  ;;
+                false)
+                  echo "Aircraft DB enrichment disabled; skipping aircraft DB download"
+                  exit 0
+                  ;;
+                "")
+                  echo "PROCESSOR_AIRCRAFT_DB_ENABLED is missing"
+                  exit 1
+                  ;;
+                *)
+                  echo "Invalid PROCESSOR_AIRCRAFT_DB_ENABLED value: ${enabled}"
+                  exit 1
+                  ;;
+              esac
 
               if [ -z "${AIRCRAFT_DB_S3_URI:-}" ] || [ "${AIRCRAFT_DB_S3_URI}" = "__disabled__" ]; then
-                echo "AIRCRAFT_DB_S3_URI is not configured; skipping aircraft DB download"
-                exit 0
+                echo "AIRCRAFT_DB_S3_URI is not configured while enrichment is enabled"
+                exit 1
               fi
 
               echo "Downloading aircraft DB from ${AIRCRAFT_DB_S3_URI} ..."
               aws s3 cp "${AIRCRAFT_DB_S3_URI}" /refdata/aircraft.db
+              [ -s /refdata/aircraft.db ] || { echo "Downloaded aircraft DB is missing or empty"; exit 1; }
 
               if command -v sha256sum >/dev/null 2>&1 && echo "${AIRCRAFT_DB_SHA256:-}" | grep -Eq '^[A-Fa-f0-9]{64}$'; then
                 echo "${AIRCRAFT_DB_SHA256}  /refdata/aircraft.db" | sha256sum -c -
@@ -56,13 +70,13 @@ spec:
                 secretKeyRef:
                   name: processor-aircraft-db
                   key: enabled
-                  optional: true
+                  optional: false
             - name: AIRCRAFT_DB_S3_URI
               valueFrom:
                 secretKeyRef:
                   name: processor-aircraft-db
                   key: s3-uri
-                  optional: true
+                  optional: false
             - name: AIRCRAFT_DB_SHA256
               valueFrom:
                 secretKeyRef:
@@ -96,7 +110,7 @@ spec:
                 secretKeyRef:
                   name: processor-aircraft-db
                   key: enabled
-                  optional: true
+                  optional: false
             - name: PROCESSOR_AIRCRAFT_DB_PATH
               value: /refdata/aircraft.db
           ports:

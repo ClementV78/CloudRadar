@@ -63,11 +63,12 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
 9. `argocd-platform` (dev): bootstrap platform apps (ESO/operator prerequisites).
 10. `eso-ready-check` (dev): wait for ESO readiness.
 11. `argocd-apps` (dev): bootstrap root apps from `k8s/apps`.
-12. `REDIS-RESTORE` (dev): restore Redis from the latest backup.
+12. `eso-secrets-ready` (dev): enforce External Secrets synchronization (`ExternalSecret Ready=True` and target Secrets materialized) before restore/smoke.
+13. `REDIS-RESTORE` (dev): restore Redis from the latest backup.
    - Visible as a dedicated job in the Actions graph.
    - Logs explicit decision and reason (`RUN` / `SKIPPED`) in both logs and Step Summary.
    - Skips restore safely when disabled by input, when no backup is found, or when Redis `/data` is not empty.
-13. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
+14. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
    - Logs explicit decision and reason (`RUN` / `SKIPPED`) in both logs and Step Summary.
    - Uses signal-focused annotations (decision/outcome) instead of internal `command_id` noise.
 
@@ -99,11 +100,12 @@ flowchart TB
     argocd-platform[argocd-platform]
     eso-ready-check[eso-ready-check]
     argocd-apps[argocd-apps]
+    eso-secrets-ready[eso-secrets-ready]
     redis-restore[REDIS-RESTORE]
     smoke-tests[smoke-tests]
 
     env-select --> tf-validate --> tf-plan --> tf-apply --> tf-outputs
-    tf-outputs --> k3s-ready-check --> prometheus-crds --> argocd-install --> argocd-platform --> eso-ready-check --> argocd-apps --> redis-restore --> smoke-tests
+    tf-outputs --> k3s-ready-check --> prometheus-crds --> argocd-install --> argocd-platform --> eso-ready-check --> argocd-apps --> eso-secrets-ready --> redis-restore --> smoke-tests
   end
 
   PR --> Dispatch
@@ -122,7 +124,10 @@ flowchart TB
 - After apply (dev only), the workflow applies Prometheus CRDs, installs ArgoCD via SSM, bootstraps platform/apps, and then runs the optional Redis restore phase.
 - The bootstrap uses the k3s server instance ID from Terraform outputs and requires SSM connectivity.
 - ArgoCD then syncs `k8s/apps` to the cluster automatically.
-- For dev applies, the workflow verifies k3s readiness with retries, then executes the full GitOps bootstrap chain (`prometheus-crds` -> `argocd-install` -> `argocd-platform` -> `eso-ready-check` -> `argocd-apps`).
+- For dev applies, the workflow verifies k3s readiness with retries, then executes the full GitOps bootstrap chain (`prometheus-crds` -> `argocd-install` -> `argocd-platform` -> `eso-ready-check` -> `argocd-apps` -> `eso-secrets-ready`).
+- `eso-secrets-ready` prevents false positives where ESO is running but application `ExternalSecret` resources are not fully synced yet.
+  - It waits for all `ExternalSecret` resources to reach `Ready=True`.
+  - It verifies each `ExternalSecret` target Secret exists before continuing.
 - The Redis restore phase is represented by a dedicated job named `REDIS-RESTORE` in the graph.
   - If `redis_backup_restore=false`, the job emits an explicit skip reason in logs and summary.
   - If restore is requested, the job still protects data by skipping restore when Redis data is not fresh.

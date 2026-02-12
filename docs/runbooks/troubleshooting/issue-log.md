@@ -2,6 +2,18 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-12
+
+### [ci/eso] processor crashed after bootstrap (ESO ready but app secret not fully synced yet)
+- **Severity:** High
+- **Impact:** `processor` entered `CrashLoopBackOff`; ArgoCD app `cloudradar` stayed `Degraded`; `smoke-tests` failed on post-apply checks.
+- **Signal:** `Aircraft DB enrichment disabled; skipping aircraft DB download` in initContainer logs, then main container failed with `Aircraft DB not found at /refdata/aircraft.db`.
+- **Analysis:** `eso-ready-check` validates ESO controller/CRDs, but did not guarantee `externalsecret/processor-aircraft-db` was already `Ready=True` with materialized Secret keys when `processor` pod started.
+- **Resolution:** Add a dedicated CI gate `eso-secrets-ready` after `argocd-apps` to wait for all `ExternalSecret` resources (`Ready=True`) and verify each target Secret is materialized before restore/smoke.
+  Also harden processor deployment: required secret keys (`optional: false`) and fail-fast init logic when enrichment is enabled but `s3-uri` is invalid.
+- **Guardrail:** Do not rely on ESO pod readiness alone for app startup ordering; gate on application-level `ExternalSecret` readiness and target Secret materialization.
+- **Refs:** issue #404
+
 ## 2026-02-11
 
 ### [app/data] processor initContainer failed with S3 403 after aircraft DB enablement
