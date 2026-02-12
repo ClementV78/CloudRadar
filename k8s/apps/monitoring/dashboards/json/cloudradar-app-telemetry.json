@@ -827,7 +827,16 @@
             "mode": "thresholds"
           },
           "decimals": 0,
-          "mappings": [],
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "N/A"
+                }
+              }
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1284,7 +1293,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100 * sum(rate(processor_aircraft_military_events_total{military=\"true\"}[$__rate_interval])) / clamp_min(sum(rate(processor_aircraft_military_events_total[$__rate_interval])), 1e-9)",
+          "expr": "100 * sum(increase(processor_aircraft_military_events_total{military=\"true\"}[$__range])) / clamp_min(sum(increase(processor_aircraft_military_events_total[$__range])), 1e-9)",
           "legendFormat": "military %",
           "range": true,
           "refId": "A"
@@ -1351,7 +1360,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(processor_aircraft_military_events_total{military=\"true\"}[$__rate_interval])) / clamp_min(avg_over_time(sum(rate(processor_aircraft_military_events_total{military=\"true\"}[5m]))[24h:5m]), 1e-9)",
+          "expr": "sum(increase(processor_aircraft_military_events_total{military=\"true\"}[$__range])) / clamp_min(sum(increase(processor_aircraft_military_events_total{military=\"true\"}[$__range] offset $__range)), 1e-9)",
           "legendFormat": "anomaly index",
           "range": true,
           "refId": "A"
