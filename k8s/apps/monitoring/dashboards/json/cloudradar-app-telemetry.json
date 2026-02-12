@@ -1242,7 +1242,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "continuous-GrYlRd"
           },
           "decimals": 2,
           "mappings": [],
@@ -1259,7 +1259,7 @@
       },
       "id": 115,
       "options": {
-        "displayMode": "basic",
+        "displayMode": "lcd",
         "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
@@ -1268,7 +1268,7 @@
           "fields": "",
           "values": false
         },
-        "showUnfilled": false,
+        "showUnfilled": true,
         "valueMode": "color"
       },
       "targets": [
