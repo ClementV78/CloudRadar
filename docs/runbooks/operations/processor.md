@@ -37,6 +37,16 @@ python3 scripts/build-aircraft-sqlite.py \
   --drop-existing
 ```
 
+Optional merge with a secondary NDJSON source (e.g. `basic-ac-db.json`) to improve ICAO coverage and add `military_hint`, `year_built`, `owner_operator`:
+
+```bash
+python3 scripts/build-aircraft-sqlite.py \
+  --input /path/to/aircraft-database.csv \
+  --output /tmp/aircraft.db \
+  --merge-basic-json /path/to/basic-ac-db.json \
+  --drop-existing
+```
+
 ### Upload the artifact (S3)
 Upload the generated `aircraft.db` to your reference bucket (versioned path recommended), for example:
 `s3://<reference-bucket>/aircraft-db/<version>/aircraft.db`
