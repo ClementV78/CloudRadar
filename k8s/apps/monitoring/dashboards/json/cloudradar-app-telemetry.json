@@ -1238,34 +1238,16 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Global share of military-hinted events over all enriched events in selected range.",
+      "description": "Combined military signal for selected period: share of military events and unusual activity index versus previous equal period.",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
           },
-          "decimals": 1,
+          "decimals": 2,
           "mappings": [],
-          "max": 100,
           "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 5
-              },
-              {
-                "color": "red",
-                "value": 15
-              }
-            ]
-          },
-          "unit": "percent"
+          "unit": "none"
         },
         "overrides": []
       },
@@ -1277,9 +1259,7 @@
       },
       "id": 115,
       "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
+        "displayMode": "basic",
         "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
@@ -1288,86 +1268,27 @@
           "fields": "",
           "values": false
         },
-        "textMode": "auto"
+        "showUnfilled": false,
+        "valueMode": "color"
       },
       "targets": [
         {
           "editorMode": "code",
           "expr": "100 * sum(increase(processor_aircraft_military_events_total{military=\"true\"}[$__range])) / clamp_min(sum(increase(processor_aircraft_military_events_total[$__range])), 1e-9)",
-          "legendFormat": "military %",
+          "legendFormat": "Share %",
           "range": true,
           "refId": "A"
-        }
-      ],
-      "title": "Military Activity Share (%)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "description": "Current military event rate divided by a rolling 24h baseline (values > 1 indicate above-baseline activity).",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 2,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1.5
-              },
-              {
-                "color": "red",
-                "value": 2.5
-              }
-            ]
-          },
-          "unit": "none"
         },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 34
-      },
-      "id": 116,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "targets": [
         {
           "editorMode": "code",
           "expr": "sum(increase(processor_aircraft_military_events_total{military=\"true\"}[$__range])) / clamp_min(sum(increase(processor_aircraft_military_events_total{military=\"true\"}[$__range] offset $__range)), 1e-9)",
-          "legendFormat": "anomaly index",
+          "legendFormat": "Unusual idx",
           "range": true,
-          "refId": "A"
+          "refId": "B"
         }
       ],
-      "title": "Unusual Military Activity (Index)",
-      "type": "stat"
+      "title": "Military Activity (Share + Index)",
+      "type": "bargauge"
     },
     {
       "datasource": {
@@ -1383,10 +1304,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 8,
         "w": 12,
         "x": 12,
-        "y": 38
+        "y": 34
       },
       "id": 117,
       "options": {
