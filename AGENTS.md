@@ -25,6 +25,15 @@
 - Ambiguity handling: if ambiguity is critical (correctness, security, cost, or architecture impact), stop and ask; otherwise proceed with explicit assumptions and report them clearly.
 - When workflows are hard to test before merge, validate the key steps locally (e.g., Terraform validate/plan).
 
+### Engineering Guardrails (LLM)
+- State assumptions explicitly before implementation.
+- If ambiguity remains: stop and ask when it is critical (correctness, security, cost, or architecture impact); otherwise proceed with explicit assumptions and report them clearly.
+- Implement only requested scope; avoid speculative features, configurability, or abstractions.
+- Keep changes surgical: modify only lines directly needed for the request.
+- Remove only unused code/imports caused by your own changes; do not clean unrelated legacy code unless asked.
+- Define verifiable success criteria and validate them before considering the task done.
+- Simplicity self-check (heuristic): ask yourself, "Would a senior engineer call this overcomplicated for this scope?" If yes, simplify.
+
 ### 4.2 Context & Documentation Hygiene
 - At session start, execute this checklist in order: re-read `AGENTS.md`; load `.codex-context.md` without asking (if present) and confirm recap; review `docs/runbooks/issue-log.md`; review all ADRs in `docs/architecture/decisions/`; review relevant files in `docs/`.
 - **`.codex-context.md` maintenance rule**: this is a local session file (never committed; in `.gitignore`). Update it regularly during work (after each major task block) with active branches, current issue/PR, recent decisions, and next steps.
