@@ -27,12 +27,13 @@
 - When workflows are hard to test before merge, validate the key steps locally (e.g., Terraform validate/plan).
 
 ### 4.2 Context & Documentation Hygiene
-- At session start, re-read `AGENTS.md` and follow it strictly.
-- At session start, load context from `.codex-context.md` without asking (if present), then confirm it was loaded and provide a brief recap (recent actions and next planned steps).
-- At session start, review `docs/runbooks/issue-log.md` to avoid repeating known mistakes.
+- At session start, execute this checklist in order:
+  1) Re-read `AGENTS.md` and follow it strictly.
+  2) Load context from `.codex-context.md` without asking (if present), then confirm it was loaded and provide a brief recap (recent actions and next planned steps).
+  3) Review `docs/runbooks/issue-log.md` to avoid repeating known mistakes.
+  4) Review the full ADR list in `docs/architecture/decisions/` to refresh the global architecture context.
+  5) Review relevant files in `docs/` to rebuild full project context before making changes.
 - **`.codex-context.md` maintenance rule**: This is a **local session file** (never committed; in `.gitignore`). Update it **regularly during work** (after each major task block) to track: active branches, current issue/PR, recent decisions, next steps. Enables seamless session continuity and context recovery.
-- At session start, review the full ADR list in `docs/architecture/decisions/` to refresh the global architecture context and keep it in mind for decisions and updates.
-- At session start, review relevant files in `docs/` to rebuild full project context before making changes.
 - Explicitly mark “planned” vs “implemented” in README status sections.
 - Update `docs/runbooks/issue-log.md` when a new issue occurs (except minor), when there is new information, or when the issue is resolved/closed.
 - Before logging a new issue, check `docs/runbooks/issue-log.md` for similar past incidents to reuse lessons learned.
@@ -84,13 +85,13 @@
 - Keep short: 3-5 bullets max; don't re-explain the entire problem
 - PR is a progress report, not a deep justification of the problem
 
-### 4.6 CI Reproducibility
+### 4.5 CI Reproducibility
 - CI checks should use example/non-sensitive inputs when a plan/validate requires variables.
 - Version lockfiles that pin tool/provider versions to keep CI and local runs consistent.
 - In Terraform workflows, use `-var-file` for plan/apply only (validate does not accept it).
 - For CI tools that call the GitHub API (e.g., security scanners), provide a GitHub token to avoid rate limits.
 
-### 4.7 Security & Access
+### 4.6 Security & Access
 - Do not commit real emails or account identifiers; use placeholders in the repo.
 - Never share credentials (even temporary) in chat or documentation.
 - Never commit sensitive data (non-exhaustive): credentials, tokens, API keys, passwords, real emails, or personal info.
@@ -99,11 +100,11 @@
 - For bootstrap tasks, provide both a runbook and a script, and map steps between them.
 - After bootstrap, avoid leaving broad IAM user policies attached; prefer least-privilege roles via OIDC.
 
-### 4.8 FinOps & Cost Awareness
+### 4.7 FinOps & Cost Awareness
 - Prefer free-tier usage for AWS and keep GitHub Actions within free minutes when possible.
 - Apply a FinOps mindset: default to free-tier or lowest-cost options, and justify any paid services or upgrades.
 
-### 4.9 Scope & Merge Hygiene
+### 4.8 Scope & Merge Hygiene
 - Do not mix multiple issue scopes in a single branch; split work into separate branches if it happens.
 - When asked to make changes outside the current branch scope, explicitly warn and offer to create a dedicated branch before proceeding.
 - Do not continue committing on a branch whose PR is already merged/closed; create a new branch and PR for additional changes.
@@ -112,7 +113,7 @@
 - Use closing keywords to link PRs to issues: prefer `Closes #ID` for features and `Fixes #ID` for bugs so the issue appears in Development.
 - Keep destructive workflows (apply/destroy) manual-only with explicit confirmation inputs.
 
-### 4.10 Cloud & DevOps Practices (MVP)
+### 4.9 Cloud & DevOps Practices (MVP)
 
 **GitOps & IaC as Source of Truth**:
 - All infrastructure changes via Git + IaC (Terraform for AWS, Kubernetes manifests for k8s)
@@ -193,26 +194,18 @@
 - **Non-AGENTS.md PRs**: always wait for user approval before merging
 
 **Implicit Approval** (Solo Workflow):
-- User approval is implicit for merged PRs (you review your own work via agent-requested review)
-- No external reviewer needed; agent acts as sounding board
+- No external reviewer is required in solo workflow; the agent acts as a sounding board.
+- Merged PRs are treated as implicitly approved outcomes.
+- This does not override the "request user review before committing" rule above.
 
-* **🔗 Contextual Changes (`feat/...`):**
-    If an update is linked to a specific feature, modify `AGENTS.md` directly within that feature branch.
-* **🛠️ Isolated Updates (`docs/...`):**
-    Use a dedicated branch for general agent maintenance or global rule updates.
-* **🧭 Meta Issue for AGENTS.md:**
-    Track AGENTS-only changes in the meta issue https://github.com/ClementV78/CloudRadar/issues/55 (no separate issues).
-    Each AGENTS.md PR must reference the meta issue and add a short changelog entry to it.
-* **🧭 Meta Issue for Docs:**
-    Track docs-only changes (README/runbooks/architecture) in https://github.com/ClementV78/CloudRadar/issues/57.
-    Each docs-only PR must reference the meta issue and add a short changelog entry to it.
-* **🚀 Auto-Merge Policy (Agent-Executed):**
-    **Strictly reserved for `AGENTS.md` standalone updates.** Codex (agent) may apply auto-merge directly via `gh pr merge` after creating the PR (conditions: all CI checks passing + no conflicts + no other files modified). User is notified after merge.
-* **🧰 AGENTS Update Skill:**
-    Use the `cloudradar-agents-update` skill when asked to update `AGENTS.md`.
-    Before running the skill, ensure `main` is up to date to avoid stash conflicts.
-* **🧹 Branch Cleanup:**
-    Never delete branches unless explicitly requested by the user.
+### 9.2 AGENTS and Docs Meta Workflow
+- Contextual changes (`feat/...`): if an update is linked to a specific feature, modify `AGENTS.md` directly within that feature branch.
+- Isolated updates (`docs/...`): use a dedicated branch for general agent maintenance or global rule updates.
+- Meta issue for AGENTS.md: track AGENTS-only changes in https://github.com/ClementV78/CloudRadar/issues/55 (no separate issues). Each AGENTS.md PR must reference the meta issue and add a short changelog entry.
+- Meta issue for docs: track docs-only changes (README/runbooks/architecture) in https://github.com/ClementV78/CloudRadar/issues/57. Each docs-only PR must reference the meta issue and add a short changelog entry.
+- Auto-merge policy (agent-executed): strictly reserved for `AGENTS.md` standalone updates. Codex may apply auto-merge via `gh pr merge` only when all CI checks pass, there are no conflicts, and no other files are modified. Notify the user after merge.
+- AGENTS update skill: use `cloudradar-agents-update` when asked to update `AGENTS.md`. Before running the skill, ensure `main` is up to date to avoid stash conflicts.
+- Branch cleanup: never delete branches unless explicitly requested by the user.
 
 ## 10. Quality & CI
 - Keep tests lightweight but present.
