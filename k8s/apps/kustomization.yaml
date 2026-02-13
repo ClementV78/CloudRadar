@@ -6,6 +6,7 @@ resources:
   - ebs-csi-application.yaml
   - admin-scale
   - health
+  - dashboard
   - ingester
   - processor
   - redis

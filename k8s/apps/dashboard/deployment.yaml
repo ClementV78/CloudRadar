@@ -1,0 +1,161 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dashboard
+  namespace: cloudradar
+  labels:
+    app.kubernetes.io/name: dashboard
+    app.kubernetes.io/part-of: cloudradar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dashboard
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dashboard
+        app.kubernetes.io/part-of: cloudradar
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      initContainers:
+        - name: aircraft-db-download
+          image: amazon/aws-cli:2.33.18
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              enabled="${API_AIRCRAFT_DB_ENABLED:-}"
+              case "${enabled}" in
+                true)
+                  ;;
+                false)
+                  echo "Aircraft DB enrichment disabled; skipping aircraft DB download"
+                  exit 0
+                  ;;
+                "")
+                  echo "API_AIRCRAFT_DB_ENABLED is missing"
+                  exit 1
+                  ;;
+                *)
+                  echo "Invalid API_AIRCRAFT_DB_ENABLED value: ${enabled}"
+                  exit 1
+                  ;;
+              esac
+
+              if [ -z "${AIRCRAFT_DB_S3_URI:-}" ] || [ "${AIRCRAFT_DB_S3_URI}" = "__disabled__" ]; then
+                echo "AIRCRAFT_DB_S3_URI is not configured while enrichment is enabled"
+                exit 1
+              fi
+
+              echo "Downloading aircraft DB from ${AIRCRAFT_DB_S3_URI} ..."
+              aws s3 cp "${AIRCRAFT_DB_S3_URI}" /refdata/aircraft.db
+              [ -s /refdata/aircraft.db ] || { echo "Downloaded aircraft DB is missing or empty"; exit 1; }
+
+              if command -v sha256sum >/dev/null 2>&1 && echo "${AIRCRAFT_DB_SHA256:-}" | grep -Eq '^[A-Fa-f0-9]{64}$'; then
+                echo "${AIRCRAFT_DB_SHA256}  /refdata/aircraft.db" | sha256sum -c -
+              fi
+
+              chown 10001:10001 /refdata/aircraft.db || true
+              chmod 0444 /refdata/aircraft.db || true
+          env:
+            - name: AWS_REGION
+              value: us-east-1
+            - name: API_AIRCRAFT_DB_ENABLED
+              valueFrom:
+                secretKeyRef:
+                  name: processor-aircraft-db
+                  key: enabled
+                  optional: false
+            - name: AIRCRAFT_DB_S3_URI
+              valueFrom:
+                secretKeyRef:
+                  name: processor-aircraft-db
+                  key: s3-uri
+                  optional: false
+            - name: AIRCRAFT_DB_SHA256
+              valueFrom:
+                secretKeyRef:
+                  name: processor-aircraft-db
+                  key: sha256
+                  optional: true
+          volumeMounts:
+            - name: aircraft-refdata
+              mountPath: /refdata
+      containers:
+        - name: dashboard
+          image: ghcr.io/clementv78/cloudradar/dashboard:0.1.10
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: REDIS_HOST
+              value: redis.data.svc.cluster.local
+            - name: REDIS_PORT
+              value: "6379"
+            - name: API_BBOX_ALLOWED_LAT_MIN
+              value: "46.8296"
+            - name: API_BBOX_ALLOWED_LAT_MAX
+              value: "50.8836"
+            - name: API_BBOX_ALLOWED_LON_MIN
+              value: "-0.7389"
+            - name: API_BBOX_ALLOWED_LON_MAX
+              value: "5.4433"
+            - name: API_BBOX_MAX_AREA_DEG2
+              value: "25"
+            - name: API_BBOX_DEFAULT
+              value: "0.9823,47.9557,3.7221,49.7575"
+            - name: API_LIMIT_DEFAULT
+              value: "200"
+            - name: API_LIMIT_MAX
+              value: "1000"
+            - name: API_CORS_ALLOW_ORIGINS
+              value: "https://cloudradar.local"
+            - name: API_AIRCRAFT_DB_ENABLED
+              valueFrom:
+                secretKeyRef:
+                  name: processor-aircraft-db
+                  key: enabled
+                  optional: false
+            - name: API_AIRCRAFT_DB_PATH
+              value: /refdata/aircraft.db
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 20
+            timeoutSeconds: 2
+            periodSeconds: 10
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            failureThreshold: 36
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 512Mi
+          volumeMounts:
+            - name: aircraft-refdata
+              mountPath: /refdata
+              readOnly: true
+      volumes:
+        - name: aircraft-refdata
+          emptyDir: {}

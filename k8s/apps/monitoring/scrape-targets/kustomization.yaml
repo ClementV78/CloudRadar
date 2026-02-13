@@ -6,5 +6,6 @@ namespace: monitoring
 resources:
   - servicemonitor-processor.yaml
   - servicemonitor-ingester.yaml
+  - servicemonitor-dashboard.yaml
   - servicemonitor-redis-exporter.yaml
   - podmonitor-traefik.yaml
