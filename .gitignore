@@ -46,3 +46,6 @@ docs/runbooks/infra-outputs.md
 # Local scratch
 .local/
 .codex-context.md
+
+# Interview prep (local only)
+docs/architecture/interview-prepa.md
