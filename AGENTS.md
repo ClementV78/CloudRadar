@@ -27,9 +27,12 @@
 - When workflows are hard to test before merge, validate the key steps locally (e.g., Terraform validate/plan).
 
 ### 4.2 Context & Documentation Hygiene
+- At session start, re-read `AGENTS.md` and follow it strictly.
 - At session start, load context from `.codex-context.md` without asking (if present), then confirm it was loaded and provide a brief recap (recent actions and next planned steps).
+- At session start, review `docs/runbooks/issue-log.md` to avoid repeating known mistakes.
 - **`.codex-context.md` maintenance rule**: This is a **local session file** (never committed; in `.gitignore`). Update it **regularly during work** (after each major task block) to track: active branches, current issue/PR, recent decisions, next steps. Enables seamless session continuity and context recovery.
-- At session start, review the full ADR list in `docs/architecture/decisions/` and keep it in mind for decisions and updates.
+- At session start, review the full ADR list in `docs/architecture/decisions/` to refresh the global architecture context and keep it in mind for decisions and updates.
+- At session start, review relevant files in `docs/` to rebuild full project context before making changes.
 - Explicitly mark “planned” vs “implemented” in README status sections.
 - Update `docs/runbooks/issue-log.md` when a new issue occurs (except minor), when there is new information, or when the issue is resolved/closed.
 - Before logging a new issue, check `docs/runbooks/issue-log.md` for similar past incidents to reuse lessons learned.
@@ -37,6 +40,7 @@
 ### 4.3 Command Transparency & Learning
 - Always show executed commands.
 - Explain commands that are new or complex.
+- Stay pedagogical while remaining efficient and execution-focused.
 - When appropriate, offer to let the user run commands themselves.
 - When sharing logs or metrics, call out the key signals and explicit conclusions.
 - When running commands on Amazon Linux minimal/light images, prefer `grep`/`awk` over `rg` (ripgrep may be unavailable).
