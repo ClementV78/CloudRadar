@@ -9,15 +9,15 @@
 
 ## 🇫🇷 Contexte & Enjeux du Projet
 
-CloudRadar est une plateforme que j’ai conçue pour reproduire un environnement DevOps et Cloud aligné avec des pratiques d’ingénierie utilisées en entreprise. L’objectif était de construire un système cohérent, structuré et exploitable en continu, pouvant être industrialisé
+CloudRadar est une plateforme que j’ai conçue pour reproduire un environnement DevOps et Cloud aligné avec des pratiques d’ingénierie utilisées en entreprise. L’objectif était de construire un système cohérent, structuré et exploitable en continu, pouvant être industrialisé.
 
 L’architecture intègre de l’Infrastructure as Code, un modèle GitOps, des workloads Kubernetes stateful, une stack d’observabilité complète et des mécanismes de sécurité intégrés dès la conception. La segmentation réseau, la gestion fine des accès et l’automatisation des déploiements ont été pensés en respectant les bonnes pratiques et en mettant l’accent sur la reproductibilité et la maintenabilité.
 
-L’ensemble de l’infrastructure AWS est provisionnée via Terraform. Les déploiements Kubernetes sont pilotés en GitOps (pull) via ArgoCD. La pipeline CI/CD fonctionne sans intervention manuelle grâce à une authentification OIDC sur AWS. Les secrets sont centralisés dans AWS SSM Parameter Store puis synchronisés vers Kubernetes via External Secrets Operator. Les rôles IAM sont définis selon le principe du moindre privilège.
+L’ensemble de l’infrastructure AWS est provisionnée via Terraform. Les déploiements Kubernetes sont pilotés en GitOps (pull) via ArgoCD. La pipeline CI/CD est largement automatisée de bout en bout, avec des garde-fous manuels sur les étapes sensibles (merge PR, infra apply). Les secrets sont centralisés dans AWS SSM Parameter Store puis synchronisés vers Kubernetes via External Secrets Operator. Les rôles IAM sont définis selon le principe du moindre privilège.
 
-Les choix d’architecture ont également été guidés par une logique d’optimisation des coûts, dans une démarche FinOps, afin de maintenir un niveau de service réaliste tout en conservant une maîtrise des dépenses. L’architecture privilégie, lorsque cela est pertinent, des solutions limitant la dépendance aux services managés les plus coûteux et favorisant une approche cloud provider agnostic.
+Les choix d’architecture ont également été guidés par une logique d’optimisation des coûts, dans une démarche FinOps, afin de maintenir un niveau de service réaliste tout en conservant une maîtrise des dépenses. L’architecture limite la dépendance aux services managés les plus coûteux, avec un runtime largement portable (k3s, ArgoCD, Redis, Prometheus/Grafana, services Java) mais des opérations volontairement AWS-anchored pour le MVP (IAM, SSM, VPC, CloudWatch).
 
-Chaque évolution, chaque arbitrage technique et chaque correction ont été tracés dans des issues GitHub, assurant une traçabilité complète des choix effectués, des contraintes prises en compte et des compromis réalisés. CloudRadar constitue aujourd’hui une base technique cohérente, industrialisable et alignée avec des pratiques DevOps et cloud actuelles.
+Chaque évolution, chaque arbitrage technique et chaque correction ont été tracés dans des issues GitHub, assurant une traçabilité complète.
 
 ---
 
@@ -25,26 +25,26 @@ Chaque évolution, chaque arbitrage technique et chaque correction ont été tra
 
 **Infrastructure Automation**:
 - ✅ 100% Infrastructure as Code (Terraform modules, remote state, OIDC federation)
-- ✅ Multi-environment support via Terraform workspaces (dev/staging/prod)
-- ✅ Automated CI/CD pipelines with zero manual deployment steps
+- ✅ Multi-environment support via dedicated Terraform live roots (`infra/aws/live/dev`, `infra/aws/live/prod`)
+- ✅ CI/CD largely automated end-to-end, with explicit approval gates for high-risk changes
 
 **GitOps & Platform Engineering**:
-- ✅ ArgoCD-driven continuous delivery (3min sync interval, auto-healing)
+- ✅ ArgoCD-driven continuous delivery (short sync cadence, auto-healing)
 - ✅ External Secrets Operator for vault-less secrets management
 - ✅ Declarative Kubernetes manifests with Kustomize overlays
 
 **Observability & SRE Practices**:
 - ✅ Full-stack metrics (app → platform → infra) with Prometheus + Grafana
-- ✅ Service-level instrumentation (all apps expose `/healthz` + `/metrics`)
-- ✅ 19 Architecture Decision Records documenting trade-offs
+- ✅ Service-level instrumentation (`/healthz` + Prometheus scrape endpoints)
+- ✅ 20 Architecture Decision Records documenting trade-offs
 
 **Security & Compliance**:
 - ✅ Zero-trust network architecture (IAM-only access, no SSH)
-- ✅ Secrets never in Git/Terraform state (SSM Parameter Store + ESO)
-- ✅ Least-privilege IAM policies per service component
+- ✅ Secrets never committed in Git; runtime secrets managed via SSM Parameter Store + ESO
+- ✅ Least-privilege IAM with clear separation between runtime node access and CI federation
 
 **Cost Engineering (FinOps)**:
-- ✅ k3s vs EKS: -$73/mo (-48% control plane savings)
+- ✅ k3s vs EKS: -$73/mo (-100% managed control plane fee)
 - ✅ NAT instance vs NAT Gateway: -$28/mo (-88% NAT cost reduction)
 - ✅ Current monthly spend: ~$78 (optimizable to $54 with low-risk changes)
 
@@ -79,14 +79,14 @@ graph TB
 
 | Layer | Technologies | Why | Reference |
 |-------|-------------|-----|-----------|
-| **Infrastructure** | Terraform 1.5+, AWS VPC/EC2/S3/SSM | IaC-first, remote state (S3), immutable | [ADR-0001](decisions/ADR-0001-2026-01-08-aws-region-us-east-1.md), [ADR-0003](decisions/ADR-0003-2026-01-08-s3-backend.md) |
-| **Kubernetes** | k3s 1.28+ | -$73/mo vs EKS, <512MB RAM | [ADR-0002](decisions/ADR-0002-2026-01-08-k3s-over-eks.md) |
-| **GitOps** | ArgoCD + Kustomize | Git as source of truth, 3min sync | [ADR-0013](decisions/ADR-0013-2026-01-09-argocd.md) |
-| **Secrets** | SSM + External Secrets Operator | Zero plaintext in Git/state | [ADR-0008](decisions/ADR-0008-2026-01-09-secrets-management.md) |
-| **Observability** | Prometheus + Grafana | Metrics-first, 7d retention, no APM cost | [ADR-0005](decisions/ADR-0005-2026-01-08-prometheus-grafana.md) |
-| **Application** | Java 17 + Spring Boot 3.x | Type-safe, production-proven, Actuator | [ADR-0014](decisions/ADR-0014-2026-01-10-java-ingester.md) |
-| **Event Buffer** | Redis 7.x | Simple queue + aggregates, no Kafka | [ADR-0015](decisions/ADR-0015-2026-01-10-redis-buffer.md) |
-| **CI/CD** | GitHub Actions + OIDC | Credential-less federation, audit trail | [ADR-0010](decisions/ADR-0010-2026-01-09-github-actions-oidc.md) |
+| **Infrastructure** | Terraform 1.5+, AWS VPC/EC2/S3/SSM | IaC-first, remote state (S3), immutable | [ADR-0001](decisions/ADR-0001-2026-01-08-aws-region-us-east-1.md), [ADR-0010](decisions/ADR-0010-2026-01-08-terraform-remote-state-and-oidc.md) |
+| **Kubernetes** | k3s 1.28+ | -$73/mo vs EKS, <512MB RAM | [ADR-0002](decisions/ADR-0002-2026-01-08-k3s-on-ec2-for-kubernetes.md) |
+| **GitOps** | ArgoCD + Kustomize | Git as source of truth, pull-based reconciliation | [ADR-0013](decisions/ADR-0013-2026-01-17-gitops-bootstrap-strategy-argocd.md) |
+| **Secrets** | SSM + External Secrets Operator | No plaintext secrets committed in Git, runtime sync to k8s | [ADR-0009](decisions/ADR-0009-2026-01-08-security-baseline-secrets-and-iam.md), [ADR-0016](decisions/ADR-0016-2026-01-29-external-secrets-operator.md) |
+| **Observability** | Prometheus + Grafana | Metrics-first, 7d retention, no APM cost | [ADR-0005](decisions/ADR-0005-2026-01-08-observability-prometheus-grafana.md) |
+| **Application** | Java 17 + Spring Boot 3.x | Type-safe, production-proven, Actuator | [ADR-0014](decisions/ADR-0014-2026-01-19-processor-language-java.md) |
+| **Event Buffer** | Redis 7.x | Simple list buffer + aggregates, no Kafka | [ADR-0015](decisions/ADR-0015-2026-01-22-redis-list-for-ingestion-queue.md) |
+| **CI/CD** | GitHub Actions + OIDC | Credential-less federation, audit trail | [ADR-0006](decisions/ADR-0006-2026-01-08-ci-cd-github-actions-ghcr.md), [ADR-0010](decisions/ADR-0010-2026-01-08-terraform-remote-state-and-oidc.md) |
 
 **Design Principles**: GitOps-first · Security-first · Cost-aware · Observability-native
 
@@ -105,11 +105,11 @@ graph LR
         
         direction TB
         subgraph Public["Public 10.0.1.0/24"]
-            EDGE[Edge<br/>t3.nano]
+            EDGE[Edge<br/>t3.micro]
             NAT[NAT<br/>t3.nano]
         end
-        
-        subgraph Private["Private 10.0.2.0/24"]
+
+        subgraph Private["Private 10.0.101.0/24"]
             K3S_S[K3S Server<br/>t3a.medium]
             K3S_W[K3S Worker<br/>t3a.medium]
         end
@@ -147,10 +147,11 @@ graph TB
         WORKER[K3S Worker<br/>SG: 10250 from Server only]
     end
     
-    subgraph IAM["IAM Roles (IRSA)"]
+    subgraph IAM["IAM Roles & Federation"]
         ROLE_EC2[ec2-ssm<br/>SSM Session Manager]
-        ROLE_ESO[eso<br/>SSM Secrets read]
+        ROLE_K3S[k3s-nodes<br/>SSM Parameter read]
         ROLE_CI[github-actions<br/>S3/ECR OIDC]
+        AWS_API[AWS APIs<br/>STS · S3 · ECR]
     end
     
     USER -->|TLS| EDGE
@@ -158,9 +159,11 @@ graph TB
     SERVER --> WORKER
     WORKER --> NAT
     
-    ROLE_EC2 -.->|Attached| EDGE & SERVER & WORKER
-    ROLE_ESO -.->|ServiceAccount| WORKER
-    ROLE_CI -.->|OIDC Federation| NAT
+    ROLE_EC2 -.->|Attached| EDGE
+    ROLE_EC2 -.->|Attached| SERVER
+    ROLE_EC2 -.->|Attached| WORKER
+    ROLE_K3S -.->|Instance profile| WORKER
+    ROLE_CI -.->|OIDC Federation| AWS_API
     
     style VPC fill:#fff3e0,stroke:#f57c00,stroke-width:2px
     style IAM fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
@@ -173,9 +176,11 @@ graph TB
 |-------|----------------|--------|
 | **Network** | Single ingress (443), private subnets, security groups deny-by-default | Attack surface minimized |
 | **Access** | No SSH keys, IAM-only (SSM Session Manager for debugging) | Zero credential sprawl |
-| **Secrets** | SSM Parameter Store + External Secrets Operator | Zero plaintext in Git/state |
-| **IAM** | Least-privilege roles, OIDC for CI/CD (no long-lived secrets) | CloudTrail audit, auto-rotation |
-| **Encryption** | EBS encrypted at rest, TLS in transit (nginx-ingress) | Data protection at rest/transit |
+| **Secrets** | SSM Parameter Store + External Secrets Operator | No plaintext secrets committed in Git; runtime secrets synced to k8s |
+| **IAM** | Least-privilege roles + OIDC for CI/CD (no long-lived CI secrets) | CloudTrail auditability, reduced credential sprawl |
+| **Encryption** | EBS encrypted at rest, TLS in transit (edge Nginx + in-cluster ingress) | Data protection at rest/transit |
+| **State** | Terraform backend in S3 (encrypted, versioned, DynamoDB lock) | Safe concurrent operations, rollback and audit history |
+| **Supply Chain** | GHCR with GitHub-issued `GITHUB_TOKEN`; image scanning planned in CI | No long-lived registry credentials, controlled artifact path |
 
 **Zero-Trust Principles**: No SSH keys · OIDC for CI/CD · Secrets in SSM Parameter Store · Least-privilege IAM · Single ingress (443)
 
@@ -183,20 +188,24 @@ graph TB
 
 ```mermaid
 graph TB
-    subgraph NS_Apps["Namespace: cloudradar-apps"]
-        ING[Ingester<br/>1 replica<br/>100m CPU, 256Mi RAM]
-        PROC[Processor<br/>1-3 replicas HPA<br/>200m CPU, 512Mi RAM]
-        DASH[Dashboard<br/>1-2 replicas HPA<br/>100m CPU, 256Mi RAM]
-        REDIS[Redis StatefulSet<br/>1 replica<br/>100m CPU, 512Mi RAM<br/>PVC: 10Gi gp3]
+    subgraph NS_Apps["Namespace: cloudradar"]
+        ING[Ingester<br/>default: 0 replica<br/>100m CPU, 256Mi RAM request]
+        PROC[Processor<br/>1 replica<br/>50m CPU, 128Mi RAM request]
+        DASH[Dashboard API<br/>1 replica<br/>50m CPU, 128Mi RAM request]
+        HEALTH[Health + Admin-Scale<br/>Utility APIs]
     end
-    
-    subgraph NS_Platform["Namespace: cloudradar-platform"]
-        ARGO[ArgoCD<br/>GitOps Controller]
-        ESO[External Secrets<br/>SSM Sync]
-        PROM[Prometheus<br/>1 replica<br/>200m CPU, 1Gi RAM<br/>PVC: 50Gi gp3]
-        GRAF[Grafana<br/>Dashboards]
+
+    subgraph NS_Data["Namespace: data"]
+        REDIS[Redis StatefulSet<br/>1 replica<br/>PVC: 5Gi]
+        REDIS_EXP[Redis Exporter<br/>Metrics]
     end
-    
+
+    subgraph NS_Platform["Platform Namespaces"]
+        ARGO[ArgoCD<br/>Namespace: argocd]
+        ESO[External Secrets<br/>Namespace: external-secrets]
+        PROM[Prometheus + Grafana<br/>Namespace: monitoring]
+    end
+
     subgraph NS_System["Namespace: kube-system"]
         CORE[k3s Control Plane<br/>CoreDNS, Traefik]
     end
@@ -206,9 +215,13 @@ graph TB
     PROC -->|Write aggregates| REDIS
     DASH -->|Read views| REDIS
     
-    PROM -.->|Scrape /metrics| ING & PROC & DASH & REDIS
-    GRAF -->|Query| PROM
-    ARGO -.->|Sync manifests| NS_Apps & NS_Platform
+    PROM -.->|Scrape /metrics/prometheus| ING
+    PROM -.->|Scrape /metrics/prometheus| PROC
+    PROM -.->|Scrape /metrics/prometheus| DASH
+    PROM -.->|Scrape /metrics| REDIS_EXP
+    ARGO -.->|Sync manifests| NS_Apps
+    ARGO -.->|Sync manifests| NS_Data
+    ARGO -.->|Sync manifests| PROM
     ESO -.->|Inject secrets| NS_Apps
     
     style NS_Apps fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
@@ -217,7 +230,7 @@ graph TB
     style REDIS fill:#ffeb3b,stroke:#f57f17,stroke-width:2px
 ```
 
-**K8s Patterns**: StatefulSets (Redis persistence) · HPA (Processor auto-scaling 1→3 at 70% CPU) · Resource Requests/Limits · Liveness/Readiness Probes · Namespace isolation
+**K8s Patterns**: StatefulSets (Redis persistence) · Resource Requests/Limits · Liveness/Readiness Probes · Namespace isolation · HPA planned for selected stateless services
 
 ---
 
@@ -228,27 +241,28 @@ graph TB
 ```mermaid
 graph LR
     O[OpenSky API] -->|Every 10s| I[Ingester]
-    I -->|LPUSH events| R[Redis Buffer]
-    R -->|BLPOP| P[Processor]
+    I -->|RPUSH events| R[Redis Buffer]
+    R -->|BRPOP| P[Processor]
     P -->|Write aggregates| R
     R -->|Read views| D[Dashboard API]
-    D -->|JSON| G[Grafana]
+    D -->|REST JSON| U[React/Leaflet UI]
+    U -.->|Optional embeds| G[Grafana]
     
     style R fill:#ffeb3b,stroke:#f57f17,stroke-width:2px
     style P fill:#4caf50,stroke:#2e7d32,stroke-width:2px
 ```
 
-**Flow**: OpenSky (StateVector[]) → Ingester (parse) → Redis buffer (LPUSH) → Processor (enrich + HSET/LPUSH/SADD) → Redis views (SMEMBERS/HGETALL) → Dashboard API → Grafana
+**Flow**: OpenSky (StateVector[]) → Ingester (parse) → Redis buffer (`cloudradar:ingest:queue`) → Processor (enrich + aggregates) → Dashboard API (`HSCAN` on `cloudradar:aircraft:last` + per-flight track lookup) → React/Leaflet UI
 
-**Key Patterns**: Event buffer (LPUSH/BLPOP) decouples ingestion/processing · Pre-computed aggregates (hash/list/set) for <5ms reads · Idempotent processing (processor restart-safe) · Read-only SQLite for aircraft metadata
+**Key Patterns**: Event buffer (Redis List push/blocking-pop operations) decouples ingestion/processing · Pre-computed aggregates (hash/list/set) for <5ms reads · Idempotent processing (processor restart-safe) · Read-only SQLite for aircraft metadata
 
 ### 3.2 Component Responsibilities
 
 | Component | Purpose | Tech | Scaling Strategy |
 |-----------|---------|------|------------------|
-| **Ingester** | Poll OpenSky API, parse, push to Redis | Java 17 + Spring Boot 3.x | Single replica (rate-limited API) |
-| **Processor** | Enrich events, maintain aggregates | Java 17 + Spring Boot 3.x | Horizontal (HPA on CPU/queue depth) |
-| **Dashboard API** | REST API for flight map + details | Java 17 + Spring Boot 3.x | Horizontal (HPA on requests/sec) |
+| **Ingester** | Poll OpenSky API, parse, push to Redis | Java 17 + Spring Boot 3.x | Manual/API-driven scale (default 0, typically 0→2 replicas) |
+| **Processor** | Enrich events, maintain aggregates | Java 17 + Spring Boot 3.x | Single consumer in MVP (parallelism planned in v2) |
+| **Dashboard API** | REST API for flight map + details | Java 17 + Spring Boot 3.x | Stateless; horizontal replicas possible (HPA planned) |
 | **Redis** | Event buffer + aggregates | Redis 7.x (StatefulSet) | Vertical (no cluster mode in MVP) |
 | **Health Service** | Liveness probes for all components | Python 3.11 | Single replica (lightweight) |
 
@@ -260,17 +274,17 @@ graph LR
 
 ### 4.1 Redis as Event Buffer + Aggregate Store
 
-**Design Pattern**: Redis serves dual purpose — event queue (FIFO list) + pre-computed aggregates (hash/set/list structures) for near-zero latency reads.
+**Design Pattern**: Redis serves dual purpose — event buffer (List push/blocking-pop) + pre-computed aggregates (hash/set/list structures) for near-zero latency reads.
 
 ```mermaid
 graph TB
     ING[Ingester<br/>Polls OpenSky every 10s]
-    
+
     subgraph Redis["Redis (Event Buffer + Aggregates)"]
-        QUEUE[raw-events<br/>List: LPUSH/BLPOP]
-        LATEST[flight:* Latest State<br/>Hash: HSET/HGETALL]
-        TRACKS[tracks:* Position History<br/>List: LPUSH last 20]
-        INDEX[active-flights Index<br/>Set: SADD/SMEMBERS]
+        QUEUE[cloudradar:ingest:queue<br/>List: RPUSH/BRPOP]
+        LATEST[cloudradar:aircraft:last<br/>Hash: HSET + HSCAN/HGET]
+        TRACKS[cloudradar:aircraft:track:*<br/>List: LPUSH + LTRIM 180]
+        INDEX[cloudradar:aircraft:in_bbox<br/>Set: SADD/SREM]
     end
     
     PROC[Processor<br/>Enrich + Aggregate]
@@ -280,8 +294,12 @@ graph TB
     ING -->|Push events| QUEUE
     QUEUE -->|Pop events| PROC
     SQLITE -.->|Enrich metadata| PROC
-    PROC -->|Write aggregates| LATEST & TRACKS & INDEX
-    DASH -->|Read views| LATEST & TRACKS & INDEX
+    PROC -->|Write aggregates| LATEST
+    PROC -->|Write aggregates| TRACKS
+    PROC -->|Write aggregates| INDEX
+    DASH -->|Read views| LATEST
+    DASH -->|Read views| TRACKS
+    DASH -->|Read views| INDEX
     
     style QUEUE fill:#ffeb3b,stroke:#f57f17,stroke-width:2px
     style LATEST fill:#4caf50,stroke:#2e7d32,stroke-width:2px
@@ -295,10 +313,10 @@ graph TB
 | Metric | Value | Why It Matters |
 |--------|-------|----------------|
 | **Read Latency** (dashboard) | <5ms p99 | All data in-memory, no database queries |
-| **Write Throughput** | ~100-120 events/sec | Single-threaded LPUSH, no disk I/O |
+| **Write Throughput** | ~100-120 events/sec | Single-threaded list writes, no disk I/O |
 | **Memory Footprint** | ~200-400MB | 400 flights × ~1KB per aggregate |
-| **Data Retention** | 5min TTL on stale flights | Auto-cleanup via EXPIRE, no manual pruning |
-| **Backup Frequency** | Daily RDB snapshot → S3 | 7d retention, <1min recovery time |
+| **Data Retention** | No global TTL in MVP | Track history bounded via `LTRIM`, stale cleanup is application-managed |
+| **Backup Frequency** | Backup/restore automation on infra destroy/apply workflows | No daily scheduled backup in MVP |
 
 **Event Lifecycle** (simplified view):
 
@@ -306,10 +324,10 @@ graph TB
 graph LR
     A[OpenSky API]
     B[Ingester<br/>Parse + Validate]
-    C[Redis Queue<br/>LPUSH/BLPOP]
+    C[Redis Queue<br/>RPUSH/BRPOP]
     D[Processor<br/>Enrich + Aggregate]
     E[Redis Aggregates<br/>HSET/LPUSH/SADD]
-    F[Dashboard API<br/>HGETALL/SMEMBERS]
+    F[Dashboard API<br/>HSCAN + LRANGE]
     
     A --> B --> C --> D --> E --> F
     
@@ -346,8 +364,10 @@ sequenceDiagram
     participant ARGO as ArgoCD
     participant K3S as k3s Cluster
 
-    Dev->>GH: git push main
-    GH->>CI: Trigger workflow
+    Dev->>GH: Push branch + open PR
+    GH->>CI: PR checks (plan/test/build)
+    Dev->>GH: Manual PR merge to main
+    GH->>CI: Main workflows
     
     alt Infrastructure Path
         CI->>CI: terraform plan/apply
@@ -359,7 +379,7 @@ sequenceDiagram
         Dev->>GH: Update k8s/ manifests
     end
     
-    loop Every 3min
+    loop Periodic sync (ArgoCD config)
         ARGO->>GH: Poll k8s/ directory
         ARGO->>K3S: Apply changes (if diff detected)
     end
@@ -371,19 +391,19 @@ sequenceDiagram
 
 | Practice | Implementation | Benefit |
 |----------|----------------|---------|
-| **Separation of Concerns** | CI builds/tests, ArgoCD deploys (no `kubectl` in CI workflows) | Clear responsibility boundaries, easier troubleshooting |
+| **Separation of Concerns** | CI builds/tests + runs bootstrap/health checks via SSM on k3s nodes; ArgoCD reconciles app manifests | Clear responsibility boundaries, easier troubleshooting |
 | **Declarative Infrastructure** | All k8s resources in Git, ArgoCD reconciles desired state | Audit trail, rollback capability, reproducibility |
 | **Immutable Deployments** | New image tag → new deployment (never mutate running pods) | Reliable rollbacks, consistent environments |
 | **OIDC Authentication** | GitHub Actions → AWS via OIDC federation (no long-lived secrets) | Reduced credential sprawl, CloudTrail audit, automatic rotation |
-| **Automated Rollbacks** | ArgoCD detects unhealthy pods, auto-syncs on failure (configurable) | Self-healing platform, reduced MTTR |
+| **Automated Reconciliation** | ArgoCD self-heal and drift reconciliation (configurable) | Faster recovery from config drift, reduced MTTR |
 | **GitOps Pull Model** | ArgoCD polls Git (not push), cluster credentials never leave cluster | Security (no external kubectl access), firewall-friendly |
 
 **Pipeline Stages**:
 1. **PR Validation**: `terraform validate`, `terraform plan`, linting, security scanning
 2. **Build**: Docker multi-stage builds (build → test → runtime layers)
-3. **Publish**: Push to GHCR with semver tags (e.g., `v1.2.3`, `latest`)
-4. **Deploy**: Update k8s manifest image tag, ArgoCD auto-syncs within 3min
-5. **Verify**: Prometheus scrapes new pod `/metrics`, Grafana alerts on anomalies
+3. **Publish**: Push to GHCR with `VERSION` tags (e.g., `0.1.12`) + `latest` on `main` (plus semver tags on Git tag releases)
+4. **Deploy**: Update k8s manifest image tag, then ArgoCD reconciles on its configured sync cadence
+5. **Verify**: Prometheus scrapes `/metrics/prometheus` (apps) and `/metrics` (exporters), Grafana surfaces anomalies
 
 ---
 
@@ -394,20 +414,20 @@ sequenceDiagram
 ```mermaid
 graph TB
     subgraph Apps["⚙️ Application Metrics"]
-        ING[Ingester :8081<br/>HTTP requests, business metrics]
-        PROC[Processor :8082<br/>Queue depth, enrichment rate]
-        DASH[Dashboard :8083<br/>API latency, error rate]
+        ING[Ingester :8080<br/>/metrics/prometheus]
+        PROC[Processor :8080<br/>/metrics/prometheus]
+        DASH[Dashboard :8080<br/>/metrics/prometheus]
         REDIS[Redis Exporter :9121<br/>Command stats, memory]
     end
     
     subgraph Infra["🖥️ Infrastructure Metrics"]
         NODE[Node Exporter :9100<br/>CPU, RAM, disk, network]
-        CADV[cAdvisor :8080<br/>Container resources]
+        CADV[Kubelet Container Metrics<br/>Pod CPU, memory, restarts]
     end
     
     subgraph Platform["📊 Observability Platform"]
-        PROM[Prometheus<br/>Time-series DB<br/>15s scrape interval]
-        GRAF[Grafana<br/>Visualization<br/>4 dashboards]
+        PROM[Prometheus<br/>Time-series DB<br/>30s scrape interval]
+        GRAF[Grafana<br/>Visualization<br/>Key showcase dashboards + infra views]
     end
     
     ING -->|Scrape| PROM
@@ -431,68 +451,31 @@ graph TB
 | **Platform** | ✅ Redis command duration, hit rate, memory usage<br/>✅ Kubernetes pod restarts, CPU/RAM per container<br/>✅ Persistent volume usage, I/O wait | **SLI-ready** (resource saturation) | ✅ Yes |
 | **Infrastructure** | ✅ Node CPU/RAM/disk utilization<br/>✅ Network bytes in/out, packet loss<br/>✅ EBS IOPS, throughput | **Infrastructure health** | ✅ Yes |
 
-**Key Dashboards Deployed**:
+**Key Dashboards Highlighted**:
 
-1. **Cluster Health** (Infrastructure SRE View)
-   - Node CPU/RAM utilization (75% warning, 90% critical)
-   - Pod restart rate (>5 restarts/hour alert)
-   - PVC usage (80% warning for disk exhaustion)
-
-2. **Event Pipeline Performance** (Application SLIs)
+1. **CloudRadar / App Telemetry** (Application SLIs)
    - Ingestion rate: events/sec (target: >30/sec sustained)
    - Processing lag: queue depth × avg processing time (target: <30s)
    - Error rate: failed events / total events (target: <1%)
 
-3. **Redis Performance** (Data Layer)
-   - Hit rate: cache hits / total requests (target: >95%)
-   - Command duration: p99 latency (target: <5ms)
-   - Memory usage: used / max (alert at 80%)
-   - Eviction count: keys evicted/sec (target: 0)
+2. **CloudRadar / Operations Overview** (Platform + Data Layer)
+   - Node and pod resource signals (CPU/RAM/restarts)
+   - Redis health and saturation signals (latency, memory, evictions)
+   - Pipeline and service status at a glance
 
-4. **Dashboard API** (User-Facing SLIs)
-   - HTTP latency: p99 response time (target: <100ms)
-   - Request rate: requests/sec (capacity planning)
-   - Error rate: 5xx responses / total (target: <0.1%)
+Additional specialized dashboards (Traefik, node exporter, Redis exporter, JVM, CloudWatch) remain available for deep-dive troubleshooting.
 
 **Observability Best Practices** (SRE Principles):
-- **Instrumentation-First**: All services expose `/metrics` before deployment (no blind spots)
+- **Instrumentation-First**: All services expose `/healthz` and Prometheus scrape endpoints before deployment (no blind spots)
 - **Golden Signals**: Latency, Traffic, Errors, Saturation tracked at every layer
 - **Cardinality Control**: Avoid high-cardinality labels (no unbounded callsigns in metric names)
-- **Retention Strategy**: 7d local for debugging, S3 long-term for trend analysis
-- **Cost-Aware**: Prometheus OSS (no Datadog $31/host/mo), Grafana OSS (no New Relic licensing)
+- **Retention Strategy**: 7d local retention in Prometheus for debugging and short-term trend analysis
 
 ---
 
-## 7. Security Posture
+## 7. Cost Breakdown & FinOps
 
-### 7.1 Zero-Trust Architecture
-
-| Layer | Implementation | Rationale | Trade-offs |
-|-------|----------------|-----------|------------|
-| **Access Control** | IAM-only (no SSH), OIDC for CI/CD | No long-lived credentials, audit trail in CloudTrail, ephemeral access via SSM Session Manager | Requires AWS CLI/Console for debugging (acceptable for cloud-native ops) |
-| **Network** | Security groups (deny-by-default), private subnets, single ingress point | Compute nodes not internet-accessible, edge-only ingress (port 443), defense-in-depth | Adds NAT instance cost ($3.80/mo, justified for isolation) |
-| **Secrets** | SSM Parameter Store + External Secrets Operator | No plaintext secrets in Git/state, k8s-native consumption, AWS-native IAM policies | Adds ESO dependency (acceptable, standard in cloud-native stacks) |
-| **Encryption** | EBS encrypted at rest, TLS in transit (nginx-ingress) | Data protection, compliance-ready (GDPR/HIPAA) | Minimal performance overhead (<5%, negligible for MVP) |
-| **State** | Terraform backend in S3 (encrypted, versioned, DynamoDB lock) | Prevent concurrent writes, rollback capability, audit history | Requires S3/DynamoDB setup (one-time bootstrap cost) |
-| **Supply Chain** | GHCR with OIDC, Docker image scanning (Trivy, future) | No long-lived Docker Hub credentials, vulnerability detection pre-deploy | Image scanning adds ~30s to CI pipeline (acceptable) |
-
-**Attack Surface Reduction**:
-- ✅ Public ingress limited to edge node port 443 (nginx-ingress), all other ports blocked by security groups
-- ✅ No SSH keys, no bastion hosts (SSM Session Manager for emergency debugging only)
-- ✅ Least-privilege IAM roles per component (ingester/processor/dashboard separate policies, no `*` wildcards)
-- ✅ VPC Flow Logs enabled (3d retention in CloudWatch, ~$0.50/mo) for network forensics
-
-**Security Validation**:
-- 🔒 No credentials in Git history (validated via `git secrets` pre-commit hook)
-- 🔒 Terraform state never contains plaintext secrets (`sensitive = true` on all secret outputs)
-- 🔒 All inter-service communication within VPC (no public IPs on compute nodes)
-- 🔒 IAM role session duration: 1h max (frequent credential rotation)
-
----
-
-## 8. Cost Breakdown & FinOps
-
-### 8.1 Architecture Cost Optimizations (Already Implemented)
+### 7.1 Architecture Cost Optimizations (Already Implemented)
 
 **Strategic Decisions Delivering $150+/mo Savings vs. AWS Default Stack**:
 
@@ -506,14 +489,7 @@ graph TB
 
 **Total Avoided Costs**: ~$275/mo → **Actual spend: $78/mo (72% reduction)**
 
-| AWS Baseline | CloudRadar | Strategy | Monthly Savings |
-|--------------|------------|----------|----------------|
-| EKS $73 | k3s $0 | Self-managed | **-$73** ✅ |
-| NAT Gateway $32 | NAT t3.nano $3.80 | Right-sized | **-$28** ✅ |
-| Multi-AZ +$52 | Single-AZ | Risk accepted | **-$52** ✅ |
-| Datadog $120 | Prometheus $0.40 | OSS alternative | **-$120** ✅ |
-
-### 8.2 Current Monthly Breakdown ($78 Total)
+### 7.2 Current Monthly Breakdown ($78 Total)
 
 ```mermaid
 pie
@@ -523,15 +499,13 @@ pie
     "Edge Node (t3.micro)" : 7.59
     "NAT Instance (t3.nano)" : 3.80
     "EBS Storage (133GB gp3)" : 10.64
-    "S3 + Data Transfer" : 1.50
+    "S3 + Data Transfer" : 1.08
 ```
 
 **FinOps Principles Demonstrated**:
 1. **Cost-Aware Architecture**: Every design choice evaluated for cost impact (documented in ADRs)
 2. **Right-Sizing**: Instance types match actual workload (no over-provisioning)
-3. **OSS-First**: Avoided commercial tools (EKS, NAT Gateway, Datadog) when OSS viable
-4. **Single-AZ Trade-off**: Accepted lower availability (portfolio context) for 40% cost reduction
-5. **Continuous Visibility**: Cost breakdown tracked, attributed per component
+3. **OSS-First with explicit trade-offs**: Managed-service savings while documenting resilience/availability impacts
 
 **Further Optimization Opportunities** (Optional, Low Priority):
 - Spot instances for workers: -$19/mo (70% discount, some interruption risk)
@@ -542,11 +516,11 @@ pie
 
 ---
 
-## 9. Reference Documentation
+## 8. Reference Documentation
 
 **For deeper technical details**:
 - [Full Technical Architecture Document](./technical-architecture-document.md) — Complete 28-diagram analysis (1000+ lines)
-- [Architecture Decision Records](./decisions/) — 19 ADRs (context, alternatives, trade-offs)
+- [Architecture Decision Records](./decisions/) — 20 ADRs (context, alternatives, trade-offs)
 - [Infrastructure Documentation](./infrastructure.md) — AWS/Terraform architecture details
 - [Application Architecture](./application-architecture.md) — Microservices design patterns
 - [Runbooks](../runbooks/) — Bootstrap, operations, troubleshooting

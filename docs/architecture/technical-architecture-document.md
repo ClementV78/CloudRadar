@@ -11,55 +11,62 @@
 ### 1.1 Context Diagram
 
 ```mermaid
-C4Context
-    title CloudRadar Platform Context
+flowchart LR
+    USER[DevOps Engineer<br/>Monitors flight telemetry]
+    PLATFORM[CloudRadar Platform<br/>Event-driven telemetry on AWS/k3s]
+    OPENSKY[OpenSky API<br/>Flight positions]
+    GITHUB[GitHub<br/>CI/CD and GitOps source]
+    AWS[AWS Services<br/>VPC, EC2, S3, SSM, IAM]
 
-    Person(user, "DevOps Engineer", "Monitors flight telemetry")
-    System(cloudradar, "CloudRadar Platform", "Event-driven telemetry processing on AWS/k3s")
-    System_Ext(opensky, "OpenSky API", "Flight position data source")
-    System_Ext(github, "GitHub", "CI/CD & GitOps source")
-    System_Ext(aws, "AWS Services", "VPC, EC2, S3, SSM, IAM")
-
-    Rel(user, cloudradar, "Views dashboards", "HTTPS")
-    Rel(cloudradar, opensky, "Fetches states", "REST/OAuth2")
-    Rel(github, cloudradar, "Deploys via", "Actions/OIDC")
-    Rel(cloudradar, aws, "Runs on", "Terraform/k8s")
+    USER -->|HTTPS| PLATFORM
+    PLATFORM -->|REST/OAuth2| OPENSKY
+    GITHUB -->|Actions/OIDC deploy| PLATFORM
+    PLATFORM -->|Runs on Terraform + k8s| AWS
 ```
 
 ### 1.2 Technology Stack
 
 ```mermaid
-graph TB
-    subgraph Infrastructure["☁️ Infrastructure"]
+graph LR
+    subgraph CI["🚀 CI/CD"]
+        direction TB
+        GHA[GitHub Actions]
+        GHCR[GitHub Container Registry]
+        OIDC[OIDC for AWS]
+    end
+
+    subgraph INFRA["☁️ Infrastructure"]
+        direction TB
         AWS[AWS us-east-1]
         TF[Terraform 1.5+]
         VPC[VPC + Security Groups]
     end
 
-    subgraph Platform["🔧 Platform"]
+    subgraph PLATFORM["🔧 Platform"]
+        direction TB
         K3S[k3s 1.28+]
         ARGO[ArgoCD]
         ESO[External Secrets Operator]
         PROM[Prometheus/Grafana]
     end
 
-    subgraph Application["⚙️ Application"]
+    subgraph APP["⚙️ Application"]
+        direction TB
         JAVA[Java 17 + Spring Boot 3.x]
         REDIS[Redis 7.x]
         SQLITE[SQLite 3.x]
         PYTHON[Python 3.11]
     end
 
-    subgraph CI["🚀 CI/CD"]
-        GHA[GitHub Actions]
-        GHCR[GitHub Container Registry]
-        OIDC[OIDC for AWS]
-    end
-
-    Infrastructure --> Platform
-    Platform --> Application
-    CI --> Infrastructure
-    CI --> Application
+    GHA --> TF
+    OIDC --> AWS
+    TF --> K3S
+    ARGO --> JAVA
+    ARGO --> PYTHON
+    JAVA --> REDIS
+    JAVA --> SQLITE
+    GHCR --> JAVA
+    GHCR --> PYTHON
 ```
 
 ---
@@ -131,7 +138,7 @@ graph LR
 ```mermaid
 graph TB
     subgraph "IAM Roles"
-        OIDC[GitHub OIDC Role<br/>Terraform plan/apply<br/>Docker push]
+        OIDC[GitHub OIDC Role<br/>Terraform plan/apply<br/>SSM bootstrap]
         K3S_ROLE[k3s Node Role<br/>SSM + EBS CSI + S3]
         EDGE_ROLE[Edge Role<br/>SSM + SSM Parameter read]
     end
@@ -165,10 +172,10 @@ graph TB
         USER[Frontend User]
     end
 
-    subgraph "apps namespace"
+    subgraph "cloudradar namespace"
         INGESTER[Ingester<br/>Java/Spring Boot<br/>replicas: 0-2]
         PROCESSOR[Processor<br/>Java/Spring Boot<br/>replicas: 1]
-        DASHBOARD[Dashboard API<br/>Java/Spring Boot<br/>replicas: 1+]
+        DASHBOARD["Dashboard API<br/>Java/Spring Boot<br/>replicas: 1 (HPA planned)"]
         HEALTH[Health<br/>Python<br/>replicas: 1]
         ADMIN[Admin-Scale<br/>Python<br/>replicas: 1]
     end
@@ -187,21 +194,23 @@ graph TB
         S3[(S3 Bucket<br/>SQLite backups)]
     end
 
+    K8S_API[Kubernetes API Server]
+
     OPENSKY -->|10s poll| INGESTER
-    INGESTER -->|LPUSH events| REDIS
-    REDIS -->|BLPOP| PROCESSOR
+    INGESTER -->|RPUSH events| REDIS
+    REDIS -->|BRPOP blocking| PROCESSOR
     PROCESSOR -->|HSET/LPUSH/SADD| REDIS
-    DASHBOARD -->|HGETALL/LRANGE| REDIS
+    DASHBOARD -->|HSCAN/HGET/LRANGE| REDIS
     DASHBOARD -.->|Optional lookup| SQLITE
     USER -->|GET /api/flights*| DASHBOARD
     
-    INGESTER -->|/metrics| PROM
-    PROCESSOR -->|/metrics| PROM
-    DASHBOARD -->|/metrics| PROM
+    INGESTER -->|/metrics/prometheus| PROM
+    PROCESSOR -->|/metrics/prometheus| PROM
+    DASHBOARD -->|/metrics/prometheus| PROM
     GRAF -->|Query| PROM
     
     ADMIN -->|PATCH k8s| INGESTER
-    HEALTH -->|k8s API check| PROM
+    HEALTH -->|k8s API check| K8S_API
 
     style REDIS fill:#ffecb3
     style SQLITE fill:#b3e5fc
@@ -222,10 +231,10 @@ sequenceDiagram
     I->>O: GET /states/all (bbox)
     I->>I: OAuth2 token (cached 10m)
     I->>I: Parse FlightState objects
-    I->>Q: LPUSH cloudradar:ingest:queue
+    I->>Q: RPUSH cloudradar:ingest:queue
     
     loop Every 2s timeout
-        P->>Q: BLPOP cloudradar:ingest:queue
+        P->>Q: BRPOP cloudradar:ingest:queue
     end
     
     P->>P: Parse PositionEvent
@@ -235,8 +244,8 @@ sequenceDiagram
     P->>A: SADD cloudradar:aircraft:in_bbox
 
     U->>D: GET /api/flights?bbox=...
-    D->>A: HGETALL cloudradar:aircraft:last
-    D->>D: Filter + Sort + Enrich
+    D->>A: HSCAN cloudradar:aircraft:last
+    D->>D: Filter during scan + sort + optional enrich
     D->>U: JSON response (FlightMapItem[])
 
     U->>D: GET /api/flights/{icao24}?include=track
@@ -283,10 +292,11 @@ classDiagram
         +String typecode
         +String category
         +Double lat, lon, heading
-        +Double altitude, velocity
+        +Double altitude, groundSpeed, verticalRate
+        +Boolean onGround
         +String country
         +Boolean militaryHint
-        +FlightTrackPoint[] track
+        +FlightTrackPoint[] recentTrack
     }
 
     class AircraftMetadata {
@@ -333,12 +343,12 @@ graph TB
         end
     end
 
-    QUEUE -->|LPUSH| INGESTER[Ingester]
-    QUEUE -->|BLPOP| PROCESSOR[Processor]
+    INGESTER -->|RPUSH| QUEUE
+    QUEUE -->|BRPOP| PROCESSOR[Processor]
     PROCESSOR -->|HSET| LAST
     PROCESSOR -->|LPUSH/LTRIM| TRACK
     PROCESSOR -->|SADD/SREM| BBOX
-    DASHBOARD[Dashboard] -->|HGETALL| LAST
+    DASHBOARD[Dashboard] -->|HSCAN/HGET| LAST
     DASHBOARD -->|LRANGE| TRACK
 ```
 
@@ -464,21 +474,26 @@ graph TB
     subgraph "k3s Server (t3a.medium: 2 vCPU, 4GB RAM)"
         CONTROL[Control Plane<br/>etcd, API server<br/>scheduler, controller]
         TRAEFIK[Traefik Ingress<br/>requests: 50m/128Mi<br/>limits: 250m/512Mi]
+        ARGOCD_CORE["ArgoCD server/controller<br/>chart defaults"]
+        ARGOCD_REPO["ArgoCD repo-server<br/>requests: 150m/384Mi<br/>limits: 750m/768Mi"]
     end
 
     subgraph "k3s Worker ASG (t3a.medium, desired: 1)"
         subgraph "Typical Pod Distribution"
-            INGESTER_POD[Ingester<br/>requests: 250m/512Mi<br/>limits: 500m/1Gi]
-            PROCESSOR_POD[Processor<br/>requests: 250m/512Mi<br/>limits: 500m/1Gi]
-            DASHBOARD_POD[Dashboard<br/>requests: 250m/512Mi<br/>limits: 500m/1Gi]
+            INGESTER_POD[Ingester<br/>requests: 100m/256Mi<br/>limits: 300m/512Mi]
+            PROCESSOR_POD[Processor<br/>requests: 50m/128Mi<br/>limits: 300m/256Mi]
+            DASHBOARD_POD[Dashboard<br/>requests: 50m/128Mi<br/>limits: 300m/512Mi]
             REDIS_POD[Redis<br/>requests: 50m/128Mi<br/>limits: 250m/256Mi]
-            HEALTH_POD[Health<br/>requests: 10m/32Mi<br/>limits: 50m/64Mi]
-            PROM_POD[Prometheus<br/>requests: 500m/1Gi<br/>limits: 1000m/2Gi]
-            GRAF_POD[Grafana<br/>requests: 100m/256Mi<br/>limits: 200m/512Mi]
+            HEALTH_POD[Health<br/>requests: 50m/64Mi<br/>limits: 200m/128Mi]
+            ADMIN_SCALE_POD[Admin-Scale<br/>requests: 50m/64Mi<br/>limits: 200m/128Mi]
+            PROM_POD[Prometheus<br/>requests: 100m/512Mi<br/>limits: 500m/1Gi]
+            GRAF_POD[Grafana<br/>requests: 50m/128Mi<br/>limits: 200m/256Mi]
         end
     end
 
     style CONTROL fill:#e3f2fd
+    style ARGOCD_CORE fill:#e8f5e9
+    style ARGOCD_REPO fill:#e8f5e9
     style INGESTER_POD fill:#fff3e0
     style PROCESSOR_POD fill:#fff3e0
     style DASHBOARD_POD fill:#fff3e0
@@ -495,8 +510,8 @@ graph TB
 ```mermaid
 graph TB
     subgraph "Application Pods"
-        INGESTER[Ingester<br/>/metrics]
-        PROCESSOR[Processor<br/>/metrics]
+        INGESTER[Ingester<br/>/metrics/prometheus]
+        PROCESSOR[Processor<br/>/metrics/prometheus]
         DASHBOARD[Dashboard<br/>/metrics/prometheus]
         REDIS[Redis<br/>/metrics via exporter]
     end
@@ -511,9 +526,9 @@ graph TB
         GRAF[Grafana<br/>Datasources:<br/>Prometheus, CloudWatch]
     end
 
-    INGESTER -->|Scrape :8080/metrics| PROM
-    PROCESSOR -->|Scrape :8080/metrics| PROM
-    DASHBOARD -->|Scrape :8080/metrics| PROM
+    INGESTER -->|Scrape :8080/metrics/prometheus| PROM
+    PROCESSOR -->|Scrape :8080/metrics/prometheus| PROM
+    DASHBOARD -->|Scrape :8080/metrics/prometheus| PROM
     REDIS -->|Scrape| PROM
     NODE_EXP -->|Scrape| PROM
     KUBE_STATE -->|Scrape| PROM
@@ -626,7 +641,7 @@ graph TB
 graph LR
     subgraph "GitHub OIDC Role"
         OIDC_TF[Terraform Plan/Apply<br/>VPC, EC2, IAM RO]
-        OIDC_ECR[GHCR Push<br/>Container registry write]
+        GHCR_TOKEN[GHCR Push via GITHUB_TOKEN<br/>Container registry write]
         OIDC_SSM[SSM Send-Command<br/>ArgoCD bootstrap]
     end
 
@@ -699,7 +714,7 @@ stateDiagram-v2
     WaitRepopulate --> Normal: Ingester/Processor repopulate
 
     ProcessorFailure --> ProcessorRestart: k8s restarts pod
-    ProcessorRestart --> Normal: Resume BLPOP
+    ProcessorRestart --> Normal: Resume queue pop loop
 
     IngesterBackoff --> BackoffLevel: Exponential backoff
     BackoffLevel --> APIRecovery: API available again
@@ -717,50 +732,66 @@ stateDiagram-v2
 ```mermaid
 graph TB
     subgraph "Stateless (Horizontal Scale)"
-        INGESTER[Ingester<br/>Current: 0-2<br/>Scale: Admin-Scale API<br/>Limit: API rate limit]
-        DASHBOARD[Dashboard<br/>Current: 1<br/>Scale: HPA on CPU/Memory<br/>Limit: Redis HGETALL]
+        INGESTER[Ingester]
+        DASHBOARD[Dashboard API]
     end
 
     subgraph "Stateful (Vertical Scale Only)"
-        PROCESSOR[Processor<br/>Current: 1<br/>Scale: Vertical only<br/>Bottleneck: Single BLPOP]
-        REDIS[Redis<br/>Current: 1 replica<br/>Scale: None (SPOF)<br/>Bottleneck: Memory]
+        PROCESSOR[Processor]
+        REDIS[Redis]
     end
+
+    INGESTER -->|Writes incoming events| REDIS
+    PROCESSOR -->|Reads event stream| REDIS
+    PROCESSOR -->|Updates live aggregates| REDIS
+    DASHBOARD -->|Reads current positions and tracks| REDIS
+
+    API_LIMIT[OpenSky API limit]
+    REDIS_READ[Redis read sort cost]
+    PROC_SINGLE[Single event consumer]
+    REDIS_SPOF[Single Redis instance]
+
+    API_LIMIT -.limits.-> INGESTER
+    REDIS_READ -.limits.-> DASHBOARD
+    PROC_SINGLE -.limits.-> PROCESSOR
+    REDIS_SPOF -.risk.-> REDIS
 
     style INGESTER fill:#c8e6c9
     style DASHBOARD fill:#c8e6c9
     style PROCESSOR fill:#ffecb3
     style REDIS fill:#ffcdd2
+    style API_LIMIT fill:#fff9c4
+    style REDIS_READ fill:#fff9c4
+    style PROC_SINGLE fill:#fff9c4
+    style REDIS_SPOF fill:#ffcdd2
 ```
+
+Quick summary:
+- `Ingester` and `Dashboard API` are the horizontal-scaling candidates.
+- `Processor` is currently vertical-scaling by design; horizontal scaling is possible but requires queue partitioning and ownership rules.
+- `Redis` remains a core scaling constraint in v1-mvp.
+- Main limits today: external API quota, single event consumer, and single Redis instance.
 
 ### 9.2 Future Scaling Strategy
 
 ```mermaid
-graph TB
-    subgraph "v1-mvp (Current)"
-        V1_REDIS[Redis<br/>Single replica<br/>local-path PVC]
-        V1_PROC[Processor<br/>Single consumer<br/>BLPOP]
-    end
+graph LR
+    NOW[Now - v1-mvp<br/>Single Redis + single processor]
+    NEXT[Next - v1.1<br/>Harden storage and portability]
+    LATER[Later - v2<br/>HA and partitioned processing]
 
-    subgraph "v1.1 (Planned)"
-        V11_REDIS[Redis<br/>Single replica<br/>ebs-gp3 PVC<br/>Node-portable]
-    end
+    NOW --> NEXT --> LATER
 
-    subgraph "v2 (Future)"
-        V2_REDIS[Redis Sentinel<br/>3 replicas<br/>Automatic failover]
-        V2_PROC[Processor<br/>Partitioned queues<br/>Multiple consumers]
-        V2_KAFKA[Kafka<br/>Topic partitions<br/>Strong durability]
-    end
-
-    V1_REDIS --> V11_REDIS
-    V11_REDIS --> V2_REDIS
-    V1_PROC --> V2_PROC
-    V2_REDIS --> V2_KAFKA
-
-    style V1_REDIS fill:#ffcdd2
-    style V11_REDIS fill:#fff9c4
-    style V2_REDIS fill:#c8e6c9
-    style V2_KAFKA fill:#c8e6c9
+    style NOW fill:#ffcdd2
+    style NEXT fill:#fff9c4
+    style LATER fill:#c8e6c9
 ```
+
+| Stage | Main change | Why it matters |
+|-------|-------------|----------------|
+| Now (v1-mvp) | Single Redis + single processor | Fast, low-cost MVP but limited resilience/throughput |
+| Next (v1.1) | Improve Redis durability/portability (EBS gp3) | Better recovery and safer node replacement |
+| Later (v2) | Redis HA + partitioned processing (Kafka optional) | Removes SPOF and supports higher sustained traffic |
 
 ---
 
@@ -768,16 +799,16 @@ graph TB
 
 ### 10.1 Monthly Cost Estimate (v1-mvp)
 
-> **Based on terraform.tfvars**: 1 server + 1 worker (desired), not 2 workers
+> **Based on terraform.tfvars**: 1 server + 1 worker (desired)
 
 ```mermaid
-pie title Monthly AWS Cost (~$78-82)
-    "k3s Server (t3a.medium)" : 34
-    "k3s Worker (1x t3a.medium)" : 34
-    "EBS Volumes (~133GB gp3)" : 13
-    "Edge (t3.micro)" : 9
-    "NAT Instance (t3.nano)" : 5
-    "S3 Storage + Transfer" : 5
+    pie title Monthly Cost Share (~$78)
+    "k3s Server (t3a.medium)" : 27.45
+    "k3s Worker (1x t3a.medium)" : 27.45
+    "EBS Volumes (~133GB gp3)" : 10.64
+    "Edge (t3.micro)" : 7.59
+    "NAT Instance (t3.nano)" : 3.80
+    "S3 Storage + Transfer" : 1.08
 ```
 
 #### Detailed Cost Breakdown
@@ -855,7 +886,7 @@ graph LR
         CLOUDWATCH[CloudWatch Metrics<br/>~$10-30/month]
     end
 
-    K3S -.->|Savings: ~$53/month| EKS
+    K3S -.->|Savings: ~$73/month| EKS
     NAT_INST -.->|Savings: ~$28/month| NAT_GW
     REDIS_LOCAL -.->|Savings: ~$15-50/month| REDIS_ELASTIC
     PROM_LOCAL -.->|Savings: ~$10-30/month| CLOUDWATCH
@@ -886,10 +917,10 @@ timeline
                      : Dashboard API
                      : Observability
     
-    v1.1 (Q1 2026) : Frontend React/Vite
+    v1.1 (Q1 2026) : Frontend React/Vite + Leaflet
                    : Redis ebs-gp3 PVC
                    : Alerting rules
-                   : API documentation
+                   : KPI extensions (takeoffs/landings + noise proxy)
     
     v2 (Q2 2026) : Redis HA (Sentinel)
                  : Processor partitioning
@@ -904,8 +935,8 @@ timeline
 graph TB
     subgraph "High Priority"
         TD1[Redis SPOF<br/>Migration: ebs-gp3 + Sentinel]
-        TD2[Dashboard HGETALL<br/>Refactor: Filter-before-load]
-        TD3[Integration Tests<br/>Add: Service-level tests]
+        TD2[Dashboard scan cost at high cardinality<br/>Optimize: indexed geo/filter strategy]
+        TD3[Integration Tests<br/>Add: Redis + SQLite end-to-end tests]
     end
 
     subgraph "Medium Priority"
@@ -939,7 +970,7 @@ graph TB
 | Infrastructure Overview | Network, compute, storage | `docs/architecture/infrastructure.md` |
 | Application Architecture | Service details, data flow | `docs/architecture/application-architecture.md` |
 | Architecture Review | Quality assessment | `docs/code-reviews/architecture-review.md` |
-| ADRs (19 total) | Decision rationale | `docs/architecture/decisions/` |
+| ADRs (20 total) | Decision rationale | `docs/architecture/decisions/` |
 | Runbooks | Operational procedures | `docs/runbooks/` |
 | IAM Inventory | Roles, policies, access | `docs/iam/inventory.md` |
 
@@ -947,16 +978,16 @@ graph TB
 
 ```mermaid
 timeline
-    title Key ADR Timeline
-    ADR-0001 (2026-01-08) : AWS Region (us-east-1)
-    ADR-0002 (2026-01-08) : k3s on EC2
-    ADR-0003 (2026-01-08) : Redis Buffer
-    ADR-0008 (2026-01-08) : VPC + NAT Instance
-    ADR-0009 (2026-01-08) : Security Baseline
-    ADR-0010 (2026-01-08) : Terraform + OIDC
-    ADR-0013 (2026-01-17) : ArgoCD via SSM
-    ADR-0014 (2026-01-19) : Java/Spring Boot
-    ADR-0018 (2026-02-10) : SQLite + S3 Distribution
+    title Key Architecture Decisions Timeline
+    Infra | ADR-0001 : AWS region fixed to us-east-1 (2026-01-08)
+    Platform | ADR-0002 : Kubernetes runtime chosen: k3s on EC2 (2026-01-08)
+    Data | ADR-0003 : Event pipeline based on Redis buffer (2026-01-08)
+    Network | ADR-0008 : VPC baseline with NAT instance (2026-01-08)
+    Security | ADR-0009 : IAM and secrets baseline (2026-01-08)
+    IaC/CI | ADR-0010 : Terraform state model + OIDC access (2026-01-08)
+    GitOps | ADR-0013 : ArgoCD bootstrap via SSM (2026-01-17)
+    App | ADR-0014 : Processing stack standardized on Java/Spring Boot (2026-01-19)
+    Data | ADR-0018 : SQLite reference DB + S3 distribution (2026-02-10)
 ```
 
 ---
@@ -968,10 +999,10 @@ timeline
 | **ADR** | Architecture Decision Record — documented design choice with rationale |
 | **AOF** | Append-Only File — Redis persistence mechanism |
 | **ArgoCD** | GitOps continuous delivery tool for Kubernetes |
-| **BLPOP** | Blocking List Pop — Redis command for consuming queue events |
+| **BRPOP / rightPop(timeout)** | Blocking right pop on Redis List — queue consumption command used by the processor poll loop |
 | **EBS CSI** | Elastic Block Store Container Storage Interface — k8s persistent volumes |
 | **ESO** | External Secrets Operator — sync external secrets to k8s |
-| **HGETALL** | Redis command to retrieve all fields from a hash |
+| **HSCAN** | Redis cursor-based hash scan used for incremental reads |
 | **k3s** | Lightweight Kubernetes distribution optimized for resource-constrained environments |
 | **NAT Instance** | EC2 instance acting as Network Address Translation gateway |
 | **OIDC** | OpenID Connect — authentication protocol used for GitHub Actions AWS access |
@@ -992,7 +1023,7 @@ timeline
 | Redis | 6379 | TCP | Redis protocol (ClusterIP) |
 | Prometheus | 9090 | TCP | Metrics query API |
 | Grafana | 3000 | TCP | Dashboard UI |
-| Application /metrics | 8080 | TCP | Prometheus scrape target |
+| Application /metrics/prometheus | 8080 | TCP | Prometheus scrape target (ingester/processor/dashboard) |
 
 ---
 
