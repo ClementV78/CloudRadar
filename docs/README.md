@@ -52,25 +52,25 @@ When you need to **perform an operational task**, use these runbooks.
 **[Runbooks Execution Order](runbooks/README.md)** — Read this first for the correct sequence.
 
 #### **Bootstrap (First Time Setup)**
-- [AWS Account Bootstrap](runbooks/aws-account-bootstrap.md) — Initial AWS account configuration
-- [Terraform Backend Bootstrap](runbooks/terraform-backend-bootstrap.md) — Set up Terraform remote state
-- [ArgoCD Bootstrap](runbooks/argocd-bootstrap.md) — Deploy ArgoCD to k3s cluster
+- [AWS Account Bootstrap](runbooks/bootstrap/aws-account-bootstrap.md) — Initial AWS account configuration
+- [Terraform Backend Bootstrap](runbooks/bootstrap/terraform-backend-bootstrap.md) — Set up Terraform remote state
+- [ArgoCD Bootstrap](runbooks/bootstrap/argocd-bootstrap.md) — Deploy ArgoCD to k3s cluster
 
 #### **Operations (Day-to-Day Tasks)**
-- [Ingester](runbooks/ingester.md) — Deploy, scale, troubleshoot the ingestion service
-- [Processor](runbooks/processor.md) — Deploy, monitor, debug the aggregation service
-- [Health Endpoint](runbooks/health-endpoint.md) — k3s health checks via load balancer
-- [Admin-Scale API](runbooks/admin-scale.md) — Scale ingester replicas via API
-- [Redis](runbooks/redis.md) — Deploy Redis, manage queues and aggregates
-- [Observability Stack](runbooks/observability.md) — Prometheus, Grafana, metrics, alerting
+- [Ingester](runbooks/operations/ingester.md) — Deploy, scale, troubleshoot the ingestion service
+- [Processor](runbooks/operations/processor.md) — Deploy, monitor, debug the aggregation service
+- [Health Endpoint](runbooks/operations/health-endpoint.md) — k3s health checks via load balancer
+- [Admin-Scale API](runbooks/operations/admin-scale.md) — Scale ingester replicas via API
+- [Redis](runbooks/operations/redis.md) — Deploy Redis, manage queues and aggregates
+- [Observability Stack](runbooks/operations/observability.md) — Prometheus, Grafana, metrics, alerting
 
 #### **Infrastructure & CI/CD**
-- [Infrastructure Outputs](runbooks/infra-outputs.md) — Check deployed AWS resources
-- [CI/CD for Infrastructure](runbooks/ci-infra.md) — Terraform validate, plan, apply workflows
-- [CI/CD for Applications](runbooks/ci-app.md) — Build and push service images
+- [Infrastructure Outputs](runbooks/ci-cd/infra-outputs.md) — Check deployed AWS resources
+- [CI/CD for Infrastructure](runbooks/ci-cd/ci-infra.md) — Terraform validate, plan, apply workflows
+- [CI/CD for Applications](runbooks/ci-cd/ci-app.md) — Build and push service images
 
 #### **Troubleshooting & Issues**
-- [Issue Log](runbooks/issue-log.md) — Known issues, root causes, resolutions
+- [Issue Log](runbooks/troubleshooting/issue-log.md) — Known issues, root causes, resolutions
 - [Runbooks README](runbooks/README.md) — Detailed execution order and dependencies
 
 ---
@@ -125,11 +125,11 @@ Quick reference to all Architecture Decision Records (decisions/):
 ## 🔗 Cross-References (Common Lookups)
 
 ### "How do I deploy X?"
-- **Ingester** → See [Application Architecture § 1](architecture/application-architecture.md#1-ingester) + [Runbook: Ingester](runbooks/ingester.md) + [ADR-0015](architecture/decisions/ADR-0015-2026-01-22-redis-list-for-ingestion-queue.md)
-- **Processor** → See [Application Architecture § 2](architecture/application-architecture.md#2-processor) + [Runbook: Processor](runbooks/processor.md) + [ADR-0014](architecture/decisions/ADR-0014-2026-01-19-processor-language-java.md)
-- **Redis** → See [Runbook: Redis](runbooks/redis.md) + [ADR-0003](architecture/decisions/ADR-0003-2026-01-08-event-driven-pipeline-redis-buffer.md)
-- **Prometheus/Grafana** → See [Runbook: Observability](runbooks/observability.md) + [ADR-0005](architecture/decisions/ADR-0005-2026-01-08-observability-prometheus-grafana.md)
-- **ArgoCD** → See [Infrastructure Architecture § ArgoCD](architecture/infrastructure.md) + [Runbook: ArgoCD Bootstrap](runbooks/argocd-bootstrap.md)
+- **Ingester** → See [Application Architecture § 1](architecture/application-architecture.md#1-ingester) + [Runbook: Ingester](runbooks/operations/ingester.md) + [ADR-0015](architecture/decisions/ADR-0015-2026-01-22-redis-list-for-ingestion-queue.md)
+- **Processor** → See [Application Architecture § 2](architecture/application-architecture.md#2-processor) + [Runbook: Processor](runbooks/operations/processor.md) + [ADR-0014](architecture/decisions/ADR-0014-2026-01-19-processor-language-java.md)
+- **Redis** → See [Runbook: Redis](runbooks/operations/redis.md) + [ADR-0003](architecture/decisions/ADR-0003-2026-01-08-event-driven-pipeline-redis-buffer.md)
+- **Prometheus/Grafana** → See [Runbook: Observability](runbooks/operations/observability.md) + [ADR-0005](architecture/decisions/ADR-0005-2026-01-08-observability-prometheus-grafana.md)
+- **ArgoCD** → See [Infrastructure Architecture § ArgoCD](architecture/infrastructure.md) + [Runbook: ArgoCD Bootstrap](runbooks/bootstrap/argocd-bootstrap.md)
 
 ### "What are the costs?"
 - Check [infrastructure.md § Cost Model](architecture/infrastructure.md) for monthly estimates
@@ -137,11 +137,11 @@ Quick reference to all Architecture Decision Records (decisions/):
 - Issues #20, #25, #174 for backup strategy costs
 
 ### "How do I scale?"
-- [Runbook: Admin-Scale API](runbooks/admin-scale.md) for scaling the ingester
-- [Runbook: Scale k3s Cluster](runbooks/admin-scale.md#scaling-k3s) for cluster nodes
+- [Runbook: Admin-Scale API](runbooks/operations/admin-scale.md) for scaling the ingester
+- [Runbook: Scale k3s Cluster](runbooks/operations/admin-scale.md#scaling-k3s) for cluster nodes
 
 ### "Something is broken, what do I check?"
-- See [Issue Log](runbooks/issue-log.md) for known problems and fixes
+- See [Issue Log](runbooks/troubleshooting/issue-log.md) for known problems and fixes
 - Cross-reference with relevant ADR and runbook
 
 ---
@@ -160,7 +160,7 @@ Quick reference to all Architecture Decision Records (decisions/):
 
 - **After completing an issue**, update the relevant runbook or ADR
 - **After architectural changes**, create or update an ADR
-- **After discovering a recurring issue**, add to [Issue Log](runbooks/issue-log.md)
+- **After discovering a recurring issue**, add to [Issue Log](runbooks/troubleshooting/issue-log.md)
 - **When learning something new about deployment**, update the relevant runbook
 - See [AGENTS.md § 4.2](../AGENTS.md#42-context--documentation-hygiene) for documentation maintenance rules
 
@@ -175,7 +175,7 @@ Quick reference to all Architecture Decision Records (decisions/):
    Use: [Runbooks Execution Order](runbooks/README.md) + specific service runbook
 
 3. **Fixing a problem?**  
-   Check: [Issue Log](runbooks/issue-log.md) + relevant architecture doc
+   Check: [Issue Log](runbooks/troubleshooting/issue-log.md) + relevant architecture doc
 
 4. **Making an architectural change?**  
    Review: Relevant [ADR(s)](architecture/decisions/) + [AGENTS.md § 9.1](../AGENTS.md#91-agent-vs-user-responsibilities)
