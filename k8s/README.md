@@ -10,7 +10,8 @@ k8s/
 │   ├── namespace.yaml   # apps namespace
 │   ├── ebs-csi-application.yaml  # CSI driver Application
 │   ├── admin-scale/     # API to scale ingester replicas
-│   ├── dashboard/       # Java dashboard API (map + KPIs)
+│   ├── frontend/        # React/Vite Leaflet dashboard UI
+│   ├── dashboard/       # Java dashboard API (flights + details + KPIs)
 │   ├── health/          # simple health endpoint
 │   ├── ingester/        # Java ingest service
 │   ├── processor/       # Java processor service

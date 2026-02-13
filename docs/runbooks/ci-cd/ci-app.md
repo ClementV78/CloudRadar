@@ -77,9 +77,10 @@ The workflow uses a **matrix strategy** to build all services in **parallel**:
 
 1. **ingester** (Java 17 + Spring Boot) → `src/ingester/Dockerfile`
 2. **processor** (Java 17 + Spring Boot) → `src/processor/Dockerfile`
-3. **dashboard** (Java 17 + Spring Boot) → `src/dashboard/Dockerfile`
-4. **health** (Python) → `src/health/Dockerfile`
-5. **admin-scale** (Python) → `src/admin-scale/Dockerfile`
+3. **frontend** (React + Vite + Nginx) → `src/frontend/Dockerfile`
+4. **dashboard** (Java 17 + Spring Boot) → `src/dashboard/Dockerfile`
+5. **health** (Python) → `src/health/Dockerfile`
+6. **admin-scale** (Python) → `src/admin-scale/Dockerfile`
 
 ### Per-service job
 

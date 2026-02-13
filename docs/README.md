@@ -59,6 +59,7 @@ When you need to **perform an operational task**, use these runbooks.
 #### **Operations (Day-to-Day Tasks)**
 - [Ingester](runbooks/operations/ingester.md) — Deploy, scale, troubleshoot the ingestion service
 - [Processor](runbooks/operations/processor.md) — Deploy, monitor, debug the aggregation service
+- [Frontend Dashboard](runbooks/operations/frontend.md) — Run and verify React/Leaflet UI service
 - [Health Endpoint](runbooks/operations/health-endpoint.md) — k3s health checks via load balancer
 - [Admin-Scale API](runbooks/operations/admin-scale.md) — Scale ingester replicas via API
 - [Redis](runbooks/operations/redis.md) — Deploy Redis, manage queues and aggregates

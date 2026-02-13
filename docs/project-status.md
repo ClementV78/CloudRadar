@@ -31,7 +31,7 @@ For a quick summary, see the KPI table in `README.md`.
 - ✅ Manual infra apply workflow (workflow_dispatch)
 - ✅ Runbooks available for bootstrap and verification
 - ✅ GitOps bootstrap with ArgoCD (k3s)
-- 📝 Application CI/CD pipeline (build + GHCR publish)
+- ✅ Application CI/CD pipeline (multi-service build + GHCR publish)
 
 **Application**
 - 📝 Integrate OpenSky ingestion source (or equivalent public feed)
@@ -46,4 +46,5 @@ For a quick summary, see the KPI table in `README.md`.
 - 📝 Add alerting via Alertmanager
 
 **UI**
-- 📝 Grafana Geomap panel as MVP UI
+- ✅ React/Leaflet dashboard frontend (map + detail panel + KPI strip)
+- 📝 Zones/alerts live integration pending (#128, #424)
