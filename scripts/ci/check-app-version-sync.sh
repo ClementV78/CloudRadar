@@ -13,6 +13,7 @@ fi
 services=(
   "ingester:k8s/apps/ingester/deployment.yaml"
   "processor:k8s/apps/processor/deployment.yaml"
+  "dashboard:k8s/apps/dashboard/deployment.yaml"
   "health:k8s/apps/health/deployment.yaml"
   "admin-scale:k8s/apps/admin-scale/deployment.yaml"
 )

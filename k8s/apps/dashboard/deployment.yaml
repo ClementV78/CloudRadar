@@ -1,35 +1,34 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: processor
+  name: dashboard
   namespace: cloudradar
   labels:
-    app.kubernetes.io/name: processor
+    app.kubernetes.io/name: dashboard
+    app.kubernetes.io/part-of: cloudradar
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: processor
+      app.kubernetes.io/name: dashboard
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: processor
+        app.kubernetes.io/name: dashboard
+        app.kubernetes.io/part-of: cloudradar
     spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
       initContainers:
         - name: aircraft-db-download
-          # Docker Hub `amazon/aws-cli` does not provide a major-only tag (e.g. `:2`).
-          # Pin a concrete version tag to avoid ImagePullBackOff.
-          # Verified available via `crictl pull` on the k3s node.
           image: amazon/aws-cli:2.33.18
           imagePullPolicy: IfNotPresent
           command:
             - sh
             - -ec
             - |
-              enabled="${PROCESSOR_AIRCRAFT_DB_ENABLED:-}"
+              enabled="${API_AIRCRAFT_DB_ENABLED:-}"
               case "${enabled}" in
                 true)
                   ;;
@@ -38,11 +37,11 @@ spec:
                   exit 0
                   ;;
                 "")
-                  echo "PROCESSOR_AIRCRAFT_DB_ENABLED is missing"
+                  echo "API_AIRCRAFT_DB_ENABLED is missing"
                   exit 1
                   ;;
                 *)
-                  echo "Invalid PROCESSOR_AIRCRAFT_DB_ENABLED value: ${enabled}"
+                  echo "Invalid API_AIRCRAFT_DB_ENABLED value: ${enabled}"
                   exit 1
                   ;;
               esac
@@ -65,7 +64,7 @@ spec:
           env:
             - name: AWS_REGION
               value: us-east-1
-            - name: PROCESSOR_AIRCRAFT_DB_ENABLED
+            - name: API_AIRCRAFT_DB_ENABLED
               valueFrom:
                 secretKeyRef:
                   name: processor-aircraft-db
@@ -87,47 +86,59 @@ spec:
             - name: aircraft-refdata
               mountPath: /refdata
       containers:
-        - name: processor
-          image: ghcr.io/clementv78/cloudradar/processor:0.1.11
+        - name: dashboard
+          image: ghcr.io/clementv78/cloudradar/dashboard:0.1.11
           imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
           env:
             - name: REDIS_HOST
               value: redis.data.svc.cluster.local
             - name: REDIS_PORT
               value: "6379"
-            - name: PROCESSOR_REDIS_INPUT_KEY
-              value: "cloudradar:ingest:queue"
-            - name: PROCESSOR_LAST_POSITIONS_KEY
-              value: "cloudradar:aircraft:last"
-            - name: PROCESSOR_TRACK_KEY_PREFIX
-              value: "cloudradar:aircraft:track:"
-            - name: PROCESSOR_BBOX_SET_KEY
-              value: "cloudradar:aircraft:in_bbox"
-            - name: PROCESSOR_TRACK_LENGTH
-              value: "180"
-            - name: PROCESSOR_AIRCRAFT_DB_ENABLED
+            - name: API_BBOX_ALLOWED_LAT_MIN
+              value: "46.8296"
+            - name: API_BBOX_ALLOWED_LAT_MAX
+              value: "50.8836"
+            - name: API_BBOX_ALLOWED_LON_MIN
+              value: "-0.7389"
+            - name: API_BBOX_ALLOWED_LON_MAX
+              value: "5.4433"
+            - name: API_BBOX_MAX_AREA_DEG2
+              value: "25"
+            - name: API_BBOX_DEFAULT
+              value: "0.9823,47.9557,3.7221,49.7575"
+            - name: API_LIMIT_DEFAULT
+              value: "200"
+            - name: API_LIMIT_MAX
+              value: "1000"
+            - name: API_CORS_ALLOW_ORIGINS
+              value: "https://cloudradar.local"
+            - name: API_AIRCRAFT_DB_ENABLED
               valueFrom:
                 secretKeyRef:
                   name: processor-aircraft-db
                   key: enabled
                   optional: false
-            - name: PROCESSOR_AIRCRAFT_DB_PATH
+            - name: API_AIRCRAFT_DB_PATH
               value: /refdata/aircraft.db
-          ports:
-            - containerPort: 8080
-              name: http
           readinessProbe:
             httpGet:
               path: /healthz
               port: http
             initialDelaySeconds: 10
+            timeoutSeconds: 2
             periodSeconds: 10
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /healthz
               port: http
             initialDelaySeconds: 20
+            timeoutSeconds: 2
             periodSeconds: 10
+            failureThreshold: 3
           startupProbe:
             httpGet:
               path: /healthz
@@ -140,7 +151,7 @@ spec:
               memory: 128Mi
             limits:
               cpu: 300m
-              memory: 256Mi
+              memory: 512Mi
           volumeMounts:
             - name: aircraft-refdata
               mountPath: /refdata
