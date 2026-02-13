@@ -21,6 +21,8 @@
 - At the start of each ticket, summarize expected outcomes and propose a plan before making changes.
 - Keep changes small, incremental, and easy to review.
 - If splitting changes into multiple commits improves clarity, do so; prefer clean scope separation when reasonable.
+- Simplicity self-check (heuristic): ask yourself, "Would a senior engineer call this overcomplicated for this scope?" If yes, simplify.
+- Ambiguity handling: if ambiguity is critical (correctness, security, cost, or architecture impact), stop and ask; otherwise proceed with explicit assumptions and report them clearly.
 - When workflows are hard to test before merge, validate the key steps locally (e.g., Terraform validate/plan).
 
 ### 4.2 Context & Documentation Hygiene
