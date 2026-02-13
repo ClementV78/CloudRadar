@@ -115,4 +115,11 @@ class DashboardControllerTest {
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("not_found"));
   }
+
+  @Test
+  void detail_invalidIcao24Path_returns404() throws Exception {
+    mockMvc.perform(get("/api/flights/ZZZZZZ"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.error").value("not_found"));
+  }
 }

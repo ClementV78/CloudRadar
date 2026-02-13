@@ -7,6 +7,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
  * Centralized REST exception mapping for dashboard API endpoints.
@@ -36,6 +38,18 @@ public class ApiExceptionHandler {
   @ExceptionHandler(NotFoundException.class)
   public ResponseEntity<Map<String, Object>> handleNotFound(NotFoundException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("not_found", ex.getMessage()));
+  }
+
+  /**
+   * Maps unmatched routes to HTTP 404 instead of generic 500.
+   *
+   * @param ex Spring MVC no-resource/no-handler exception
+   * @return standardized not-found payload
+   */
+  @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+  public ResponseEntity<Map<String, Object>> handleMissingRoute(Exception ex) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+        .body(error("not_found", "resource not found"));
   }
 
   /**
