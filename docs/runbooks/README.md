@@ -33,7 +33,7 @@ Purpose: understand what `ci-infra` validates on PRs and how manual apply works.
 Purpose: understand how multi-service Docker images are built and pushed to GHCR.
 
 - Runbook: `docs/runbooks/ci-app.md`
-- Services: ingester, processor, dashboard, health, admin-scale
+- Services: ingester, processor, frontend, dashboard, health, admin-scale
 - Triggers: PR (build only), push to main (build + push), tags (semver push)
 
 ## 3) Terraform live roots (per environment)
@@ -132,6 +132,12 @@ Purpose: run the Java ingester locally or deploy it to k3s.
 Purpose: consume Redis events and build in-memory aggregates for the UI.
 
 - Runbook: `docs/runbooks/processor.md`
+
+## 3.6.1) Frontend dashboard UI
+
+Purpose: run and verify the React/Leaflet frontend that consumes dashboard API endpoints.
+
+- Runbook: `docs/runbooks/operations/frontend.md`
 
 ## 3.7) Observability stack (Prometheus + Grafana)
 

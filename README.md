@@ -35,7 +35,7 @@ Issues and PRs are tracked in GitHub Projects (Kanban board) using lightweight a
 | --- | --- | --- | --- |
 | Terraform | Infrastructure as Code for AWS resources (VPC, EC2, IAM, S3) | Reproducible, reviewable infrastructure changes | Implemented |
 | GitHub Actions | CI for infra (`fmt/validate/plan`) + multi-image builds | Fast feedback and safer changes; parallel service builds | Implemented |
-| GitHub Container Registry (GHCR) | Container registry for app images | Centralized, versioned image distribution | Implemented (automated multi-image: ingester, processor, health, admin-scale) |
+| GitHub Container Registry (GHCR) | Container registry for app images | Centralized, versioned image distribution | Implemented (automated multi-image: ingester, processor, frontend, dashboard, health, admin-scale) |
 | Docker | Local image builds for services | Portable builds aligned with CI artifacts | Implemented (local/manual) |
 | ArgoCD (GitOps) | Sync `k8s/apps` to the cluster | Declarative deploys and drift control | Implemented |
 | Kustomize | Compose Kubernetes manifests | Reuse and consistency across apps | Implemented |
@@ -65,7 +65,7 @@ This repository represents **Version 1 (MVP)** of the platform.
 - Design a **budget-aware cloud architecture** on AWS
 - Run Kubernetes **without managed control plane (EKS)** using **k3s on EC2**
 - Implement a **queue-driven processing chain** (producer → Redis queue → consumers)
-- Automate infra checks and delivery with **GitHub Actions** (infra CI live; app pipeline planned)
+- Automate infra checks and delivery with **GitHub Actions** (infra CI + app pipeline live)
 
 ---
 
@@ -105,15 +105,15 @@ Infrastructure is provisioned with Terraform (networking, IAM, compute, storage)
 
 ## 🔄 CI/CD — GitHub Actions
 
-Infra CI is live; app CI/CD is planned. Application workloads on k3s are reconciled by ArgoCD (GitOps) from `k8s/apps`.
+Infra CI and app CI/CD are live. Application workloads on k3s are reconciled by ArgoCD (GitOps) from `k8s/apps`.
 
 1. A DevOps engineer pushes code or opens a pull request
 2. **GitHub Actions (hosted runners)** validate infra (fmt/validate/plan + tfsec)
 3. Infra changes are applied manually via workflow dispatch (controlled apply)
-4. Application pipeline builds Docker images (planned)
-5. Images are published to **GitHub Container Registry (GHCR)** (planned)
+4. Application pipeline builds Docker images (implemented)
+5. Images are published to **GitHub Container Registry (GHCR)** (implemented)
 6. ArgoCD syncs `k8s/apps` manifests to the k3s cluster (implemented)
-7. The k3s cluster pulls images and runs updated workloads (planned)
+7. The k3s cluster pulls images and runs updated workloads (implemented)
 
 ---
 
@@ -143,7 +143,8 @@ ArgoCD syncs everything under `k8s/apps` automatically.
 | `ingester` | OpenSky ingestion | `cloudradar` | Implemented |
 | `processor` | Redis aggregates | `cloudradar` | Implemented |
 | `admin-scale` | Ingester scaling API | `cloudradar` | Implemented |
-| `dashboard` | API + UI | `cloudradar` | Planned |
+| `dashboard` | Java API (flights/details/metrics) | `cloudradar` | Implemented |
+| `frontend` | React/Leaflet dashboard UI | `cloudradar` | Implemented |
 
 ---
 
@@ -164,7 +165,7 @@ Detailed status is tracked in [docs/project-status.md](docs/project-status.md) a
 | Automation | ✅ Core done | infra CI + manual apply; app CI/CD in progress |
 | Application | 📝 In progress | ingestion → Redis → processor working; storage/API pending |
 | Monitoring | ✅ Implemented | Prometheus/Grafana (MVP) + CloudWatch (AWS signals), AlertManager (planned Sprint 2) |
-| UI | 📝 Planned | Grafana Geomap MVP |
+| UI | ✅ Implemented | React/Leaflet frontend + Dashboard API |
 
 ---
 

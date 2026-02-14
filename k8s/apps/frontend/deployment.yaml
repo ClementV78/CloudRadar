@@ -1,34 +1,35 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: healthz
+  name: frontend
   namespace: cloudradar
   labels:
-    app.kubernetes.io/name: healthz
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: cloudradar
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: healthz
+      app.kubernetes.io/name: frontend
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: healthz
+        app.kubernetes.io/name: frontend
+        app.kubernetes.io/part-of: cloudradar
     spec:
-      serviceAccountName: healthz
       securityContext:
         runAsNonRoot: true
-        runAsUser: 10001
+        runAsUser: 101
       containers:
-        - name: healthz
-          image: ghcr.io/clementv78/cloudradar/health:0.1.13
+        - name: frontend
+          image: ghcr.io/clementv78/cloudradar/frontend:0.1.13
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8080
-              name: http
+            - name: http
+              containerPort: 8080
           readinessProbe:
             httpGet:
-              path: /readyz
+              path: /healthz
               port: http
             initialDelaySeconds: 5
             timeoutSeconds: 2
@@ -36,16 +37,22 @@ spec:
             failureThreshold: 3
           livenessProbe:
             httpGet:
-              path: /readyz
+              path: /healthz
               port: http
-            initialDelaySeconds: 10
+            initialDelaySeconds: 15
             timeoutSeconds: 2
             periodSeconds: 10
             failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            failureThreshold: 18
+            periodSeconds: 5
           resources:
             requests:
               cpu: 50m
-              memory: 64Mi
+              memory: 96Mi
             limits:
-              cpu: 200m
-              memory: 128Mi
+              cpu: 250m
+              memory: 256Mi

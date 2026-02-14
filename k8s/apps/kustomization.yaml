@@ -5,6 +5,7 @@ resources:
   - namespace.yaml
   - ebs-csi-application.yaml
   - admin-scale
+  - frontend
   - health
   - dashboard
   - ingester
