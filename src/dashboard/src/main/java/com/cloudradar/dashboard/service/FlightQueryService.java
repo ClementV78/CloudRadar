@@ -120,9 +120,8 @@ public class FlightQueryService {
     String country = normalizeOptional(countryRaw, true, false);
     String typecode = normalizeOptional(typecodeRaw, false, true);
 
-    boolean requiresMetadata =
-        militaryHint != null || airframeType != null || category != null || country != null || typecode != null;
-    List<FlightSnapshot> snapshots = loadSnapshots(bbox, since, requiresMetadata, false);
+    // Map payload must be enriched on read so UI marker typing does not depend on Redis persistence.
+    List<FlightSnapshot> snapshots = loadSnapshots(bbox, since, true, false);
 
     List<FlightSnapshot> filtered = snapshots.stream()
         .filter(snapshot -> matchesMilitary(snapshot, militaryHint))

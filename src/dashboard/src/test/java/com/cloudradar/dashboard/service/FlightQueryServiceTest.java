@@ -143,6 +143,44 @@ class FlightQueryServiceTest {
   }
 
   @Test
+  void listFlights_enrichesMapItemsOnReadWhenAircraftDbIsAvailable() {
+    FlightQueryService service =
+        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.of(aircraftRepository));
+
+    List<Map.Entry<Object, Object>> entries = List.of(
+        Map.entry("abc123", eventJson("abc123", 1700000003L, 180.0, 2000.0, false))
+    );
+    Cursor<Map.Entry<Object, Object>> cursor = cursorOf(entries);
+    when(hashOperations.scan(anyString(), any())).thenReturn(cursor);
+    when(aircraftRepository.findByIcao24("abc123"))
+        .thenReturn(Optional.of(new AircraftMetadata(
+            "abc123",
+            "France",
+            "Commercial",
+            "L2",
+            "AIRBUS",
+            "Airbus",
+            "A320",
+            "F-GKXA",
+            "A320",
+            false,
+            2011,
+            "Air France")));
+
+    FlightListResponse response =
+        service.listFlights(null, null, "10", "lastSeen", "desc", null, null, null, null, null);
+
+    assertEquals(1, response.count());
+    FlightMapItem item = response.items().get(0);
+    assertEquals("abc123", item.icao24());
+    assertEquals(false, item.militaryHint());
+    assertEquals("airplane", item.airframeType());
+    assertEquals("commercial", item.fleetType());
+    assertEquals("large", item.aircraftSize());
+    verify(aircraftRepository).findByIcao24("abc123");
+  }
+
+  @Test
   void getFlightDetail_returnsTrackAndMetadataWhenRequested() {
     FlightQueryService service =
         new FlightQueryService(redisTemplate, objectMapper, properties, Optional.of(aircraftRepository));
