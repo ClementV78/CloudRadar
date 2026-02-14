@@ -22,7 +22,8 @@ public record PositionEvent(
     @JsonProperty("on_ground") Boolean onGround,
     @JsonProperty("time_position") Long timePosition,
     @JsonProperty("last_contact") Long lastContact,
-    @JsonProperty("ingested_at") String ingestedAt) {
+    @JsonProperty("ingested_at") String ingestedAt,
+    @JsonProperty("opensky_fetch_epoch") Long openskyFetchEpoch) {
 
   /**
    * Returns the best-effort altitude field for UI usage.

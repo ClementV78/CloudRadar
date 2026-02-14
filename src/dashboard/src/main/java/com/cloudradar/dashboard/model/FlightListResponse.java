@@ -11,6 +11,7 @@ import java.util.Map;
  * @param totalMatched total items matching filters before limit
  * @param limit applied response limit
  * @param bbox effective bbox used for filtering
+ * @param latestOpenSkyBatchEpoch latest OpenSky batch epoch represented in this response
  * @param timestamp response generation timestamp
  */
 public record FlightListResponse(
@@ -19,4 +20,5 @@ public record FlightListResponse(
     int totalMatched,
     int limit,
     Map<String, Double> bbox,
+    Long latestOpenSkyBatchEpoch,
     String timestamp) {}

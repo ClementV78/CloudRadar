@@ -39,6 +39,7 @@ class DashboardControllerTest {
         1,
         200,
         Map.of("minLon", 0.0, "minLat", 45.0, "maxLon", 10.0, "maxLat", 55.0),
+        1760000000L,
         "2026-02-13T12:00:00Z");
 
     when(flightQueryService.listFlights(
