@@ -29,6 +29,14 @@ Supported query params:
 - `country=<string>`
 - `typecode=<string>`
 
+### `GET /api/flights/stream`
+Server-Sent Events stream for frontend refresh triggers.
+
+Events:
+- `connected`
+- `batch-update` (sent when latest `opensky_fetch_epoch` changes)
+- `heartbeat` (keepalive)
+
 ### `GET /api/flights/{icao24}`
 Aircraft detail view for click interactions.
 

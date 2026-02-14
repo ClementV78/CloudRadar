@@ -13,7 +13,7 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
   - aircraft markers with heading-oriented SVG icons
   - click-to-open detail panel (desktop sidebar, mobile bottom sheet behavior)
   - KPI strip based on `/api/flights/metrics`
-  - periodic refresh every 10 seconds
+  - backend-driven refresh via SSE (`/api/flights/stream`) with 10s fallback polling
 - Deferred by design:
   - live zones/alerts integration (`#128`, `#424`)
 
@@ -27,12 +27,12 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
 
 ### Data flow
 
-1. Every 10s, frontend fetches:
-   - `GET /api/flights?bbox=...`
-   - `GET /api/flights/metrics?bbox=...&window=6h`
-2. On marker click, frontend fetches:
+1. Frontend subscribes to `GET /api/flights/stream` (SSE):
+   - on `batch-update`, it refreshes map + metrics
+2. Fallback polling runs every 10s (resilience if SSE disconnects)
+3. On marker click, frontend fetches:
    - `GET /api/flights/{icao24}?include=track,enrichment`
-3. Detail panel and track polyline are updated from this detail payload.
+4. Detail panel and track polyline are updated from this detail payload.
 
 ### Main UI modules
 
@@ -53,7 +53,8 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
 
 ### State and refresh strategy
 
-- Polling interval: `10s` (`REFRESH_INTERVAL_MS`)
+- Refresh interval fallback: `10s` (`REFRESH_INTERVAL_MS`)
+- Optional override: `VITE_UI_REFRESH_MS`
 - API status:
   - `online` when refresh succeeds
   - `degraded` if refresh fails after a successful cycle

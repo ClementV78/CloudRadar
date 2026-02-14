@@ -14,7 +14,8 @@ export const MAP_MAX_BOUNDS = {
   maxLat: 50.8836
 };
 
-export const REFRESH_INTERVAL_MS = 2_000;
+const REFRESH_MS_ENV = Number(import.meta.env.VITE_UI_REFRESH_MS ?? 10_000);
+export const REFRESH_INTERVAL_MS = Number.isFinite(REFRESH_MS_ENV) && REFRESH_MS_ENV > 0 ? REFRESH_MS_ENV : 10_000;
 export const STALE_AFTER_SECONDS = 120;
 
 export const API_FLIGHTS_BASE = import.meta.env.VITE_API_FLIGHTS_BASE || '/api/flights';

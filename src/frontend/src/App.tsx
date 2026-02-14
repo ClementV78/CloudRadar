@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, Rectangle, TileLayer, useMapEvents } from 'react-leaflet';
 import L, { type DivIcon } from 'leaflet';
 
-import { fetchFlightDetail, fetchFlights, fetchMetrics } from './api';
+import { fetchFlightDetail, fetchFlights, fetchMetrics, subscribeFlightUpdates } from './api';
 import { IDF_BBOX, MAP_MAX_BOUNDS, REFRESH_INTERVAL_MS, STALE_AFTER_SECONDS } from './constants';
 import { DetailPanel } from './components/DetailPanel';
 import { Header } from './components/Header';
@@ -327,11 +327,28 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     void refreshData();
+    const unsubscribeStream = subscribeFlightUpdates(
+      (event) => {
+        if (
+          event.latestOpenSkyBatchEpoch === null
+          || event.latestOpenSkyBatchEpoch !== lastBatchEpochRef.current
+        ) {
+          void refreshData();
+        }
+      },
+      () => {
+        setApiStatus((previous) => (previous === 'online' ? 'degraded' : previous));
+      }
+    );
+
     const refreshTimer = window.setInterval(() => {
       void refreshData();
     }, REFRESH_INTERVAL_MS);
 
-    return () => window.clearInterval(refreshTimer);
+    return () => {
+      unsubscribeStream();
+      window.clearInterval(refreshTimer);
+    };
   }, [refreshData]);
 
   const trackSegments = useMemo(() => toTrackSegments(selectedDetail), [selectedDetail]);
