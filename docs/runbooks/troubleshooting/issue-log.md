@@ -4,6 +4,18 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-14
 
+### [frontend/mobile] Detail panel blocked navigation and marker design was hard to read
+- **Severity:** Medium
+- **Impact:** On mobile, opening flight detail could trap the viewport and make KPI section hard to reach; marker visuals were considered unclear and too stylized.
+- **Signal:** Users reported bottom detail popup difficult to dismiss and inability to scroll down reliably; map markers did not look aircraft-like enough for quick reading.
+- **Analysis:** Main layout used full-height + hidden overflow and detail panel used overlay positioning on mobile, reducing navigation ergonomics. Marker SVG used star-like shape.
+- **Resolution:**
+  1. Mobile layout switched to vertical scroll flow (`overflow-y:auto`) with map/detail/KPI stack.
+  2. Detail panel on mobile now renders in flow and is fully hidden when closed.
+  3. Marker glyphs replaced with cleaner airplane/helicopter silhouettes while preserving category/type/size semantics.
+- **Guardrail:** Keep mobile as scroll-first UX and reserve absolute overlays for desktop map interactions only.
+- **Refs:** issue #437
+
 ### [frontend/map] Marker disappears on click + no visual typing across aircraft categories
 - **Severity:** Medium
 - **Impact:** Clicking a marker could immediately close the selected aircraft context; map readability was degraded because all markers looked identical.

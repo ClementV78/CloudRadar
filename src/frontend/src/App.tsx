@@ -102,15 +102,15 @@ function toTrackPolyline(detail: FlightDetailResponse | null): Array<[number, nu
 function markerSize(size: FlightMapItem['aircraftSize']): number {
   switch (size) {
     case 'small':
-      return 22;
+      return 18;
     case 'large':
-      return 30;
+      return 24;
     case 'heavy':
-      return 34;
+      return 28;
     case 'medium':
     case 'unknown':
     default:
-      return 26;
+      return 21;
   }
 }
 
@@ -134,17 +134,20 @@ function markerGlyph(flight: FlightMapItem, size: number, color: string, stroke:
   if (flight.airframeType === 'helicopter') {
     return `
       <svg viewBox="0 0 40 40" width="${size}" height="${size}" aria-hidden="true">
-        <circle cx="20" cy="22" r="7" fill="${color}" stroke="${stroke}" stroke-width="2"/>
-        <line x1="8" y1="14" x2="32" y2="14" stroke="${color}" stroke-width="2.4" stroke-linecap="round"/>
-        <line x1="20" y1="8" x2="20" y2="20" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+        <line x1="6" y1="9" x2="34" y2="9" stroke="${stroke}" stroke-width="2.2" stroke-linecap="round"/>
+        <line x1="20" y1="9" x2="20" y2="14" stroke="${stroke}" stroke-width="1.8" stroke-linecap="round"/>
+        <rect x="15.5" y="14" width="9" height="11" rx="4" fill="${color}" stroke="${stroke}" stroke-width="2"/>
+        <line x1="24.5" y1="20" x2="33" y2="23" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>
+        <line x1="33" y1="23" x2="36" y2="23" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>
+        <line x1="14" y1="28" x2="26" y2="28" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>
       </svg>
     `;
   }
 
   return `
     <svg viewBox="0 0 40 40" width="${size}" height="${size}" aria-hidden="true">
-      <path d="M20 2 L26 15 L37 18 L26 21 L20 38 L14 21 L3 18 L14 15 Z" fill="${color}" stroke="${stroke}" stroke-width="2"/>
-      <circle cx="20" cy="20" r="2" fill="#0b0e14" />
+      <path d="M19 3 H21 L23 14 L34 18 V22 L23 20 L21 37 H19 L17 20 L6 22 V18 L17 14 Z" fill="${color}" stroke="${stroke}" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="20" cy="16" r="1.8" fill="${stroke}" />
     </svg>
   `;
 }
