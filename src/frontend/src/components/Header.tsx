@@ -8,6 +8,8 @@ interface HeaderProps {
   activeAircraft: number;
   mapTheme: 'dark' | 'satellite';
   onThemeChange: (theme: 'dark' | 'satellite') => void;
+  showCityLabels: boolean;
+  onToggleCityLabels: () => void;
 }
 
 function badgeClass(status: ApiStatus | OpenSkyStatus): string {
@@ -36,7 +38,9 @@ export function Header({
   refreshedAt,
   activeAircraft,
   mapTheme,
-  onThemeChange
+  onThemeChange,
+  showCityLabels,
+  onToggleCityLabels
 }: HeaderProps): JSX.Element {
   return (
     <header className="top-header glass-panel">
@@ -79,6 +83,13 @@ export function Header({
             onClick={() => onThemeChange('satellite')}
           >
             satellite
+          </button>
+          <button
+            type="button"
+            className={showCityLabels ? 'theme-btn active' : 'theme-btn'}
+            onClick={onToggleCityLabels}
+          >
+            labels
           </button>
         </div>
         <span className="meta-pill">alerts/zones pending (#128/#424)</span>
