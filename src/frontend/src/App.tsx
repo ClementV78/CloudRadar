@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, Marker, Polyline, Popup, Rectangle, TileLayer } from 'react-leaflet';
+import { MapContainer, Marker, Polyline, Popup, Rectangle, TileLayer, useMapEvents } from 'react-leaflet';
 import L, { type DivIcon } from 'leaflet';
 
 import { fetchFlightDetail, fetchFlights, fetchMetrics } from './api';
@@ -23,6 +23,8 @@ const IDF_RECTANGLE: [[number, number], [number, number]] = [
   [IDF_BBOX.minLat, IDF_BBOX.minLon],
   [IDF_BBOX.maxLat, IDF_BBOX.maxLon]
 ];
+
+const TRACK_SEGMENT_GAP_SECONDS = 15 * 60;
 
 function formatUtcClock(date: Date): string {
   const text = date.toISOString();
@@ -89,28 +91,59 @@ function normalizeFlights(items: FlightMapItem[]): FlightMapItem[] {
   return Array.from(deduped.values());
 }
 
-function toTrackPolyline(detail: FlightDetailResponse | null): Array<[number, number]> {
+function toTrackSegments(detail: FlightDetailResponse | null): Array<Array<[number, number]>> {
   if (!detail?.recentTrack?.length) {
     return [];
   }
 
-  return detail.recentTrack
-    .filter((point) => point.lat !== null && point.lon !== null)
-    .map((point) => [point.lat as number, point.lon as number]);
+  const valid = detail.recentTrack
+    .filter((point) => point.lat !== null && point.lon !== null && point.lastSeen !== null)
+    .sort((left, right) => (left.lastSeen as number) - (right.lastSeen as number));
+
+  if (valid.length < 2) {
+    return [];
+  }
+
+  const segments: Array<Array<[number, number]>> = [];
+  let current: Array<[number, number]> = [];
+  let prevTs: number | null = null;
+
+  for (const point of valid) {
+    const ts = point.lastSeen as number;
+    const coords: [number, number] = [point.lat as number, point.lon as number];
+
+    if (prevTs !== null && Math.abs(ts - prevTs) > TRACK_SEGMENT_GAP_SECONDS) {
+      if (current.length >= 2) {
+        segments.push(current);
+      }
+      current = [coords];
+    } else {
+      current.push(coords);
+    }
+
+    prevTs = ts;
+  }
+
+  if (current.length >= 2) {
+    segments.push(current);
+  }
+
+  return segments;
 }
 
-function markerSize(size: FlightMapItem['aircraftSize']): number {
+function markerBaseSize(size: FlightMapItem['aircraftSize']): number {
   switch (size) {
     case 'small':
+      return 14;
+    case 'medium':
       return 18;
     case 'large':
-      return 24;
+      return 23;
     case 'heavy':
-      return 28;
-    case 'medium':
+      return 29;
     case 'unknown':
     default:
-      return 21;
+      return 16;
   }
 }
 
@@ -120,45 +153,66 @@ function markerColor(flight: FlightMapItem): string {
   }
 
   switch (flight.fleetType) {
-    case 'private':
-      return '#ffd166';
     case 'commercial':
-      return '#00f5ff';
+      return '#45e7ff';
+    case 'private':
+      return '#f8e16c';
     case 'unknown':
     default:
-      return '#8aa0b8';
+      return '#a7bbd6';
   }
 }
 
-function markerGlyph(flight: FlightMapItem, size: number, color: string, stroke: string): string {
+function markerStroke(flight: FlightMapItem): string {
+  if (flight.airframeType === 'helicopter') {
+    return '#6dffb6';
+  }
+  switch (flight.aircraftSize) {
+    case 'heavy':
+      return '#ffaf61';
+    case 'large':
+      return '#56b5ff';
+    case 'small':
+      return '#d2ff7e';
+    case 'medium':
+    case 'unknown':
+    default:
+      return '#0a1722';
+  }
+}
+
+function markerGlyph(flight: FlightMapItem, size: number, color: string, stroke: string, selected: boolean): string {
+  const strokeWidth = selected ? 2.8 : 2;
   if (flight.airframeType === 'helicopter') {
     return `
       <svg viewBox="0 0 40 40" width="${size}" height="${size}" aria-hidden="true">
-        <line x1="6" y1="9" x2="34" y2="9" stroke="${stroke}" stroke-width="2.2" stroke-linecap="round"/>
-        <line x1="20" y1="9" x2="20" y2="14" stroke="${stroke}" stroke-width="1.8" stroke-linecap="round"/>
-        <rect x="15.5" y="14" width="9" height="11" rx="4" fill="${color}" stroke="${stroke}" stroke-width="2"/>
-        <line x1="24.5" y1="20" x2="33" y2="23" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>
-        <line x1="33" y1="23" x2="36" y2="23" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>
-        <line x1="14" y1="28" x2="26" y2="28" stroke="${stroke}" stroke-width="2" stroke-linecap="round"/>
+        <line x1="6" y1="9" x2="34" y2="9" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
+        <line x1="20" y1="9" x2="20" y2="14" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
+        <rect x="15.5" y="14" width="9" height="11" rx="4" fill="${color}" stroke="${stroke}" stroke-width="${strokeWidth}"/>
+        <line x1="24.5" y1="20" x2="33" y2="23" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
+        <line x1="33" y1="23" x2="36" y2="23" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
+        <line x1="14" y1="28" x2="26" y2="28" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
       </svg>
     `;
   }
 
   return `
     <svg viewBox="0 0 40 40" width="${size}" height="${size}" aria-hidden="true">
-      <path d="M19 3 H21 L23 14 L34 18 V22 L23 20 L21 37 H19 L17 20 L6 22 V18 L17 14 Z" fill="${color}" stroke="${stroke}" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M19 3 H21 L23 14 L34 18 V22 L23 20 L21 37 H19 L17 20 L6 22 V18 L17 14 Z" fill="${color}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>
       <circle cx="20" cy="16" r="1.8" fill="${stroke}" />
     </svg>
   `;
 }
 
-function markerIcon(flight: FlightMapItem, selected: boolean): DivIcon {
+function markerIcon(flight: FlightMapItem, selected: boolean, zoom: number): DivIcon {
   const heading = flight.heading ?? 0;
-  const size = markerSize(flight.aircraftSize);
+  const baseSize = markerBaseSize(flight.aircraftSize);
+  const scale = Math.min(2.3, Math.max(0.9, 1 + (zoom - 8) * 0.18));
+  const size = Math.round(baseSize * scale);
   const color = markerColor(flight);
-  const stroke = selected ? '#ffffff' : '#041018';
+  const stroke = selected ? '#ffffff' : markerStroke(flight);
   const pulseClass = selected ? 'marker-pulse' : '';
-  const glyph = markerGlyph(flight, size, color, stroke);
+  const glyph = markerGlyph(flight, size, color, stroke, selected);
 
   return L.divIcon({
     className: `aircraft-div-icon ${pulseClass}`,
@@ -170,6 +224,15 @@ function markerIcon(flight: FlightMapItem, selected: boolean): DivIcon {
       </div>
     `
   });
+}
+
+function ZoomSync({ onZoomChange }: { onZoomChange: (zoom: number) => void }): null {
+  useMapEvents({
+    zoomend: (event) => {
+      onZoomChange(event.target.getZoom());
+    }
+  });
+  return null;
 }
 
 export default function App(): JSX.Element {
@@ -185,6 +248,8 @@ export default function App(): JSX.Element {
   const [utcClock, setUtcClock] = useState<string>(formatUtcClock(new Date()));
   const [refreshedAtIso, setRefreshedAtIso] = useState<string | null>(null);
   const [mapTheme, setMapTheme] = useState<'dark' | 'satellite'>('satellite');
+  const [showCityLabels, setShowCityLabels] = useState(true);
+  const [mapZoom, setMapZoom] = useState(8);
   const lastBatchEpochRef = useRef<number | null>(null);
   const hasMetricsRef = useRef<boolean>(false);
   const missingSelectionCyclesRef = useRef<number>(0);
@@ -269,17 +334,19 @@ export default function App(): JSX.Element {
     return () => window.clearInterval(refreshTimer);
   }, [refreshData]);
 
-  const trackPolyline = useMemo(() => toTrackPolyline(selectedDetail), [selectedDetail]);
+  const trackSegments = useMemo(() => toTrackSegments(selectedDetail), [selectedDetail]);
   const activeAircraft = metrics?.activeAircraft ?? flights.length;
-  const mapTile = useMemo(
+  const mapTiles = useMemo(
     () =>
       mapTheme === 'satellite'
         ? {
-            url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            baseUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            labelsUrl: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
             attribution: '&copy; Esri'
           }
         : {
-            url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+            baseUrl: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+            labelsUrl: 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',
             attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
           },
     [mapTheme]
@@ -313,6 +380,8 @@ export default function App(): JSX.Element {
         activeAircraft={activeAircraft}
         mapTheme={mapTheme}
         onThemeChange={setMapTheme}
+        showCityLabels={showCityLabels}
+        onToggleCityLabels={() => setShowCityLabels((previous) => !previous)}
       />
 
       <section className="map-shell glass-panel">
@@ -320,13 +389,15 @@ export default function App(): JSX.Element {
         {mapTheme === 'satellite' && <div className="map-dark-overlay" />}
 
         <MapContainer center={MAP_CENTER} zoom={8} maxBounds={MAX_BOUNDS} maxBoundsViscosity={1.0} zoomControl={false}>
-          <TileLayer url={mapTile.url} attribution={mapTile.attribution} />
+          <ZoomSync onZoomChange={setMapZoom} />
+          <TileLayer url={mapTiles.baseUrl} attribution={mapTiles.attribution} />
+          {showCityLabels && <TileLayer url={mapTiles.labelsUrl} attribution={mapTiles.attribution} opacity={0.9} />}
 
           <Rectangle pathOptions={{ color: '#00f5ff', dashArray: '6 4', weight: 2, fillOpacity: 0.04 }} bounds={IDF_RECTANGLE} />
 
-          {trackPolyline.length >= 2 && (
-            <Polyline positions={trackPolyline} pathOptions={{ color: '#00f5ff', weight: 3, opacity: 0.9 }} />
-          )}
+          {trackSegments.map((segment, index) => (
+            <Polyline key={`track-${index}`} positions={segment} pathOptions={{ color: '#00f5ff', weight: 3, opacity: 0.9 }} />
+          ))}
 
           {flights.map((flight) => {
             const selected = selectedIcao24 === flight.icao24;
@@ -334,7 +405,7 @@ export default function App(): JSX.Element {
               <Marker
                 key={flight.icao24}
                 position={[flight.lat as number, flight.lon as number]}
-                icon={markerIcon(flight, selected)}
+                icon={markerIcon(flight, selected, mapZoom)}
                 eventHandlers={{
                   click: () => {
                     void handleSelectFlight(flight);

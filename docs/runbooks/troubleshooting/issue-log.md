@@ -4,6 +4,18 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-14
 
+### [frontend/map] Marker readability low + no labels toggle + unrealistic track jumps
+- **Severity:** Medium
+- **Impact:** Aircraft markers were hard to read at low zoom and lacked clear visual differentiation; city/place labels could not be toggled; track line could connect distant timestamps into unrealistic long diagonals.
+- **Signal:** User feedback on production map: poor icon readability, no map labels control, and trajectory lines spanning separate itineraries.
+- **Analysis:** Marker icon size was static, visual encoding did not combine zoom + type/size strongly enough, base layers did not expose labels toggle, and track rendering used a single continuous polyline.
+- **Resolution:**
+  1. Introduce zoom-aware marker scaling and stronger marker encoding by fleet/type/size.
+  2. Add labels toggle in header and layer overlays for both satellite and dark themes.
+  3. Segment track rendering when time gap between consecutive points exceeds threshold (15 minutes).
+- **Guardrail:** Keep map readability logic in frontend and avoid drawing a single historical polyline across disjoint trajectory windows.
+- **Refs:** issue #441
+
 ### [frontend/mobile] Detail panel blocked navigation and marker design was hard to read
 - **Severity:** Medium
 - **Impact:** On mobile, opening flight detail could trap the viewport and make KPI section hard to reach; marker visuals were considered unclear and too stylized.
