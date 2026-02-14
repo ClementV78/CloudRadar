@@ -38,7 +38,13 @@ Start here if you're new to the project or want to understand how components fit
    - ArgoCD deployment model
    - Terraform module organization
 
-3. **[Architecture Decision Records (ADRs)](architecture/decisions/)** (Technical choices)
+3. **[Frontend Dashboard Technical Architecture](architecture/frontend-dashboard-technical-architecture.md)** (Dashboard internals)
+   - Redis snapshot selection and short continuity policy (`latest + 2 previous`)
+   - on-read metadata enrichment with local SQLite
+   - SSE refresh stream model (`/api/flights/stream`)
+   - performance and known limits
+
+4. **[Architecture Decision Records (ADRs)](architecture/decisions/)** (Technical choices)
    - 18+ ADRs documenting all major decisions
    - Technology selections, cost implications, trade-offs
    - **See [ADR Index](#adr-index) below for quick reference**
