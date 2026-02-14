@@ -4,6 +4,18 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-14
 
+### [frontend/map] Marker disappears on click + no visual typing across aircraft categories
+- **Severity:** Medium
+- **Impact:** Clicking a marker could immediately close the selected aircraft context; map readability was degraded because all markers looked identical.
+- **Signal:** On the Leaflet UI, selected aircraft sometimes disappeared after click during refresh cycles; helicopters/military/private/size profiles were not visually distinguishable.
+- **Analysis:** Selection state was cleared too aggressively when a selected `icao24` was temporarily missing in one poll cycle. Marker rendering used a single SVG style for all flights.
+- **Resolution:**
+  1. Add selection stability guard: clear selected aircraft only after 3 consecutive missing cycles.
+  2. Enrich `/api/flights` map payload with metadata used by UI rendering (`militaryHint`, `airframeType`, `fleetType`, `aircraftSize`).
+  3. Render typed markers in frontend (helicopter vs airplane glyph, color by fleet/military hint, size by aircraft profile).
+- **Guardrail:** Keep map symbolization tied to backend-derived low-cardinality metadata to avoid UI-only heuristics drift.
+- **Refs:** issue #433
+
 ### [edge/ui] Repeated Basic Auth popup loop on dashboard refresh + duplicate/stale map markers
 - **Severity:** High
 - **Impact:** Public UI became hard to use: browser auth modal reappeared every refresh cycle, and map could show duplicate/stale aircraft markers.

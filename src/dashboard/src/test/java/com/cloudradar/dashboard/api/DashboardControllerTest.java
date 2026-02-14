@@ -34,7 +34,19 @@ class DashboardControllerTest {
   @Test
   void listFlights_returns200() throws Exception {
     FlightListResponse payload = new FlightListResponse(
-        List.of(new FlightMapItem("abc123", "AFR123", 48.85, 2.35, 90.0, 1760000000L, 220.0, 10500.0)),
+        List.of(new FlightMapItem(
+            "abc123",
+            "AFR123",
+            48.85,
+            2.35,
+            90.0,
+            1760000000L,
+            220.0,
+            10500.0,
+            false,
+            "airplane",
+            "commercial",
+            "medium")),
         1,
         1,
         200,
