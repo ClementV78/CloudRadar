@@ -21,7 +21,7 @@ spec:
         runAsUser: 10001
       containers:
         - name: healthz
-          image: ghcr.io/clementv78/cloudradar/health:0.1.20
+          image: ghcr.io/clementv78/cloudradar/health:0.1.21
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
