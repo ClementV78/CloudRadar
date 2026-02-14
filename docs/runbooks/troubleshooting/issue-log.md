@@ -15,6 +15,16 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
   3. Keep fallback polling at 10s, aligned with ingester default; expose `VITE_UI_REFRESH_MS` override.
 - **Guardrail:** Prefer push-triggered UI refresh for OpenSky batch updates; keep polling as resilience fallback only.
 - **Refs:** issue #446
+### [dashboard/map] Aircraft flicker when OpenSky temporarily omits ICAO across two cycles
+- **Severity:** Medium
+- **Impact:** Aircraft markers could disappear/reappear between refreshes even when traffic was continuous.
+- **Signal:** UI snapshots showed abrupt aircraft drops between consecutive refreshes without consistent movement out of bbox.
+- **Analysis:** Continuity fallback in `GET /api/flights` kept only `latest + previous` OpenSky batches. When an ICAO was missing for two consecutive OpenSky responses, it was removed too early and reappeared later.
+- **Resolution:**
+  1. Extend continuity window to keep ICAO from `latest + 2 previous` batches.
+  2. Keep one event per ICAO by prioritizing the newest batch epoch, then `lastSeen` inside the same batch.
+  3. Add unit test coverage for three-batch continuity and epoch-priority selection.
+- **Guardrail:** Preserve short continuity only (3 batches) to reduce flicker while avoiding long-lived stale aircraft on the map.
 
 ### [frontend/map] Marker readability low + no labels toggle + unrealistic track jumps
 - **Severity:** Medium

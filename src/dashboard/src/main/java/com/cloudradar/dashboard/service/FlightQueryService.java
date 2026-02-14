@@ -49,6 +49,7 @@ public class FlightQueryService {
   private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
   private static final Set<String> SUPPORTED_INCLUDES = Set.of("track", "enrichment");
   private static final long REDIS_SCAN_COUNT = 1000L;
+  private static final int MAP_CONTINUITY_BATCH_WINDOW = 3;
 
   private final StringRedisTemplate redisTemplate;
   private final ObjectMapper objectMapper;
@@ -293,7 +294,7 @@ public class FlightQueryService {
     HashOperations<String, Object, Object> hashOps = redisTemplate.opsForHash();
     ScanOptions scanOptions = ScanOptions.scanOptions().count(REDIS_SCAN_COUNT).build();
     List<Entry<String, PositionEvent>> candidates = new ArrayList<>();
-    Long latestOpenSkyBatchEpoch = null;
+    TreeMap<Long, Boolean> batchEpochsDesc = new TreeMap<>(Comparator.reverseOrder());
     Map<String, PositionEvent> latestEventsByIcao = new LinkedHashMap<>();
     List<FlightSnapshot> snapshots = new ArrayList<>();
 
@@ -326,23 +327,32 @@ public class FlightQueryService {
         }
         candidates.add(Map.entry(icao24, event));
         Long batchEpoch = event.openskyFetchEpoch();
-        if (batchEpoch != null && (latestOpenSkyBatchEpoch == null || batchEpoch > latestOpenSkyBatchEpoch)) {
-          latestOpenSkyBatchEpoch = batchEpoch;
+        if (batchEpoch != null) {
+          batchEpochsDesc.put(batchEpoch, Boolean.TRUE);
         }
       }
     }
 
+    Set<Long> continuityBatchEpochs = batchEpochsDesc.keySet().stream()
+        .limit(MAP_CONTINUITY_BATCH_WINDOW)
+        .collect(Collectors.toSet());
+
     for (Entry<String, PositionEvent> candidate : candidates) {
       PositionEvent event = candidate.getValue();
-      if (latestOpenSkyBatchEpoch != null && !Objects.equals(event.openskyFetchEpoch(), latestOpenSkyBatchEpoch)) {
-        continue;
+      if (!continuityBatchEpochs.isEmpty()) {
+        Long batchEpoch = event.openskyFetchEpoch();
+        if (batchEpoch == null || !continuityBatchEpochs.contains(batchEpoch)) {
+          continue;
+        }
       }
 
       String icao24 = candidate.getKey();
       PositionEvent existing = latestEventsByIcao.get(icao24);
-      if (existing == null || isMoreRecent(event.lastContact(), existing.lastContact())) {
-        latestEventsByIcao.put(icao24, event);
+      if (existing != null && !isPreferredCandidate(event, existing)) {
+        continue;
       }
+
+      latestEventsByIcao.put(icao24, event);
     }
 
     for (Entry<String, PositionEvent> latest : latestEventsByIcao.entrySet()) {
@@ -389,6 +399,22 @@ public class FlightQueryService {
       return true;
     }
     return candidateLastSeen >= currentLastSeen;
+  }
+
+  private static boolean isPreferredCandidate(PositionEvent candidate, PositionEvent current) {
+    Long candidateBatch = candidate.openskyFetchEpoch();
+    Long currentBatch = current.openskyFetchEpoch();
+
+    if (candidateBatch != null && currentBatch != null && !Objects.equals(candidateBatch, currentBatch)) {
+      return candidateBatch > currentBatch;
+    }
+    if (candidateBatch != null && currentBatch == null) {
+      return true;
+    }
+    if (candidateBatch == null && currentBatch != null) {
+      return false;
+    }
+    return isMoreRecent(candidate.lastContact(), current.lastContact());
   }
 
   private Optional<PositionEvent> parseEvent(String payload) {
