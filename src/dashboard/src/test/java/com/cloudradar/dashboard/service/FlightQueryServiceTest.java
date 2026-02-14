@@ -85,12 +85,61 @@ class FlightQueryServiceTest {
 
     assertEquals(2, response.count());
     assertEquals(3, response.totalMatched());
+    assertNull(response.latestOpenSkyBatchEpoch());
     List<FlightMapItem> items = response.items();
     assertEquals("abc002", items.get(0).icao24());
     assertEquals("abc003", items.get(1).icao24());
 
     verify(hashOperations).scan(eq("cloudradar:aircraft:last"), any());
     verify(hashOperations, never()).values(anyString());
+  }
+
+  @Test
+  void listFlights_keepsOnlyLatestEventPerNormalizedIcao24() {
+    FlightQueryService service =
+        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty());
+
+    List<Map.Entry<Object, Object>> entries = List.of(
+        Map.entry("abc123", eventJson("abc123", 1700000001L, 120.0, 1000.0, false)),
+        Map.entry("ABC123 ", eventJson("ABC123 ", 1700000005L, 180.0, 2000.0, false)),
+        Map.entry("def456", eventJson("def456", 1700000003L, 90.0, 1500.0, false))
+    );
+    Cursor<Map.Entry<Object, Object>> cursor = cursorOf(entries);
+    when(hashOperations.scan(anyString(), any())).thenReturn(cursor);
+
+    FlightListResponse response =
+        service.listFlights(null, null, "10", "lastSeen", "desc", null, null, null, null, null);
+
+    assertEquals(2, response.count());
+    assertEquals(2, response.totalMatched());
+    assertNull(response.latestOpenSkyBatchEpoch());
+    assertEquals("abc123", response.items().get(0).icao24());
+    assertEquals(1700000005L, response.items().get(0).lastSeen());
+    assertEquals("def456", response.items().get(1).icao24());
+  }
+
+  @Test
+  void listFlights_returnsOnlyIcao24FromLatestOpenSkyBatch() {
+    FlightQueryService service =
+        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty());
+
+    List<Map.Entry<Object, Object>> entries = List.of(
+        Map.entry("abc001", eventJson("abc001", 1700000010L, 120.0, 1000.0, false, 100L)),
+        Map.entry("abc002", eventJson("abc002", 1700000001L, 180.0, 2000.0, false, 101L)),
+        Map.entry("abc003", eventJson("abc003", 1700000002L, 90.0, 1500.0, false, 101L)),
+        Map.entry("abc004", eventJson("abc004", 1700009999L, 90.0, 1500.0, false, 99L))
+    );
+    Cursor<Map.Entry<Object, Object>> cursor = cursorOf(entries);
+    when(hashOperations.scan(anyString(), any())).thenReturn(cursor);
+
+    FlightListResponse response =
+        service.listFlights(null, null, "10", "lastSeen", "desc", null, null, null, null, null);
+
+    assertEquals(2, response.count());
+    assertEquals(2, response.totalMatched());
+    assertEquals(101L, response.latestOpenSkyBatchEpoch());
+    assertEquals("abc003", response.items().get(0).icao24());
+    assertEquals("abc002", response.items().get(1).icao24());
   }
 
   @Test
@@ -196,6 +245,17 @@ class FlightQueryServiceTest {
   }
 
   private String eventJson(String icao24, long lastContact, double velocity, double altitude, boolean onGround) {
+    return eventJson(icao24, lastContact, velocity, altitude, onGround, null);
+  }
+
+  private String eventJson(
+      String icao24,
+      long lastContact,
+      double velocity,
+      double altitude,
+      boolean onGround,
+      Long openskyFetchEpoch) {
+    String fetchEpochField = openskyFetchEpoch == null ? "" : ",\"opensky_fetch_epoch\":" + openskyFetchEpoch;
     return "{" +
         "\"icao24\":\"" + icao24 + "\"," +
         "\"callsign\":\"" + icao24.toUpperCase() + "\"," +
@@ -208,6 +268,7 @@ class FlightQueryServiceTest {
         "\"on_ground\":" + onGround + "," +
         "\"time_position\":" + (lastContact - 2) + "," +
         "\"last_contact\":" + lastContact +
+        fetchEpochField +
         "}";
   }
 

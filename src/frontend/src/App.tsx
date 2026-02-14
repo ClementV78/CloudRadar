@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, Rectangle, TileLayer } from 'react-leaflet';
 import L, { type DivIcon } from 'leaflet';
 
@@ -57,7 +57,36 @@ function computeOpenSkyStatus(flights: FlightMapItem[]): OpenSkyStatus {
 }
 
 function normalizeFlights(items: FlightMapItem[]): FlightMapItem[] {
-  return items.filter((item) => item.lat !== null && item.lon !== null);
+  const deduped = new Map<string, FlightMapItem>();
+
+  for (const item of items) {
+    if (item.lat === null || item.lon === null) {
+      continue;
+    }
+
+    const icao24 = item.icao24.trim().toLowerCase();
+    if (!icao24) {
+      continue;
+    }
+
+    const candidate: FlightMapItem = {
+      ...item,
+      icao24
+    };
+    const existing = deduped.get(icao24);
+    if (!existing) {
+      deduped.set(icao24, candidate);
+      continue;
+    }
+
+    const existingLastSeen = typeof existing.lastSeen === 'number' ? existing.lastSeen : Number.NEGATIVE_INFINITY;
+    const candidateLastSeen = typeof candidate.lastSeen === 'number' ? candidate.lastSeen : Number.NEGATIVE_INFINITY;
+    if (candidateLastSeen >= existingLastSeen) {
+      deduped.set(icao24, candidate);
+    }
+  }
+
+  return Array.from(deduped.values());
 }
 
 function toTrackPolyline(detail: FlightDetailResponse | null): Array<[number, number]> {
@@ -105,6 +134,8 @@ export default function App(): JSX.Element {
   const [utcClock, setUtcClock] = useState<string>(formatUtcClock(new Date()));
   const [refreshedAtIso, setRefreshedAtIso] = useState<string | null>(null);
   const [mapTheme, setMapTheme] = useState<'dark' | 'satellite'>('satellite');
+  const lastBatchEpochRef = useRef<number | null>(null);
+  const hasMetricsRef = useRef<boolean>(false);
 
   const detailOpen = Boolean(selectedIcao24);
 
@@ -124,18 +155,26 @@ export default function App(): JSX.Element {
 
   const refreshData = useCallback(async () => {
     try {
-      const [flightsResponse, metricsResponse] = await Promise.all([
-        fetchFlights(IDF_BBOX, 400),
-        fetchMetrics(IDF_BBOX)
-      ]);
-
+      const flightsResponse = await fetchFlights(IDF_BBOX, 400);
       const normalizedFlights = normalizeFlights(flightsResponse.items);
+      const batchEpoch = flightsResponse.latestOpenSkyBatchEpoch;
+      const batchChanged = batchEpoch !== lastBatchEpochRef.current;
+
       setFlights(normalizedFlights);
-      setMetrics(metricsResponse);
       setApiStatus('online');
       setOpenSkyStatus(computeOpenSkyStatus(normalizedFlights));
       setRefreshError(null);
-      setRefreshedAtIso(new Date().toISOString());
+
+      if (!hasMetricsRef.current || batchChanged) {
+        const metricsResponse = await fetchMetrics(IDF_BBOX);
+        setMetrics(metricsResponse);
+        hasMetricsRef.current = true;
+      }
+
+      if (batchChanged) {
+        setRefreshedAtIso(new Date().toISOString());
+        lastBatchEpochRef.current = batchEpoch;
+      }
 
       if (selectedIcao24) {
         const stillPresent = normalizedFlights.some((flight) => flight.icao24 === selectedIcao24);
@@ -143,7 +182,7 @@ export default function App(): JSX.Element {
           setSelectedIcao24(null);
           setSelectedDetail(null);
           setDetailError(null);
-        } else {
+        } else if (batchChanged) {
           await loadDetail(selectedIcao24);
         }
       }

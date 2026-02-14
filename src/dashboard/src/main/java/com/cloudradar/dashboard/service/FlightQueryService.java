@@ -149,6 +149,12 @@ public class FlightQueryService {
         .map(this::toMapItem)
         .toList();
 
+    Long latestOpenSkyBatchEpoch = filtered.stream()
+        .map(snapshot -> snapshot.event().openskyFetchEpoch())
+        .filter(Objects::nonNull)
+        .max(Long::compareTo)
+        .orElse(null);
+
     Map<String, Double> bboxPayload = Map.of(
         "minLon", bbox.minLon(),
         "minLat", bbox.minLat(),
@@ -161,6 +167,7 @@ public class FlightQueryService {
         filtered.size(),
         limit,
         bboxPayload,
+        latestOpenSkyBatchEpoch,
         ISO.format(Instant.now()));
   }
 
@@ -286,6 +293,9 @@ public class FlightQueryService {
       boolean includeOwnerOperator) {
     HashOperations<String, Object, Object> hashOps = redisTemplate.opsForHash();
     ScanOptions scanOptions = ScanOptions.scanOptions().count(REDIS_SCAN_COUNT).build();
+    List<Entry<String, PositionEvent>> candidates = new ArrayList<>();
+    Long latestOpenSkyBatchEpoch = null;
+    Map<String, PositionEvent> latestEventsByIcao = new LinkedHashMap<>();
     List<FlightSnapshot> snapshots = new ArrayList<>();
 
     try (Cursor<Entry<Object, Object>> cursor = hashOps.scan(properties.getRedis().getLastPositionsKey(), scanOptions)) {
@@ -315,6 +325,30 @@ public class FlightQueryService {
             continue;
           }
         }
+        candidates.add(Map.entry(icao24, event));
+        Long batchEpoch = event.openskyFetchEpoch();
+        if (batchEpoch != null && (latestOpenSkyBatchEpoch == null || batchEpoch > latestOpenSkyBatchEpoch)) {
+          latestOpenSkyBatchEpoch = batchEpoch;
+        }
+      }
+    }
+
+    for (Entry<String, PositionEvent> candidate : candidates) {
+      PositionEvent event = candidate.getValue();
+      if (latestOpenSkyBatchEpoch != null && !Objects.equals(event.openskyFetchEpoch(), latestOpenSkyBatchEpoch)) {
+        continue;
+      }
+
+      String icao24 = candidate.getKey();
+      PositionEvent existing = latestEventsByIcao.get(icao24);
+      if (existing == null || isMoreRecent(event.lastContact(), existing.lastContact())) {
+        latestEventsByIcao.put(icao24, event);
+      }
+    }
+
+    for (Entry<String, PositionEvent> latest : latestEventsByIcao.entrySet()) {
+      String icao24 = latest.getKey();
+      PositionEvent event = latest.getValue();
 
         String category = null;
         String country = null;
@@ -333,20 +367,29 @@ public class FlightQueryService {
           }
         }
 
-        snapshots.add(
-            new FlightSnapshot(
-                icao24,
-                event,
-                category,
-                country,
-                typecode,
-                militaryHint,
-                inferAirframeType(category, typecode),
-                ownerOperator));
-      }
+      snapshots.add(
+          new FlightSnapshot(
+              icao24,
+              event,
+              category,
+              country,
+              typecode,
+              militaryHint,
+              inferAirframeType(category, typecode),
+              ownerOperator));
     }
 
     return snapshots.isEmpty() ? Collections.emptyList() : snapshots;
+  }
+
+  private static boolean isMoreRecent(Long candidateLastSeen, Long currentLastSeen) {
+    if (candidateLastSeen == null) {
+      return false;
+    }
+    if (currentLastSeen == null) {
+      return true;
+    }
+    return candidateLastSeen >= currentLastSeen;
   }
 
   private Optional<PositionEvent> parseEvent(String payload) {

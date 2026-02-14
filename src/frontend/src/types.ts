@@ -22,6 +22,7 @@ export interface FlightListResponse {
   totalMatched: number;
   limit: number;
   bbox: Bbox;
+  latestOpenSkyBatchEpoch: number | null;
   timestamp: string;
 }
 

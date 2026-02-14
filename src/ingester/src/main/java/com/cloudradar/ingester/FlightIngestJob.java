@@ -109,9 +109,10 @@ public class FlightIngestJob {
       eventsSinceReset.addAndGet(states.size());
       lastStatesCount.set(states.size());
       fetchCounter.increment(states.size());
+      long openskyFetchEpoch = System.currentTimeMillis() / 1000;
 
       List<Map<String, Object>> payloads = states.stream()
-          .map(this::toEvent)
+          .map(state -> toEvent(state, openskyFetchEpoch))
           .collect(Collectors.toList());
 
       int pushed = redisPublisher.pushEvents(payloads);
@@ -140,7 +141,7 @@ public class FlightIngestJob {
     }
   }
 
-  private Map<String, Object> toEvent(FlightState state) {
+  private Map<String, Object> toEvent(FlightState state, long openskyFetchEpoch) {
     Map<String, Object> event = new HashMap<>();
     event.put("icao24", state.icao24());
     event.put("callsign", state.callsign());
@@ -153,6 +154,7 @@ public class FlightIngestJob {
     event.put("on_ground", state.onGround());
     event.put("time_position", state.timePosition());
     event.put("last_contact", state.lastContact());
+    event.put("opensky_fetch_epoch", openskyFetchEpoch);
     return event;
   }
 
