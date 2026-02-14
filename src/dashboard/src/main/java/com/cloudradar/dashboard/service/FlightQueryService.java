@@ -418,7 +418,11 @@ public class FlightQueryService {
         event.heading(),
         event.lastContact(),
         event.velocity(),
-        event.altitude());
+        event.altitude(),
+        snapshot.militaryHint(),
+        snapshot.airframeType() == null ? "unknown" : snapshot.airframeType(),
+        fleetType(snapshot),
+        aircraftSize(snapshot));
   }
 
   private List<FlightTrackPoint> loadTrack(String icao24) {

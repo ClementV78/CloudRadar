@@ -14,6 +14,10 @@ export interface FlightMapItem {
   lastSeen: number | null;
   speed: number | null;
   altitude: number | null;
+  militaryHint: boolean | null;
+  airframeType: 'airplane' | 'helicopter' | 'unknown' | null;
+  fleetType: 'commercial' | 'military' | 'private' | 'unknown' | null;
+  aircraftSize: 'small' | 'medium' | 'large' | 'heavy' | 'unknown' | null;
 }
 
 export interface FlightListResponse {

@@ -99,23 +99,71 @@ function toTrackPolyline(detail: FlightDetailResponse | null): Array<[number, nu
     .map((point) => [point.lat as number, point.lon as number]);
 }
 
-function markerIcon(flight: FlightMapItem, selected: boolean, detail: FlightDetailResponse | null): DivIcon {
+function markerSize(size: FlightMapItem['aircraftSize']): number {
+  switch (size) {
+    case 'small':
+      return 22;
+    case 'large':
+      return 30;
+    case 'heavy':
+      return 34;
+    case 'medium':
+    case 'unknown':
+    default:
+      return 26;
+  }
+}
+
+function markerColor(flight: FlightMapItem): string {
+  if (flight.militaryHint === true || flight.fleetType === 'military') {
+    return '#ff4b4b';
+  }
+
+  switch (flight.fleetType) {
+    case 'private':
+      return '#ffd166';
+    case 'commercial':
+      return '#00f5ff';
+    case 'unknown':
+    default:
+      return '#8aa0b8';
+  }
+}
+
+function markerGlyph(flight: FlightMapItem, size: number, color: string, stroke: string): string {
+  if (flight.airframeType === 'helicopter') {
+    return `
+      <svg viewBox="0 0 40 40" width="${size}" height="${size}" aria-hidden="true">
+        <circle cx="20" cy="22" r="7" fill="${color}" stroke="${stroke}" stroke-width="2"/>
+        <line x1="8" y1="14" x2="32" y2="14" stroke="${color}" stroke-width="2.4" stroke-linecap="round"/>
+        <line x1="20" y1="8" x2="20" y2="20" stroke="${color}" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    `;
+  }
+
+  return `
+    <svg viewBox="0 0 40 40" width="${size}" height="${size}" aria-hidden="true">
+      <path d="M20 2 L26 15 L37 18 L26 21 L20 38 L14 21 L3 18 L14 15 Z" fill="${color}" stroke="${stroke}" stroke-width="2"/>
+      <circle cx="20" cy="20" r="2" fill="#0b0e14" />
+    </svg>
+  `;
+}
+
+function markerIcon(flight: FlightMapItem, selected: boolean): DivIcon {
   const heading = flight.heading ?? 0;
-  const militaryHint = selected ? detail?.militaryHint : null;
-  const color = militaryHint ? '#ff4b4b' : '#00f5ff';
+  const size = markerSize(flight.aircraftSize);
+  const color = markerColor(flight);
   const stroke = selected ? '#ffffff' : '#041018';
   const pulseClass = selected ? 'marker-pulse' : '';
+  const glyph = markerGlyph(flight, size, color, stroke);
 
   return L.divIcon({
     className: `aircraft-div-icon ${pulseClass}`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    iconSize: [size, size],
+    iconAnchor: [Math.round(size / 2), Math.round(size / 2)],
     html: `
       <div class="aircraft-marker" style="transform: rotate(${heading}deg)">
-        <svg viewBox="0 0 40 40" width="28" height="28" aria-hidden="true">
-          <path d="M20 2 L26 15 L37 18 L26 21 L20 38 L14 21 L3 18 L14 15 Z" fill="${color}" stroke="${stroke}" stroke-width="2"/>
-          <circle cx="20" cy="20" r="2" fill="#0b0e14" />
-        </svg>
+        ${glyph}
       </div>
     `
   });
@@ -136,6 +184,7 @@ export default function App(): JSX.Element {
   const [mapTheme, setMapTheme] = useState<'dark' | 'satellite'>('satellite');
   const lastBatchEpochRef = useRef<number | null>(null);
   const hasMetricsRef = useRef<boolean>(false);
+  const missingSelectionCyclesRef = useRef<number>(0);
 
   const detailOpen = Boolean(selectedIcao24);
 
@@ -179,11 +228,17 @@ export default function App(): JSX.Element {
       if (selectedIcao24) {
         const stillPresent = normalizedFlights.some((flight) => flight.icao24 === selectedIcao24);
         if (!stillPresent) {
-          setSelectedIcao24(null);
-          setSelectedDetail(null);
-          setDetailError(null);
+          missingSelectionCyclesRef.current += 1;
+          if (missingSelectionCyclesRef.current >= 3) {
+            setSelectedIcao24(null);
+            setSelectedDetail(null);
+            setDetailError(null);
+          }
         } else if (batchChanged) {
+          missingSelectionCyclesRef.current = 0;
           await loadDetail(selectedIcao24);
+        } else {
+          missingSelectionCyclesRef.current = 0;
         }
       }
     } catch (error) {
@@ -229,6 +284,7 @@ export default function App(): JSX.Element {
 
   const handleSelectFlight = useCallback(
     async (flight: FlightMapItem) => {
+      missingSelectionCyclesRef.current = 0;
       setSelectedIcao24(flight.icao24);
       await loadDetail(flight.icao24);
     },
@@ -236,6 +292,7 @@ export default function App(): JSX.Element {
   );
 
   const handleCloseDetail = useCallback(() => {
+    missingSelectionCyclesRef.current = 0;
     setSelectedIcao24(null);
     setSelectedDetail(null);
     setDetailError(null);
@@ -274,7 +331,7 @@ export default function App(): JSX.Element {
               <Marker
                 key={flight.icao24}
                 position={[flight.lat as number, flight.lon as number]}
-                icon={markerIcon(flight, selected, selectedDetail)}
+                icon={markerIcon(flight, selected)}
                 eventHandlers={{
                   click: () => {
                     void handleSelectFlight(flight);
