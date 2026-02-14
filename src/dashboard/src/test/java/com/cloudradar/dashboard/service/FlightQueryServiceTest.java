@@ -119,15 +119,17 @@ class FlightQueryServiceTest {
   }
 
   @Test
-  void listFlights_returnsOnlyIcao24FromLatestOpenSkyBatch() {
+  void listFlights_keepsLatestAndTwoPreviousOpenSkyBatches() {
     FlightQueryService service =
         new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty());
 
     List<Map.Entry<Object, Object>> entries = List.of(
-        Map.entry("abc001", eventJson("abc001", 1700000010L, 120.0, 1000.0, false, 100L)),
-        Map.entry("abc002", eventJson("abc002", 1700000001L, 180.0, 2000.0, false, 101L)),
-        Map.entry("abc003", eventJson("abc003", 1700000002L, 90.0, 1500.0, false, 101L)),
-        Map.entry("abc004", eventJson("abc004", 1700009999L, 90.0, 1500.0, false, 99L))
+        Map.entry("abc001", eventJson("abc001", 1700000001L, 120.0, 1000.0, false, 101L)),
+        Map.entry("abc002", eventJson("abc002", 1700000002L, 180.0, 2000.0, false, 101L)),
+        Map.entry("abc003", eventJson("abc003", 1700000003L, 90.0, 1500.0, false, 100L)),
+        Map.entry("abc002-old", eventJson("abc002", 1700099999L, 90.0, 1500.0, false, 100L)),
+        Map.entry("abc004", eventJson("abc004", 1700000004L, 90.0, 1500.0, false, 99L)),
+        Map.entry("abc005", eventJson("abc005", 1700000005L, 90.0, 1500.0, false, 98L))
     );
     Cursor<Map.Entry<Object, Object>> cursor = cursorOf(entries);
     when(hashOperations.scan(anyString(), any())).thenReturn(cursor);
@@ -135,11 +137,21 @@ class FlightQueryServiceTest {
     FlightListResponse response =
         service.listFlights(null, null, "10", "lastSeen", "desc", null, null, null, null, null);
 
-    assertEquals(2, response.count());
-    assertEquals(2, response.totalMatched());
+    assertEquals(4, response.count());
+    assertEquals(4, response.totalMatched());
     assertEquals(101L, response.latestOpenSkyBatchEpoch());
-    assertEquals("abc003", response.items().get(0).icao24());
-    assertEquals("abc002", response.items().get(1).icao24());
+
+    Map<String, FlightMapItem> byIcao = response.items().stream()
+        .collect(java.util.stream.Collectors.toMap(FlightMapItem::icao24, item -> item));
+
+    assertNotNull(byIcao.get("abc001"));
+    assertNotNull(byIcao.get("abc002"));
+    assertNotNull(byIcao.get("abc003"));
+    assertNotNull(byIcao.get("abc004"));
+    assertNull(byIcao.get("abc005"));
+
+    // Same ICAO appears in 101 and 100; newer batch must win even if older batch has newer lastSeen.
+    assertEquals(1700000002L, byIcao.get("abc002").lastSeen());
   }
 
   @Test
