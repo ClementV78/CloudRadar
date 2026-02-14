@@ -116,6 +116,7 @@ sequenceDiagram
 ```
 
 Frontend keeps a low-frequency polling fallback if SSE disconnects.
+On each batch update, marker positions are interpolated from `N-1` to `N` over the measured batch interval to avoid teleport effects.
 
 ## 8. Validation and Safety
 
@@ -136,6 +137,7 @@ Frontend keeps a low-frequency polling fallback if SSE disconnects.
 - SSE stream is process-local (single instance friendly; multi-instance needs sticky sessions or pub/sub coordination for strict ordering).
 - Snapshot consistency depends on processor update timeliness.
 - Continuity window is intentionally limited to latest + two previous OpenSky batches.
+- Smooth marker animation uses a short client-side buffering strategy, so displayed motion can lag by about one batch interval.
 
 ## 11. Related References
 

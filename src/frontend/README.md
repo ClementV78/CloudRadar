@@ -14,6 +14,7 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
   - click-to-open detail panel (desktop sidebar, mobile bottom sheet behavior)
   - KPI strip based on `/api/flights/metrics`
   - backend-driven refresh via SSE (`/api/flights/stream`) with 10s fallback polling
+  - marker interpolation between consecutive OpenSky batches (smooth N-1 -> N movement)
 - Deferred by design:
   - live zones/alerts integration (`#128`, `#424`)
 
@@ -33,6 +34,7 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
 3. On marker click, frontend fetches:
    - `GET /api/flights/{icao24}?include=track,enrichment`
 4. Detail panel and track polyline are updated from this detail payload.
+5. On each new batch, map markers animate from previous known position to next one over the measured batch interval.
 
 ### Main UI modules
 
@@ -62,6 +64,10 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
 - OpenSky feed status:
   - derived from freshest `lastSeen` in flights list
   - marked `stale` when age exceeds threshold (`STALE_AFTER_SECONDS`)
+- Marker interpolation:
+  - animation duration derives from OpenSky batch epoch delta when available
+  - fallback to `REFRESH_INTERVAL_MS` when epoch delta is missing
+  - interpolation is skipped for unrealistic jumps (too old / too far)
 
 ### Mapping and rendering choices
 
