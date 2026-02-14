@@ -2,6 +2,22 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-14
+
+### [edge/ui] Repeated Basic Auth popup loop on dashboard refresh + duplicate/stale map markers
+- **Severity:** High
+- **Impact:** Public UI became hard to use: browser auth modal reappeared every refresh cycle, and map could show duplicate/stale aircraft markers.
+- **Signal:** At `https://cloudradar.iotx.fr`, login popup reopened repeatedly while frontend polled map APIs; aircraft list did not consistently match the latest OpenSky fetch set.
+- **Analysis:** Edge Nginx enforced Basic Auth globally, including `/api/*`, so any unauthenticated periodic call triggered browser re-auth.  
+  On data path, dashboard snapshots were not explicitly constrained to the latest processed OpenSky batch, so stale/historical entries could still surface.
+- **Resolution:**  
+  1. Disable edge Basic Auth for UI routes (`/` and `/api/`) while keeping auth on sensitive routes (`/admin`, `/grafana`, `/prometheus`).  
+  2. Add `opensky_fetch_epoch` in ingester events (same marker per OpenSky poll cycle).  
+  3. Filter dashboard `GET /api/flights` to aircraft from the latest `opensky_fetch_epoch` batch only; expose `latestOpenSkyBatchEpoch` in response.  
+  4. Frontend refresh loop now reacts to batch changes (with frequent polling and batch-aware KPI/detail refresh).
+- **Guardrail:** For map consistency, treat latest OpenSky batch as source-of-truth snapshot boundary; avoid mixing events across batches in flight list responses.
+- **Refs:** issue #431, PR #432
+
 ## 2026-02-12
 
 ### [ci/eso] processor crashed after bootstrap (ESO ready but app secret not fully synced yet)
