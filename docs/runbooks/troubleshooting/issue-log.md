@@ -4,6 +4,18 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-14
 
+### [frontend/dashboard] UI polling too frequent versus ingestion cadence
+- **Severity:** Medium
+- **Impact:** Frontend polled API every 2s while ingester default OpenSky cadence was 10s, causing avoidable API load and refresh churn.
+- **Signal:** Config mismatch found between frontend `REFRESH_INTERVAL_MS` and ingester `refresh-ms`.
+- **Analysis:** UI relied on short fixed polling instead of backend-driven notification when new batches were available.
+- **Resolution:**
+  1. Add dashboard SSE endpoint `GET /api/flights/stream` broadcasting `batch-update` when latest batch changes.
+  2. Frontend now subscribes via `EventSource` and refreshes on backend events.
+  3. Keep fallback polling at 10s, aligned with ingester default; expose `VITE_UI_REFRESH_MS` override.
+- **Guardrail:** Prefer push-triggered UI refresh for OpenSky batch updates; keep polling as resilience fallback only.
+- **Refs:** issue #446
+
 ### [frontend/map] Marker readability low + no labels toggle + unrealistic track jumps
 - **Severity:** Medium
 - **Impact:** Aircraft markers were hard to read at low zoom and lacked clear visual differentiation; city/place labels could not be toggled; track line could connect distant timestamps into unrealistic long diagonals.

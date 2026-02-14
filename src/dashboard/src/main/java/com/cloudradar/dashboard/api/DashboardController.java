@@ -4,11 +4,14 @@ import com.cloudradar.dashboard.model.FlightDetailResponse;
 import com.cloudradar.dashboard.model.FlightListResponse;
 import com.cloudradar.dashboard.model.FlightsMetricsResponse;
 import com.cloudradar.dashboard.service.FlightQueryService;
+import com.cloudradar.dashboard.service.FlightUpdateStreamService;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * REST controller exposing read-only flight endpoints for the frontend.
@@ -16,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>Route design:
  * <ul>
  *   <li>{@code GET /api/flights}: lightweight map payload</li>
+ *   <li>{@code GET /api/flights/stream}: SSE updates when a new OpenSky batch is available</li>
  *   <li>{@code GET /api/flights/{icao24}}: enriched detail payload</li>
  *   <li>{@code GET /api/flights/metrics}: aggregated KPI payload</li>
  * </ul>
@@ -24,14 +28,19 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/flights")
 public class DashboardController {
   private final FlightQueryService flightQueryService;
+  private final FlightUpdateStreamService flightUpdateStreamService;
 
   /**
    * Creates the controller with the query service dependency.
    *
-   * @param flightQueryService business service used by all endpoints
+   * @param flightQueryService business service used by query endpoints
+   * @param flightUpdateStreamService SSE broadcaster for frontend refresh signals
    */
-  public DashboardController(FlightQueryService flightQueryService) {
+  public DashboardController(
+      FlightQueryService flightQueryService,
+      FlightUpdateStreamService flightUpdateStreamService) {
     this.flightQueryService = flightQueryService;
+    this.flightUpdateStreamService = flightUpdateStreamService;
   }
 
   /**
@@ -72,6 +81,16 @@ public class DashboardController {
         category,
         country,
         typecode);
+  }
+
+  /**
+   * Opens an SSE stream used by frontend to refresh on new backend data.
+   *
+   * @return emitter that sends {@code batch-update} and heartbeat events
+   */
+  @GetMapping(path = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+  public SseEmitter stream() {
+    return flightUpdateStreamService.openStream();
   }
 
   /**

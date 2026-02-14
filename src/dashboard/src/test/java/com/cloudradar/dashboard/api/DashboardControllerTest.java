@@ -13,6 +13,7 @@ import com.cloudradar.dashboard.model.FlightTrackPoint;
 import com.cloudradar.dashboard.model.FlightsMetricsResponse;
 import com.cloudradar.dashboard.rate.ApiRateLimitFilter;
 import com.cloudradar.dashboard.service.FlightQueryService;
+import com.cloudradar.dashboard.service.FlightUpdateStreamService;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @WebMvcTest(controllers = DashboardController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -29,6 +31,7 @@ class DashboardControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @MockBean private FlightQueryService flightQueryService;
+  @MockBean private FlightUpdateStreamService flightUpdateStreamService;
   @MockBean private ApiRateLimitFilter apiRateLimitFilter;
 
   @Test
@@ -134,5 +137,13 @@ class DashboardControllerTest {
     mockMvc.perform(get("/api/flights/ZZZZZZ"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.error").value("not_found"));
+  }
+
+  @Test
+  void stream_returns200() throws Exception {
+    when(flightUpdateStreamService.openStream()).thenReturn(new SseEmitter(1_000L));
+
+    mockMvc.perform(get("/api/flights/stream"))
+        .andExpect(status().isOk());
   }
 }
