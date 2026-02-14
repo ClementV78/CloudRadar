@@ -13,6 +13,7 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
   1. Mobile layout switched to vertical scroll flow (`overflow-y:auto`) with map/detail/KPI stack.
   2. Detail panel on mobile now renders in flow and is fully hidden when closed.
   3. Marker glyphs replaced with cleaner airplane/helicopter silhouettes while preserving category/type/size semantics.
+  4. Close button handling hardened with touch/click propagation stop to prevent immediate re-selection from underlying map interactions.
 - **Guardrail:** Keep mobile as scroll-first UX and reserve absolute overlays for desktop map interactions only.
 - **Refs:** issue #437
 
