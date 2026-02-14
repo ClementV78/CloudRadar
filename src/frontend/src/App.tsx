@@ -25,6 +25,10 @@ const IDF_RECTANGLE: [[number, number], [number, number]] = [
 ];
 
 const TRACK_SEGMENT_GAP_SECONDS = 15 * 60;
+const MIN_INTERPOLATION_DURATION_MS = 1_000;
+const MAX_INTERPOLATION_DURATION_MS = 20_000;
+const MAX_INTERPOLATION_LAST_SEEN_GAP_SECONDS = 180;
+const MAX_INTERPOLATION_DISTANCE_KM = 200;
 
 function formatUtcClock(date: Date): string {
   const text = date.toISOString();
@@ -58,6 +62,48 @@ function computeOpenSkyStatus(flights: FlightMapItem[]): OpenSkyStatus {
   return age <= STALE_AFTER_SECONDS ? 'online' : 'stale';
 }
 
+function isFiniteNumber(value: number | null): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function haversineKm(startLat: number, startLon: number, endLat: number, endLon: number): number {
+  const toRad = (value: number): number => (value * Math.PI) / 180;
+  const dLat = toRad(endLat - startLat);
+  const dLon = toRad(endLon - startLon);
+  const lat1 = toRad(startLat);
+  const lat2 = toRad(endLat);
+
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return 6371 * c;
+}
+
+function lerpNumber(start: number, end: number, progress: number): number {
+  return start + (end - start) * progress;
+}
+
+function lerpNullableNumber(start: number | null, end: number | null, progress: number): number | null {
+  if (isFiniteNumber(start) && isFiniteNumber(end)) {
+    return lerpNumber(start, end, progress);
+  }
+  return end;
+}
+
+function lerpHeading(start: number | null, end: number | null, progress: number): number | null {
+  if (!isFiniteNumber(start) || !isFiniteNumber(end)) {
+    return end;
+  }
+
+  let delta = ((end - start + 540) % 360) - 180;
+  if (!Number.isFinite(delta)) {
+    delta = 0;
+  }
+
+  const next = start + delta * progress;
+  return ((next % 360) + 360) % 360;
+}
+
 function normalizeFlights(items: FlightMapItem[]): FlightMapItem[] {
   const deduped = new Map<string, FlightMapItem>();
 
@@ -89,6 +135,55 @@ function normalizeFlights(items: FlightMapItem[]): FlightMapItem[] {
   }
 
   return Array.from(deduped.values());
+}
+
+function resolveAnimationDurationMs(latestBatchEpoch: number | null, previousBatchEpoch: number | null): number {
+  if (
+    isFiniteNumber(latestBatchEpoch)
+    && isFiniteNumber(previousBatchEpoch)
+    && latestBatchEpoch > previousBatchEpoch
+  ) {
+    const measuredDeltaMs = (latestBatchEpoch - previousBatchEpoch) * 1000;
+    return Math.max(MIN_INTERPOLATION_DURATION_MS, Math.min(MAX_INTERPOLATION_DURATION_MS, measuredDeltaMs));
+  }
+
+  return Math.max(MIN_INTERPOLATION_DURATION_MS, Math.min(MAX_INTERPOLATION_DURATION_MS, REFRESH_INTERVAL_MS));
+}
+
+function canInterpolateFlight(start: FlightMapItem, end: FlightMapItem): boolean {
+  if (
+    !isFiniteNumber(start.lat) || !isFiniteNumber(start.lon)
+    || !isFiniteNumber(end.lat) || !isFiniteNumber(end.lon)
+  ) {
+    return false;
+  }
+
+  if (isFiniteNumber(start.lastSeen) && isFiniteNumber(end.lastSeen)) {
+    if (end.lastSeen < start.lastSeen) {
+      return false;
+    }
+    if (Math.abs(end.lastSeen - start.lastSeen) > MAX_INTERPOLATION_LAST_SEEN_GAP_SECONDS) {
+      return false;
+    }
+  }
+
+  const distanceKm = haversineKm(start.lat, start.lon, end.lat, end.lon);
+  if (distanceKm > MAX_INTERPOLATION_DISTANCE_KM) {
+    return false;
+  }
+
+  return true;
+}
+
+function interpolateFlight(start: FlightMapItem, end: FlightMapItem, progress: number): FlightMapItem {
+  return {
+    ...end,
+    lat: lerpNullableNumber(start.lat, end.lat, progress),
+    lon: lerpNullableNumber(start.lon, end.lon, progress),
+    heading: lerpHeading(start.heading, end.heading, progress),
+    speed: lerpNullableNumber(start.speed, end.speed, progress),
+    altitude: lerpNullableNumber(start.altitude, end.altitude, progress)
+  };
 }
 
 function toTrackSegments(detail: FlightDetailResponse | null): Array<Array<[number, number]>> {
@@ -237,6 +332,7 @@ function ZoomSync({ onZoomChange }: { onZoomChange: (zoom: number) => void }): n
 
 export default function App(): JSX.Element {
   const [flights, setFlights] = useState<FlightMapItem[]>([]);
+  const [mapFlights, setMapFlights] = useState<FlightMapItem[]>([]);
   const [metrics, setMetrics] = useState<FlightsMetricsResponse | null>(null);
   const [selectedIcao24, setSelectedIcao24] = useState<string | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<FlightDetailResponse | null>(null);
@@ -253,8 +349,56 @@ export default function App(): JSX.Element {
   const lastBatchEpochRef = useRef<number | null>(null);
   const hasMetricsRef = useRef<boolean>(false);
   const missingSelectionCyclesRef = useRef<number>(0);
+  const mapFlightsRef = useRef<FlightMapItem[]>([]);
+  const animationFrameRef = useRef<number | null>(null);
 
   const detailOpen = Boolean(selectedIcao24);
+
+  const cancelMarkerAnimation = useCallback(() => {
+    if (animationFrameRef.current !== null) {
+      window.cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  }, []);
+
+  const animateMarkers = useCallback(
+    (targetFlights: FlightMapItem[], durationMs: number) => {
+      cancelMarkerAnimation();
+
+      const startFlights = mapFlightsRef.current;
+      if (!startFlights.length || !targetFlights.length || durationMs <= 0) {
+        setMapFlights(targetFlights);
+        return;
+      }
+
+      const startByIcao = new Map(startFlights.map((flight) => [flight.icao24, flight]));
+      const animationStartedAt = performance.now();
+
+      const tick = (now: number): void => {
+        const progress = Math.min(1, (now - animationStartedAt) / durationMs);
+        const nextFlights = targetFlights.map((target) => {
+          const start = startByIcao.get(target.icao24);
+          if (!start || !canInterpolateFlight(start, target)) {
+            return target;
+          }
+          return interpolateFlight(start, target, progress);
+        });
+
+        setMapFlights(nextFlights);
+
+        if (progress < 1) {
+          animationFrameRef.current = window.requestAnimationFrame(tick);
+          return;
+        }
+
+        animationFrameRef.current = null;
+        setMapFlights(targetFlights);
+      };
+
+      animationFrameRef.current = window.requestAnimationFrame(tick);
+    },
+    [cancelMarkerAnimation]
+  );
 
   const loadDetail = useCallback(async (icao24: string) => {
     try {
@@ -275,9 +419,21 @@ export default function App(): JSX.Element {
       const flightsResponse = await fetchFlights(IDF_BBOX, 400);
       const normalizedFlights = normalizeFlights(flightsResponse.items);
       const batchEpoch = flightsResponse.latestOpenSkyBatchEpoch;
-      const batchChanged = batchEpoch !== lastBatchEpochRef.current;
+      const previousBatchEpoch = lastBatchEpochRef.current;
+      const batchChanged = batchEpoch !== previousBatchEpoch;
 
       setFlights(normalizedFlights);
+
+      if (!mapFlightsRef.current.length) {
+        cancelMarkerAnimation();
+        setMapFlights(normalizedFlights);
+      } else if (batchChanged) {
+        animateMarkers(normalizedFlights, resolveAnimationDurationMs(batchEpoch, previousBatchEpoch));
+      } else {
+        cancelMarkerAnimation();
+        setMapFlights(normalizedFlights);
+      }
+
       setApiStatus('online');
       setOpenSkyStatus(computeOpenSkyStatus(normalizedFlights));
       setRefreshError(null);
@@ -315,7 +471,7 @@ export default function App(): JSX.Element {
       setApiStatus((previous) => (previous === 'online' ? 'degraded' : 'offline'));
       setOpenSkyStatus('unknown');
     }
-  }, [loadDetail, selectedIcao24]);
+  }, [animateMarkers, cancelMarkerAnimation, loadDetail, selectedIcao24]);
 
   useEffect(() => {
     const clockTimer = window.setInterval(() => {
@@ -350,6 +506,17 @@ export default function App(): JSX.Element {
       window.clearInterval(refreshTimer);
     };
   }, [refreshData]);
+
+  useEffect(() => {
+    mapFlightsRef.current = mapFlights;
+  }, [mapFlights]);
+
+  useEffect(
+    () => () => {
+      cancelMarkerAnimation();
+    },
+    [cancelMarkerAnimation]
+  );
 
   const trackSegments = useMemo(() => toTrackSegments(selectedDetail), [selectedDetail]);
   const activeAircraft = metrics?.activeAircraft ?? flights.length;
@@ -416,7 +583,7 @@ export default function App(): JSX.Element {
             <Polyline key={`track-${index}`} positions={segment} pathOptions={{ color: '#00f5ff', weight: 3, opacity: 0.9 }} />
           ))}
 
-          {flights.map((flight) => {
+          {mapFlights.map((flight) => {
             const selected = selectedIcao24 === flight.icao24;
             return (
               <Marker
