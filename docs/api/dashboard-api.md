@@ -3,6 +3,9 @@
 Base path: `/api/flights`  
 Audience: frontend dashboard map + detail panel + KPI cards.
 
+Implementation internals are documented in `docs/architecture/frontend-dashboard-technical-architecture.md`.
+Service-level runtime notes are in `src/dashboard/README.md`.
+
 ## `GET /api/flights`
 
 Returns a lightweight list for map rendering.
