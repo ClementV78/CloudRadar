@@ -294,6 +294,7 @@ public class FlightQueryService {
     ScanOptions scanOptions = ScanOptions.scanOptions().count(REDIS_SCAN_COUNT).build();
     List<Entry<String, PositionEvent>> candidates = new ArrayList<>();
     Long latestOpenSkyBatchEpoch = null;
+    Long previousOpenSkyBatchEpoch = null;
     Map<String, PositionEvent> latestEventsByIcao = new LinkedHashMap<>();
     List<FlightSnapshot> snapshots = new ArrayList<>();
 
@@ -327,21 +328,53 @@ public class FlightQueryService {
         candidates.add(Map.entry(icao24, event));
         Long batchEpoch = event.openskyFetchEpoch();
         if (batchEpoch != null && (latestOpenSkyBatchEpoch == null || batchEpoch > latestOpenSkyBatchEpoch)) {
+          previousOpenSkyBatchEpoch = latestOpenSkyBatchEpoch;
           latestOpenSkyBatchEpoch = batchEpoch;
+        } else if (batchEpoch != null
+            && !Objects.equals(batchEpoch, latestOpenSkyBatchEpoch)
+            && (previousOpenSkyBatchEpoch == null || batchEpoch > previousOpenSkyBatchEpoch)) {
+          previousOpenSkyBatchEpoch = batchEpoch;
         }
       }
     }
 
-    for (Entry<String, PositionEvent> candidate : candidates) {
-      PositionEvent event = candidate.getValue();
-      if (latestOpenSkyBatchEpoch != null && !Objects.equals(event.openskyFetchEpoch(), latestOpenSkyBatchEpoch)) {
-        continue;
+    if (latestOpenSkyBatchEpoch != null) {
+      Map<String, PositionEvent> latestBatchByIcao = new LinkedHashMap<>();
+      Map<String, PositionEvent> previousBatchByIcao = new LinkedHashMap<>();
+
+      for (Entry<String, PositionEvent> candidate : candidates) {
+        String icao24 = candidate.getKey();
+        PositionEvent event = candidate.getValue();
+        Long batchEpoch = event.openskyFetchEpoch();
+
+        if (Objects.equals(batchEpoch, latestOpenSkyBatchEpoch)) {
+          PositionEvent existing = latestBatchByIcao.get(icao24);
+          if (existing == null || isMoreRecent(event.lastContact(), existing.lastContact())) {
+            latestBatchByIcao.put(icao24, event);
+          }
+          continue;
+        }
+
+        if (previousOpenSkyBatchEpoch != null && Objects.equals(batchEpoch, previousOpenSkyBatchEpoch)) {
+          PositionEvent existing = previousBatchByIcao.get(icao24);
+          if (existing == null || isMoreRecent(event.lastContact(), existing.lastContact())) {
+            previousBatchByIcao.put(icao24, event);
+          }
+        }
       }
 
-      String icao24 = candidate.getKey();
-      PositionEvent existing = latestEventsByIcao.get(icao24);
-      if (existing == null || isMoreRecent(event.lastContact(), existing.lastContact())) {
-        latestEventsByIcao.put(icao24, event);
+      latestEventsByIcao.putAll(latestBatchByIcao);
+      for (Entry<String, PositionEvent> previous : previousBatchByIcao.entrySet()) {
+        latestEventsByIcao.putIfAbsent(previous.getKey(), previous.getValue());
+      }
+    } else {
+      for (Entry<String, PositionEvent> candidate : candidates) {
+        String icao24 = candidate.getKey();
+        PositionEvent event = candidate.getValue();
+        PositionEvent existing = latestEventsByIcao.get(icao24);
+        if (existing == null || isMoreRecent(event.lastContact(), existing.lastContact())) {
+          latestEventsByIcao.put(icao24, event);
+        }
       }
     }
 

@@ -16,6 +16,17 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Guardrail:** Keep map readability logic in frontend and avoid drawing a single historical polyline across disjoint trajectory windows.
 - **Refs:** issue #441
 
+### [dashboard/map] Aircraft flicker when OpenSky omits ICAO between polls
+- **Severity:** Medium
+- **Impact:** Aircraft could disappear from map between refresh cycles when OpenSky omitted some ICAO in the latest poll, causing visual instability/flicker.
+- **Signal:** Consecutive map snapshots showed abrupt aircraft drops even though traffic should remain continuous for short windows.
+- **Analysis:** `GET /api/flights` previously constrained list payload to latest `opensky_fetch_epoch` only, so missing ICAO in the newest batch were dropped immediately.
+- **Resolution:** Keep continuity on two OpenSky batches:
+  1. include all ICAO from latest batch;
+  2. include ICAO from previous batch that are absent in latest batch (using their latest known position).
+- **Guardrail:** Keep latest batch as primary source and use previous batch only as a one-cycle continuity fallback.
+- **Refs:** issue #443
+
 ### [frontend/mobile] Detail panel blocked navigation and marker design was hard to read
 - **Severity:** Medium
 - **Impact:** On mobile, opening flight detail could trap the viewport and make KPI section hard to reach; marker visuals were considered unclear and too stylized.

@@ -119,12 +119,12 @@ class FlightQueryServiceTest {
   }
 
   @Test
-  void listFlights_returnsOnlyIcao24FromLatestOpenSkyBatch() {
+  void listFlights_keepsLatestBatchAndMissingIcaoFromPreviousBatch() {
     FlightQueryService service =
         new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty());
 
     List<Map.Entry<Object, Object>> entries = List.of(
-        Map.entry("abc001", eventJson("abc001", 1700000010L, 120.0, 1000.0, false, 100L)),
+        Map.entry("abc001", eventJson("abc001", 1699999900L, 120.0, 1000.0, false, 100L)),
         Map.entry("abc002", eventJson("abc002", 1700000001L, 180.0, 2000.0, false, 101L)),
         Map.entry("abc003", eventJson("abc003", 1700000002L, 90.0, 1500.0, false, 101L)),
         Map.entry("abc004", eventJson("abc004", 1700009999L, 90.0, 1500.0, false, 99L))
@@ -135,11 +135,12 @@ class FlightQueryServiceTest {
     FlightListResponse response =
         service.listFlights(null, null, "10", "lastSeen", "desc", null, null, null, null, null);
 
-    assertEquals(2, response.count());
-    assertEquals(2, response.totalMatched());
+    assertEquals(3, response.count());
+    assertEquals(3, response.totalMatched());
     assertEquals(101L, response.latestOpenSkyBatchEpoch());
     assertEquals("abc003", response.items().get(0).icao24());
     assertEquals("abc002", response.items().get(1).icao24());
+    assertEquals("abc001", response.items().get(2).icao24());
   }
 
   @Test
