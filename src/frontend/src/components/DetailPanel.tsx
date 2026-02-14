@@ -1,3 +1,4 @@
+import type { MouseEvent, TouchEvent } from 'react';
 import type { FlightDetailResponse } from '../types';
 
 interface DetailPanelProps {
@@ -33,6 +34,12 @@ function militaryHintLabel(value: boolean | null | undefined): string {
 }
 
 export function DetailPanel({ detail, open, loading, error, onClose }: DetailPanelProps): JSX.Element {
+  const handleClose = (event: MouseEvent<HTMLButtonElement> | TouchEvent<HTMLButtonElement>): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    onClose();
+  };
+
   return (
     <aside className={`detail-panel glass-panel ${open ? 'is-open' : ''}`}>
       <div className="detail-header">
@@ -40,7 +47,14 @@ export function DetailPanel({ detail, open, loading, error, onClose }: DetailPan
           <h2>Flight detail</h2>
           <p>click marker to inspect live metadata</p>
         </div>
-        <button type="button" onClick={onClose} className="close-btn" aria-label="Close panel">
+        <button
+          type="button"
+          onClick={handleClose}
+          onTouchStart={handleClose}
+          onMouseDown={(event) => event.stopPropagation()}
+          className="close-btn"
+          aria-label="Close panel"
+        >
           close
         </button>
       </div>
