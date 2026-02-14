@@ -16,6 +16,15 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 - **Guardrail:** Keep map symbolization tied to backend-derived low-cardinality metadata to avoid UI-only heuristics drift.
 - **Refs:** issue #433
 
+### [dashboard/api] Map typing fields mostly `unknown` despite aircraft DB being available
+- **Severity:** Medium
+- **Impact:** UI markers remained visually uniform because `/api/flights` typing fields (`airframeType`, `fleetType`, `aircraftSize`) were often `unknown`.
+- **Signal:** `processor` pod had aircraft DB downloaded and mounted, but Redis `cloudradar:aircraft:last` entries contained only OpenSky telemetry; `/api/flights` returned mostly `unknown` typing values.
+- **Analysis:** `FlightQueryService.listFlights` loaded snapshots with metadata disabled by default (enabled only for metadata-driven filters). This made map typing implicitly depend on metadata persistence in Redis.
+- **Resolution:** Force on-the-fly metadata enrichment in `listFlights` read path (`loadSnapshots(..., includeMetadata=true, includeOwnerOperator=false)`), and add unit coverage to prevent regressions.
+- **Guardrail:** Keep map typing enrichment as a dashboard read responsibility; Redis remains telemetry-first cache.
+- **Refs:** issue #435
+
 ### [edge/ui] Repeated Basic Auth popup loop on dashboard refresh + duplicate/stale map markers
 - **Severity:** High
 - **Impact:** Public UI became hard to use: browser auth modal reappeared every refresh cycle, and map could show duplicate/stale aircraft markers.
