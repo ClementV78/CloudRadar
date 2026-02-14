@@ -62,6 +62,8 @@ server {
   }
 
   location /api/ {
+    # Public API for the UI map (demo mode): disable edge basic auth here.
+    auth_basic off;
     # Route API traffic to the private backend.
     proxy_pass http://api_upstream;
     proxy_http_version 1.1;
@@ -73,6 +75,8 @@ server {
   }
 
   location / {
+    # Public UI entrypoint (demo mode): disable edge basic auth here.
+    auth_basic off;
     # Route dashboard traffic to the private backend.
     proxy_pass http://dashboard_upstream;
     proxy_http_version 1.1;
