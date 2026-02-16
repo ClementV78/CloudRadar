@@ -8,7 +8,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 /**
  * Main Spring Boot entrypoint for the CloudRadar dashboard API service.
  *
- * <p>The application exposes read-only endpoints used by the frontend map and KPI cards.
+ * <p>The application mainly exposes read endpoints used by the frontend map/KPI cards, plus a
+ * lightweight control endpoint for temporary OpenSky bbox boost.
  */
 @SpringBootApplication
 @EnableConfigurationProperties(DashboardProperties.class)

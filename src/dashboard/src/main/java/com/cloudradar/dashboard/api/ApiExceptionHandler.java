@@ -41,6 +41,18 @@ public class ApiExceptionHandler {
   }
 
   /**
+   * Maps cooldown/throttling conditions to HTTP 429.
+   *
+   * @param ex rate limit exception
+   * @return standardized throttling payload
+   */
+  @ExceptionHandler(TooManyRequestsException.class)
+  public ResponseEntity<Map<String, Object>> handleTooManyRequests(TooManyRequestsException ex) {
+    return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+        .body(error("too_many_requests", ex.getMessage(), ex.getRetryAfterSeconds()));
+  }
+
+  /**
    * Maps unmatched routes to HTTP 404 instead of generic 500.
    *
    * @param ex Spring MVC no-resource/no-handler exception
@@ -80,6 +92,14 @@ public class ApiExceptionHandler {
     return Map.of(
         "error", code,
         "message", message,
+        "timestamp", Instant.now().toString());
+  }
+
+  private Map<String, Object> error(String code, String message, long retryAfterSeconds) {
+    return Map.of(
+        "error", code,
+        "message", message,
+        "retryAfterSeconds", Math.max(0L, retryAfterSeconds),
         "timestamp", Instant.now().toString());
   }
 }

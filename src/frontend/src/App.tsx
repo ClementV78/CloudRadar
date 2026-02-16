@@ -2,12 +2,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, Rectangle, TileLayer, useMapEvents } from 'react-leaflet';
 import L, { type DivIcon } from 'leaflet';
 
-import { fetchFlightDetail, fetchFlights, fetchMetrics, subscribeFlightUpdates } from './api';
+import { fetchBboxBoostStatus, fetchFlightDetail, fetchFlights, fetchMetrics, subscribeFlightUpdates, triggerBboxBoost } from './api';
 import { IDF_BBOX, MAP_MAX_BOUNDS, REFRESH_INTERVAL_MS, STALE_AFTER_SECONDS } from './constants';
 import { DetailPanel } from './components/DetailPanel';
 import { Header } from './components/Header';
 import { KpiStrip } from './components/KpiStrip';
-import type { ApiStatus, FlightDetailResponse, FlightMapItem, FlightsMetricsResponse, OpenSkyStatus } from './types';
+import type {
+  ApiStatus,
+  Bbox,
+  BboxBoostStatusResponse,
+  FlightDetailResponse,
+  FlightMapItem,
+  FlightsMetricsResponse,
+  OpenSkyStatus
+} from './types';
 
 const MAP_CENTER: [number, number] = [
   (IDF_BBOX.minLat + IDF_BBOX.maxLat) / 2,
@@ -17,11 +25,6 @@ const MAP_CENTER: [number, number] = [
 const MAX_BOUNDS: [[number, number], [number, number]] = [
   [MAP_MAX_BOUNDS.minLat, MAP_MAX_BOUNDS.minLon],
   [MAP_MAX_BOUNDS.maxLat, MAP_MAX_BOUNDS.maxLon]
-];
-
-const IDF_RECTANGLE: [[number, number], [number, number]] = [
-  [IDF_BBOX.minLat, IDF_BBOX.minLon],
-  [IDF_BBOX.maxLat, IDF_BBOX.maxLon]
 ];
 
 const TRACK_SEGMENT_GAP_SECONDS = 15 * 60;
@@ -135,6 +138,20 @@ function normalizeFlights(items: FlightMapItem[]): FlightMapItem[] {
   }
 
   return Array.from(deduped.values());
+}
+
+function toRectangleBounds(bbox: Bbox): [[number, number], [number, number]] {
+  return [
+    [bbox.minLat, bbox.minLon],
+    [bbox.maxLat, bbox.maxLon]
+  ];
+}
+
+function sameBbox(left: Bbox, right: Bbox): boolean {
+  return left.minLon === right.minLon
+    && left.minLat === right.minLat
+    && left.maxLon === right.maxLon
+    && left.maxLat === right.maxLat;
 }
 
 function resolveAnimationDurationMs(latestBatchEpoch: number | null, previousBatchEpoch: number | null): number {
@@ -346,11 +363,15 @@ export default function App(): JSX.Element {
   const [mapTheme, setMapTheme] = useState<'dark' | 'satellite'>('satellite');
   const [showCityLabels, setShowCityLabels] = useState(true);
   const [mapZoom, setMapZoom] = useState(8);
+  const [effectiveBbox, setEffectiveBbox] = useState<Bbox>(IDF_BBOX);
+  const [boostStatus, setBoostStatus] = useState<BboxBoostStatusResponse | null>(null);
+  const [boostLoading, setBoostLoading] = useState(false);
   const lastBatchEpochRef = useRef<number | null>(null);
   const hasMetricsRef = useRef<boolean>(false);
   const missingSelectionCyclesRef = useRef<number>(0);
   const mapFlightsRef = useRef<FlightMapItem[]>([]);
   const animationFrameRef = useRef<number | null>(null);
+  const effectiveBboxRef = useRef<Bbox>(IDF_BBOX);
 
   const detailOpen = Boolean(selectedIcao24);
 
@@ -416,7 +437,16 @@ export default function App(): JSX.Element {
 
   const refreshData = useCallback(async () => {
     try {
-      const flightsResponse = await fetchFlights(IDF_BBOX, 400);
+      const boost = await fetchBboxBoostStatus();
+      setBoostStatus(boost);
+      const requestedBbox = boost.active ? boost.bbox : IDF_BBOX;
+      const bboxChanged = !sameBbox(effectiveBboxRef.current, requestedBbox);
+      if (bboxChanged) {
+        effectiveBboxRef.current = requestedBbox;
+        setEffectiveBbox(requestedBbox);
+      }
+
+      const flightsResponse = await fetchFlights(requestedBbox, 400);
       const normalizedFlights = normalizeFlights(flightsResponse.items);
       const batchEpoch = flightsResponse.latestOpenSkyBatchEpoch;
       const previousBatchEpoch = lastBatchEpochRef.current;
@@ -438,8 +468,8 @@ export default function App(): JSX.Element {
       setOpenSkyStatus(computeOpenSkyStatus(normalizedFlights));
       setRefreshError(null);
 
-      if (!hasMetricsRef.current || batchChanged) {
-        const metricsResponse = await fetchMetrics(IDF_BBOX);
+      if (!hasMetricsRef.current || batchChanged || bboxChanged) {
+        const metricsResponse = await fetchMetrics(requestedBbox);
         setMetrics(metricsResponse);
         hasMetricsRef.current = true;
       }
@@ -472,6 +502,23 @@ export default function App(): JSX.Element {
       setOpenSkyStatus('unknown');
     }
   }, [animateMarkers, cancelMarkerAnimation, loadDetail, selectedIcao24]);
+
+  const handleTriggerBoost = useCallback(async () => {
+    try {
+      setBoostLoading(true);
+      const status = await triggerBboxBoost();
+      setBoostStatus(status);
+      const boostedBbox = status.active ? status.bbox : IDF_BBOX;
+      effectiveBboxRef.current = boostedBbox;
+      setEffectiveBbox(boostedBbox);
+      await refreshData();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unable to trigger bbox boost';
+      setRefreshError(message);
+    } finally {
+      setBoostLoading(false);
+    }
+  }, [refreshData]);
 
   useEffect(() => {
     const clockTimer = window.setInterval(() => {
@@ -520,6 +567,15 @@ export default function App(): JSX.Element {
 
   const trackSegments = useMemo(() => toTrackSegments(selectedDetail), [selectedDetail]);
   const activeAircraft = metrics?.activeAircraft ?? flights.length;
+  const rectangleBounds = useMemo(() => toRectangleBounds(effectiveBbox), [effectiveBbox]);
+  const nowEpoch = Math.floor(Date.now() / 1000);
+  const boostRemainingSeconds = boostStatus?.activeUntilEpoch
+    ? Math.max(0, boostStatus.activeUntilEpoch - nowEpoch)
+    : 0;
+  const boostCooldownSeconds = boostStatus?.cooldownUntilEpoch
+    ? Math.max(0, boostStatus.cooldownUntilEpoch - nowEpoch)
+    : 0;
+  const boostActive = boostRemainingSeconds > 0;
   const mapTiles = useMemo(
     () =>
       mapTheme === 'satellite'
@@ -566,6 +622,11 @@ export default function App(): JSX.Element {
         onThemeChange={setMapTheme}
         showCityLabels={showCityLabels}
         onToggleCityLabels={() => setShowCityLabels((previous) => !previous)}
+        boostActive={boostActive}
+        boostRemainingSeconds={boostRemainingSeconds}
+        boostCooldownSeconds={boostCooldownSeconds}
+        boostLoading={boostLoading}
+        onTriggerBoost={() => void handleTriggerBoost()}
       />
 
       <section className="map-shell glass-panel">
@@ -577,7 +638,7 @@ export default function App(): JSX.Element {
           <TileLayer url={mapTiles.baseUrl} attribution={mapTiles.attribution} />
           {showCityLabels && <TileLayer url={mapTiles.labelsUrl} attribution={mapTiles.attribution} opacity={0.9} />}
 
-          <Rectangle pathOptions={{ color: '#00f5ff', dashArray: '6 4', weight: 2, fillOpacity: 0.04 }} bounds={IDF_RECTANGLE} />
+          <Rectangle pathOptions={{ color: '#00f5ff', dashArray: '6 4', weight: 2, fillOpacity: 0.04 }} bounds={rectangleBounds} />
 
           {trackSegments.map((segment, index) => (
             <Polyline key={`track-${index}`} positions={segment} pathOptions={{ color: '#00f5ff', weight: 3, opacity: 0.9 }} />

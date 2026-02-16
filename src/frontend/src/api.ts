@@ -1,5 +1,6 @@
 import { API_FLIGHTS_BASE } from './constants';
 import type {
+  BboxBoostStatusResponse,
   Bbox,
   FlightDetailResponse,
   FlightListResponse,
@@ -12,6 +13,32 @@ function toBboxQuery(bbox: Bbox): string {
 
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(path, {
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json'
+    }
+  });
+
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const payload = await response.json();
+      if (payload?.message) {
+        message = payload.message;
+      }
+    } catch {
+      // Keep default HTTP status text when body is not JSON.
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function apiPost<T>(path: string): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    credentials: 'same-origin',
     headers: {
       Accept: 'application/json'
     }
@@ -55,6 +82,14 @@ export async function fetchMetrics(bbox: Bbox): Promise<FlightsMetricsResponse> 
   });
 
   return apiGet<FlightsMetricsResponse>(`${API_FLIGHTS_BASE}/metrics?${params.toString()}`);
+}
+
+export async function fetchBboxBoostStatus(): Promise<BboxBoostStatusResponse> {
+  return apiGet<BboxBoostStatusResponse>(`${API_FLIGHTS_BASE}/bbox/boost`);
+}
+
+export async function triggerBboxBoost(): Promise<BboxBoostStatusResponse> {
+  return apiPost<BboxBoostStatusResponse>(`${API_FLIGHTS_BASE}/bbox/boost`);
 }
 
 export interface FlightStreamEvent {

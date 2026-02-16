@@ -15,6 +15,7 @@ import java.util.Map;
  * @param aircraftTypes top aircraft type/category labels
  * @param activitySeries activity timeline buckets
  * @param estimates estimated/placeholder indicators and notes
+ * @param openSkyCreditsPerRequest24h OpenSky average credits per request over the last 24h
  * @param timestamp response generation timestamp
  */
 public record FlightsMetricsResponse(
@@ -27,6 +28,7 @@ public record FlightsMetricsResponse(
     List<TypeBreakdownItem> aircraftTypes,
     List<TimeBucket> activitySeries,
     Estimates estimates,
+    Double openSkyCreditsPerRequest24h,
     String timestamp) {
 
   /**

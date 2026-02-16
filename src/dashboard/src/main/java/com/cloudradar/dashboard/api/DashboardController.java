@@ -3,9 +3,14 @@ package com.cloudradar.dashboard.api;
 import com.cloudradar.dashboard.model.FlightDetailResponse;
 import com.cloudradar.dashboard.model.FlightListResponse;
 import com.cloudradar.dashboard.model.FlightsMetricsResponse;
+import com.cloudradar.dashboard.model.BboxBoostStatusResponse;
+import com.cloudradar.dashboard.service.BboxBoostService;
 import com.cloudradar.dashboard.service.FlightQueryService;
 import com.cloudradar.dashboard.service.FlightUpdateStreamService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * REST controller exposing read-only flight endpoints for the frontend.
+ * REST controller exposing flight query endpoints and bbox boost controls for the frontend.
  *
  * <p>Route design:
  * <ul>
@@ -22,6 +27,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  *   <li>{@code GET /api/flights/stream}: SSE updates when a new OpenSky batch is available</li>
  *   <li>{@code GET /api/flights/{icao24}}: enriched detail payload</li>
  *   <li>{@code GET /api/flights/metrics}: aggregated KPI payload</li>
+ *   <li>{@code GET/POST /api/flights/bbox/boost}: temporary OpenSky bbox boost status/trigger</li>
  * </ul>
  */
 @RestController
@@ -29,18 +35,22 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class DashboardController {
   private final FlightQueryService flightQueryService;
   private final FlightUpdateStreamService flightUpdateStreamService;
+  private final BboxBoostService bboxBoostService;
 
   /**
    * Creates the controller with the query service dependency.
    *
    * @param flightQueryService business service used by query endpoints
    * @param flightUpdateStreamService SSE broadcaster for frontend refresh signals
+   * @param bboxBoostService OpenSky bbox boost status/trigger service
    */
   public DashboardController(
       FlightQueryService flightQueryService,
-      FlightUpdateStreamService flightUpdateStreamService) {
+      FlightUpdateStreamService flightUpdateStreamService,
+      BboxBoostService bboxBoostService) {
     this.flightQueryService = flightQueryService;
     this.flightUpdateStreamService = flightUpdateStreamService;
+    this.bboxBoostService = bboxBoostService;
   }
 
   /**
@@ -119,6 +129,34 @@ public class DashboardController {
       @PathVariable("icao24") String icao24,
       @RequestParam(value = "include", required = false) String include) {
     return flightQueryService.getFlightDetail(icao24, include);
+  }
+
+  /**
+   * Returns current bbox boost state for the caller.
+   *
+   * @param request inbound HTTP request
+   * @param response outbound HTTP response
+   * @return boost status payload
+   */
+  @GetMapping("/bbox/boost")
+  public BboxBoostStatusResponse bboxBoostStatus(
+      HttpServletRequest request,
+      HttpServletResponse response) {
+    return bboxBoostService.getStatus(request, response);
+  }
+
+  /**
+   * Triggers temporary bbox boost when caller is not in cooldown.
+   *
+   * @param request inbound HTTP request
+   * @param response outbound HTTP response
+   * @return updated boost status payload
+   */
+  @PostMapping("/bbox/boost")
+  public BboxBoostStatusResponse triggerBboxBoost(
+      HttpServletRequest request,
+      HttpServletResponse response) {
+    return bboxBoostService.triggerBoost(request, response);
   }
 
 }

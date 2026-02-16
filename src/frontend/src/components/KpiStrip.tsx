@@ -101,6 +101,7 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
   const trafficDensity = metrics?.trafficDensityPer10kKm2 ?? 0;
   const militaryShare = metrics?.militarySharePercent ?? 0;
   const defenseScore = metrics?.defenseActivityScore ?? militaryShare;
+  const openSkyCreditsPerRequest24h = metrics?.openSkyCreditsPerRequest24h ?? null;
   const topFleet = topBreakdown(metrics?.fleetBreakdown, 3);
   const topTypes = topBreakdown(metrics?.aircraftTypes, 3);
   const topSizes = topBreakdown(metrics?.aircraftSizes, 3);
@@ -122,6 +123,9 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
             <div className="kpi-main">{formatNumber(trafficDensity, 1)}</div>
             <div className="kpi-sub">density / 10k km2</div>
             <div className="kpi-sub">peak window: {formatNumber(maxActivity)}</div>
+            <div className="kpi-sub">
+              OpenSky credits/request (24h): {openSkyCreditsPerRequest24h === null ? 'n/a' : formatNumber(openSkyCreditsPerRequest24h, 2)}
+            </div>
             <Sparkline points={metrics?.activitySeries ?? []} />
           </div>
         </div>
