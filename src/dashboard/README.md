@@ -40,6 +40,13 @@ Pipeline:
 5. Enrich metadata on read (if aircraft DB enabled):
    - category, country, typecode, military hint,
    - inferred fields used by UI (`airframeType`, `fleetType`, `aircraftSize`).
+   - typing precedence for `fleetType`:
+     1. `military` when `militaryHint=true`,
+     2. `rescue` when rescue heuristics match (`callsign`/`category`/`ownerOperator`),
+     3. `private`,
+     4. `commercial`,
+     5. `unknown`.
+   - rotorcraft-aware airframe inference for helicopter signatures (`H2*` category codes, `EC*/AS*/AW*...` typecodes).
 6. Filter/sort/limit and return frontend payload.
 
 ### 2. Detail (`GET /api/flights/{icao24}`)
