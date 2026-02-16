@@ -193,6 +193,41 @@ class FlightQueryServiceTest {
   }
 
   @Test
+  void listFlights_classifiesRescueHelicopterFromMetadataAndCallsign() {
+    FlightQueryService service =
+        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.of(aircraftRepository), Optional.empty());
+
+    List<Map.Entry<Object, Object>> entries = List.of(
+        Map.entry("39ac17", eventJson("39ac17", 1700000003L, 133.0, 495.3, false, null, "SAMUIDF"))
+    );
+    Cursor<Map.Entry<Object, Object>> cursor = cursorOf(entries);
+    when(hashOperations.scan(anyString(), any())).thenReturn(cursor);
+    when(aircraftRepository.findByIcao24("39ac17"))
+        .thenReturn(Optional.of(new AircraftMetadata(
+            "39ac17",
+            "France",
+            "H2T",
+            "L2",
+            "AIRBUS",
+            "Airbus Helicopters",
+            "EC145",
+            "F-HLAX",
+            "EC45",
+            false,
+            null,
+            "SAMU IDF")));
+
+    FlightListResponse response =
+        service.listFlights(null, null, "10", "lastSeen", "desc", null, null, null, null, null);
+
+    assertEquals(1, response.count());
+    FlightMapItem item = response.items().get(0);
+    assertEquals("39ac17", item.icao24());
+    assertEquals("helicopter", item.airframeType());
+    assertEquals("rescue", item.fleetType());
+  }
+
+  @Test
   void getFlightDetail_returnsTrackAndMetadataWhenRequested() {
     FlightQueryService service =
         new FlightQueryService(redisTemplate, objectMapper, properties, Optional.of(aircraftRepository), Optional.empty());
@@ -295,7 +330,7 @@ class FlightQueryServiceTest {
   }
 
   private String eventJson(String icao24, long lastContact, double velocity, double altitude, boolean onGround) {
-    return eventJson(icao24, lastContact, velocity, altitude, onGround, null);
+    return eventJson(icao24, lastContact, velocity, altitude, onGround, null, icao24.toUpperCase());
   }
 
   private String eventJson(
@@ -305,10 +340,21 @@ class FlightQueryServiceTest {
       double altitude,
       boolean onGround,
       Long openskyFetchEpoch) {
+    return eventJson(icao24, lastContact, velocity, altitude, onGround, openskyFetchEpoch, icao24.toUpperCase());
+  }
+
+  private String eventJson(
+      String icao24,
+      long lastContact,
+      double velocity,
+      double altitude,
+      boolean onGround,
+      Long openskyFetchEpoch,
+      String callsign) {
     String fetchEpochField = openskyFetchEpoch == null ? "" : ",\"opensky_fetch_epoch\":" + openskyFetchEpoch;
     return "{" +
         "\"icao24\":\"" + icao24 + "\"," +
-        "\"callsign\":\"" + icao24.toUpperCase() + "\"," +
+        "\"callsign\":\"" + callsign + "\"," +
         "\"lat\":48.8566," +
         "\"lon\":2.3522," +
         "\"heading\":90.0," +
