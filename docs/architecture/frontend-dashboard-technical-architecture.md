@@ -125,21 +125,44 @@ On each batch update, marker positions are interpolated from `N-1` to `N` over t
 - in-memory rate limiting on `/api/**`,
 - read-only API surface (`GET` only).
 
-## 9. Performance Notes
+## 9. Marker Typing Semantics (Backend-Driven)
+
+Map marker visuals are derived from backend typing fields in `FlightMapItem`:
+- `airframeType` (`airplane|helicopter|unknown`)
+- `fleetType` (`commercial|military|rescue|private|unknown`)
+- `aircraftSize` (`small|medium|large|heavy|unknown`)
+
+The frontend does not re-infer business typing from raw telemetry. It only renders what the API provides.
+
+Typing precedence in `FlightQueryService`:
+1. `military` if `militaryHint=true`.
+2. `rescue` if rescue heuristics match metadata or callsign (`samu`, `rescue`, `hems`, `medevac`, `lifeguard`, `dragon`, ...).
+3. `private` for private/business/general aviation hints.
+4. `commercial` when metadata exists but no previous profile matched.
+5. `unknown` when metadata is missing.
+
+Helicopter detection includes common rotorcraft signatures:
+- category hints (`heli`, `rotor`, `H*` category codes such as `H2T`)
+- typecode prefixes (`H*`, `EC*`, `AS*`, `SA*`, `AW*`, `BK*`, `MI*`, `KA*`, `UH*`, `CH*`)
+
+This backend-driven model keeps legend, map markers, detail panel, and KPI fleet breakdown consistent.
+
+## 10. Performance Notes
 
 - Redis hash scan is O(n) on active aircraft count.
 - SQLite lookups are local and cached to reduce repeated I/O.
 - DTO payloads are intentionally compact for frequent refresh cycles.
 - SSE avoids blind high-frequency polling.
 
-## 10. Known Limits
+## 11. Known Limits
 
 - SSE stream is process-local (single instance friendly; multi-instance needs sticky sessions or pub/sub coordination for strict ordering).
 - Snapshot consistency depends on processor update timeliness.
 - Continuity window is intentionally limited to latest + two previous OpenSky batches.
 - Smooth marker animation uses a short client-side buffering strategy, so displayed motion can lag by about one batch interval.
+- Rescue detection is heuristic-based; false positives/negatives are possible without a curated allowlist.
 
-## 11. Related References
+## 12. Related References
 
 - API contract: `docs/api/dashboard-api.md`
 - Service README: `src/dashboard/README.md`

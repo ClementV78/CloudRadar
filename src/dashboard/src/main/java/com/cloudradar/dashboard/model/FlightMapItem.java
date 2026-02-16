@@ -13,7 +13,7 @@ package com.cloudradar.dashboard.model;
  * @param altitude resolved altitude when available
  * @param militaryHint military hint metadata
  * @param airframeType inferred airframe type (`airplane|helicopter|unknown`)
- * @param fleetType inferred fleet profile (`commercial|military|private|unknown`)
+ * @param fleetType inferred fleet profile (`commercial|military|rescue|private|unknown`)
  * @param aircraftSize inferred size profile (`small|medium|large|heavy|unknown`)
  */
 public record FlightMapItem(

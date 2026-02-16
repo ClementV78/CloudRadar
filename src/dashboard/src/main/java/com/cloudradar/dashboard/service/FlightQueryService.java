@@ -254,7 +254,7 @@ public class FlightQueryService {
     List<FlightsMetricsResponse.TypeBreakdownItem> fleetBreakdown = breakdown(
         snapshots,
         this::fleetType,
-        List.of("commercial", "military", "private", "unknown"));
+        List.of("commercial", "military", "rescue", "private", "unknown"));
 
     List<FlightsMetricsResponse.TypeBreakdownItem> aircraftSizes = breakdown(
         snapshots,
@@ -624,6 +624,10 @@ public class FlightQueryService {
       return "military";
     }
 
+    if (isRescueFlight(snapshot)) {
+      return "rescue";
+    }
+
     String owner = normalizeOptional(snapshot.ownerOperator(), true, false);
     String category = normalizeOptional(snapshot.category(), true, false);
     if ((owner != null && (owner.contains("private") || owner.contains("charter")))
@@ -681,16 +685,52 @@ public class FlightQueryService {
     String cat = normalizeOptional(category, true, false);
     String tc = normalizeOptional(typecode, false, true);
 
-    if (cat != null && cat.contains("heli")) {
+    if (cat != null && (cat.contains("heli") || cat.contains("rotor") || cat.matches("^h\\d.*"))) {
       return "helicopter";
     }
-    if (tc != null && tc.startsWith("H")) {
+    if (tc != null && (tc.startsWith("H")
+        || tc.startsWith("EC")
+        || tc.startsWith("AS")
+        || tc.startsWith("SA")
+        || tc.startsWith("AW")
+        || tc.startsWith("BK")
+        || tc.startsWith("MI")
+        || tc.startsWith("KA")
+        || tc.startsWith("UH")
+        || tc.startsWith("CH"))) {
       return "helicopter";
     }
     if (cat != null || tc != null) {
       return "airplane";
     }
     return null;
+  }
+
+  private boolean isRescueFlight(FlightSnapshot snapshot) {
+    String callsign = normalizeOptional(snapshot.event().callsign(), true, false);
+    String owner = normalizeOptional(snapshot.ownerOperator(), true, false);
+    String category = normalizeOptional(snapshot.category(), true, false);
+
+    if (containsAny(owner, "samu", "secours", "rescue", "hems", "medevac", "civil security", "civil protection")) {
+      return true;
+    }
+    if (containsAny(category, "rescue", "secours", "hems", "medevac", "medical", "ambulance")) {
+      return true;
+    }
+
+    return containsAny(callsign, "samu", "rescue", "dragon", "hems", "lifeguard", "secours");
+  }
+
+  private static boolean containsAny(String value, String... needles) {
+    if (value == null || value.isBlank()) {
+      return false;
+    }
+    for (String needle : needles) {
+      if (value.contains(needle)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private String manufacturer(AircraftMetadata metadata) {

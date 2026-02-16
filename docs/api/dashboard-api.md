@@ -39,7 +39,11 @@ Example response:
       "heading": 90.0,
       "lastSeen": 1760000000,
       "speed": 220.0,
-      "altitude": 10500.0
+      "altitude": 10500.0,
+      "militaryHint": false,
+      "airframeType": "airplane",
+      "fleetType": "commercial",
+      "aircraftSize": "large"
     }
   ],
   "count": 1,
@@ -51,9 +55,20 @@ Example response:
     "maxLon": 10.0,
     "maxLat": 55.0
   },
+  "latestOpenSkyBatchEpoch": 1760000000,
   "timestamp": "2026-02-13T12:00:00Z"
 }
 ```
+
+Classification semantics for map typing fields:
+- `airframeType`: inferred from metadata (`category`, `typecode`) with helicopter detection supporting `heli`/`rotor` category hints, `H*` category codes (for example `H2T`), and rotorcraft typecodes such as `EC*`, `AS*`, `SA*`, `AW*`, `BK*`, `MI*`, `KA*`, `UH*`, `CH*`.
+- `fleetType`: inferred with this precedence:
+  1. `military` when `militaryHint=true`.
+  2. `rescue` when rescue heuristics match (`callsign`/`category`/`ownerOperator` contains markers like `samu`, `rescue`, `hems`, `medevac`, `lifeguard`, `dragon`).
+  3. `private` when owner/category suggests private/business/general aviation.
+  4. `commercial` when metadata exists but no previous profile matched.
+  5. `unknown` when metadata is unavailable.
+- `aircraftSize`: inferred from metadata category/typecode (`small|medium|large|heavy|unknown`).
 
 ## `GET /api/flights/{icao24}`
 
@@ -142,7 +157,10 @@ Example response:
   "defenseActivityScore": 12.0,
   "fleetBreakdown": [
     { "key": "commercial", "count": 146, "percent": 78.07 },
-    { "key": "military", "count": 22, "percent": 11.76 }
+    { "key": "military", "count": 22, "percent": 11.76 },
+    { "key": "rescue", "count": 4, "percent": 2.14 },
+    { "key": "private", "count": 10, "percent": 5.35 },
+    { "key": "unknown", "count": 5, "percent": 2.68 }
   ],
   "aircraftSizes": [
     { "key": "medium", "count": 101, "percent": 54.01 }

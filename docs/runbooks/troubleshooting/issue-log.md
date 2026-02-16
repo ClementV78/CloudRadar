@@ -2,6 +2,34 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-16
+
+### [dashboard/frontend] Helicopter misclassified as airplane + missing rescue fleet profile
+- **Severity:** Medium
+- **Impact:** Rescue helicopters (ex: callsign `SAMUIDF`, typecode `EC45`) could be rendered as airplane/commercial on the map, reducing trust in icon semantics.
+- **Signal:** Flight detail showed `typecode=EC45` and `category=H2T`, while marker icon stayed airplane and fleet type did not expose a rescue profile.
+- **Analysis:** Airframe inference only detected helicopter on `category contains heli` or `typecode startsWith H`; it missed `H2*` category codes and `EC*` helicopter typecodes. Fleet inference had no `rescue` category.
+- **Resolution:**
+  1. Extend helicopter inference to support rotorcraft metadata patterns (`H2*`, `EC*`, `AS*`, `AW*`, etc.).
+  2. Add fleet profile `rescue` using callsign/category/owner rescue heuristics (`samu`, `rescue`, `hems`, ...).
+  3. Propagate `rescue` in frontend typing + map legend and align marker glyph rendering for clearer visual differentiation.
+- **Guardrail:** Keep map icon semantics backend-driven and test known helicopter/rescue signatures in unit tests to avoid UI/backend drift.
+- **Refs:** issue #456
+
+### [frontend/map] Marker click offset + selected marker disappearing + mixed old/current routes
+- **Severity:** Medium
+- **Impact:** Marker interaction was unreliable (click felt offset), selected marker could visually disappear while details remained open, popup appeared out-of-sync with icon motion, and historical routes were rendered with the same style as the active route.
+- **Signal:** Users had to click next to aircraft icons; selected aircraft could vanish after selection; route line looked stale/over-extended.
+- **Analysis:** Selection pulse animation was applied on the Leaflet marker container (`divIcon` root), overriding Leaflet `transform: translate(...)` and causing position drift/hitbox mismatch. Track rendering used one undifferentiated segment style and did not classify current vs historical windows.
+- **Resolution:**
+  1. Move pulse animation from marker root container to inner marker wrapper to preserve Leaflet positioning transforms.
+  2. Keep rotation on a dedicated inner element (`aircraft-rotator`) and pulse on an outer wrapper (`aircraft-marker`) to avoid transform collisions.
+  3. Split track rendering into two classes:
+     - **current route** (blue): from last inferred takeoff (`onGround true -> false`) or fallback last 6h
+     - **historical route** (light gray, dashed)
+- **Guardrail:** Never animate CSS `transform` on the Leaflet `divIcon` root element; use nested wrappers for visual effects.
+- **Refs:** issue #456
+
 ## 2026-02-14
 
 ### [frontend/dashboard] UI polling too frequent versus ingestion cadence

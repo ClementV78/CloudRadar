@@ -7,6 +7,8 @@ import { IDF_BBOX, MAP_MAX_BOUNDS, REFRESH_INTERVAL_MS, STALE_AFTER_SECONDS } fr
 import { DetailPanel } from './components/DetailPanel';
 import { Header } from './components/Header';
 import { KpiStrip } from './components/KpiStrip';
+import { MapLegend } from './components/MapLegend';
+import { markerBaseSize, markerGlyph } from './aircraftVisuals';
 import type {
   ApiStatus,
   Bbox,
@@ -28,10 +30,13 @@ const MAX_BOUNDS: [[number, number], [number, number]] = [
 ];
 
 const TRACK_SEGMENT_GAP_SECONDS = 15 * 60;
+const CURRENT_TRACK_FALLBACK_WINDOW_SECONDS = 6 * 60 * 60;
 const MIN_INTERPOLATION_DURATION_MS = 1_000;
 const MAX_INTERPOLATION_DURATION_MS = 20_000;
 const MAX_INTERPOLATION_LAST_SEEN_GAP_SECONDS = 180;
 const MAX_INTERPOLATION_DISTANCE_KM = 200;
+const STATIC_POSITION_THRESHOLD_KM = 0.05;
+const KNOT_TO_KMH = 1.852;
 
 function formatUtcClock(date: Date): string {
   const text = date.toISOString();
@@ -43,6 +48,13 @@ function formatRefreshedAt(iso: string | null): string | null {
     return null;
   }
   return iso.replace('T', ' ').replace('Z', '');
+}
+
+function formatSpeedKmh(speedKt: number | null): string {
+  if (!isFiniteNumber(speedKt)) {
+    return 'n/a';
+  }
+  return `${(speedKt * KNOT_TO_KMH).toFixed(1)} km/h`;
 }
 
 function latestLastSeen(flights: FlightMapItem[]): number | null {
@@ -203,16 +215,20 @@ function interpolateFlight(start: FlightMapItem, end: FlightMapItem, progress: n
   };
 }
 
-function toTrackSegments(detail: FlightDetailResponse | null): Array<Array<[number, number]>> {
-  if (!detail?.recentTrack?.length) {
-    return [];
-  }
+interface ClassifiedTrackSegments {
+  current: Array<Array<[number, number]>>;
+  historical: Array<Array<[number, number]>>;
+}
 
-  const valid = detail.recentTrack
-    .filter((point) => point.lat !== null && point.lon !== null && point.lastSeen !== null)
-    .sort((left, right) => (left.lastSeen as number) - (right.lastSeen as number));
+interface NormalizedTrackPoint {
+  lat: number;
+  lon: number;
+  lastSeen: number;
+  onGround: boolean | null;
+}
 
-  if (valid.length < 2) {
+function toSegments(points: NormalizedTrackPoint[]): Array<Array<[number, number]>> {
+  if (points.length < 2) {
     return [];
   }
 
@@ -220,11 +236,9 @@ function toTrackSegments(detail: FlightDetailResponse | null): Array<Array<[numb
   let current: Array<[number, number]> = [];
   let prevTs: number | null = null;
 
-  for (const point of valid) {
-    const ts = point.lastSeen as number;
-    const coords: [number, number] = [point.lat as number, point.lon as number];
-
-    if (prevTs !== null && Math.abs(ts - prevTs) > TRACK_SEGMENT_GAP_SECONDS) {
+  for (const point of points) {
+    const coords: [number, number] = [point.lat, point.lon];
+    if (prevTs !== null && Math.abs(point.lastSeen - prevTs) > TRACK_SEGMENT_GAP_SECONDS) {
       if (current.length >= 2) {
         segments.push(current);
       }
@@ -232,8 +246,7 @@ function toTrackSegments(detail: FlightDetailResponse | null): Array<Array<[numb
     } else {
       current.push(coords);
     }
-
-    prevTs = ts;
+    prevTs = point.lastSeen;
   }
 
   if (current.length >= 2) {
@@ -243,96 +256,92 @@ function toTrackSegments(detail: FlightDetailResponse | null): Array<Array<[numb
   return segments;
 }
 
-function markerBaseSize(size: FlightMapItem['aircraftSize']): number {
-  switch (size) {
-    case 'small':
-      return 14;
-    case 'medium':
-      return 18;
-    case 'large':
-      return 23;
-    case 'heavy':
-      return 29;
-    case 'unknown':
-    default:
-      return 16;
+function toTrackSegments(detail: FlightDetailResponse | null): ClassifiedTrackSegments {
+  if (!detail?.recentTrack?.length) {
+    return { current: [], historical: [] };
   }
+
+  const valid: NormalizedTrackPoint[] = detail.recentTrack
+    .filter((point) => point.lat !== null && point.lon !== null && point.lastSeen !== null)
+    .map((point) => ({
+      lat: point.lat as number,
+      lon: point.lon as number,
+      lastSeen: point.lastSeen as number,
+      onGround: point.onGround ?? null
+    }))
+    .sort((left, right) => (left.lastSeen as number) - (right.lastSeen as number));
+
+  if (valid.length < 2) {
+    return { current: [], historical: [] };
+  }
+
+  let lastTakeoffEpoch: number | null = null;
+  for (let index = 1; index < valid.length; index += 1) {
+    const previous = valid[index - 1];
+    const current = valid[index];
+    if (previous.onGround === true && current.onGround === false) {
+      lastTakeoffEpoch = current.lastSeen;
+    }
+  }
+
+  const latestEpoch = valid[valid.length - 1].lastSeen;
+  const currentSince = lastTakeoffEpoch ?? (latestEpoch - CURRENT_TRACK_FALLBACK_WINDOW_SECONDS);
+
+  const historicalPoints = valid.filter((point) => point.lastSeen < currentSince);
+  const currentPoints = valid.filter((point) => point.lastSeen >= currentSince);
+
+  return {
+    current: toSegments(currentPoints),
+    historical: toSegments(historicalPoints)
+  };
 }
 
-function markerColor(flight: FlightMapItem): string {
-  if (flight.militaryHint === true || flight.fleetType === 'military') {
-    return '#ff4b4b';
+function markerOpacity(selected: boolean, isStatic: boolean): number {
+  if (selected) {
+    return 1;
   }
 
-  switch (flight.fleetType) {
-    case 'commercial':
-      return '#45e7ff';
-    case 'private':
-      return '#f8e16c';
-    case 'unknown':
-    default:
-      return '#a7bbd6';
+  if (isStatic) {
+    return 0.45;
   }
+
+  return 1;
 }
 
-function markerStroke(flight: FlightMapItem): string {
-  if (flight.airframeType === 'helicopter') {
-    return '#6dffb6';
+function hitboxDebugEnabled(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
   }
-  switch (flight.aircraftSize) {
-    case 'heavy':
-      return '#ffaf61';
-    case 'large':
-      return '#56b5ff';
-    case 'small':
-      return '#d2ff7e';
-    case 'medium':
-    case 'unknown':
-    default:
-      return '#0a1722';
-  }
+
+  const value = new URLSearchParams(window.location.search).get('debugHitbox');
+  return value === '1' || value === 'true';
 }
 
-function markerGlyph(flight: FlightMapItem, size: number, color: string, stroke: string, selected: boolean): string {
-  const strokeWidth = selected ? 2.8 : 2;
-  if (flight.airframeType === 'helicopter') {
-    return `
-      <svg viewBox="0 0 40 40" width="${size}" height="${size}" aria-hidden="true">
-        <line x1="6" y1="9" x2="34" y2="9" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
-        <line x1="20" y1="9" x2="20" y2="14" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
-        <rect x="15.5" y="14" width="9" height="11" rx="4" fill="${color}" stroke="${stroke}" stroke-width="${strokeWidth}"/>
-        <line x1="24.5" y1="20" x2="33" y2="23" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
-        <line x1="33" y1="23" x2="36" y2="23" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
-        <line x1="14" y1="28" x2="26" y2="28" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linecap="round"/>
-      </svg>
-    `;
-  }
-
-  return `
-    <svg viewBox="0 0 40 40" width="${size}" height="${size}" aria-hidden="true">
-      <path d="M19 3 H21 L23 14 L34 18 V22 L23 20 L21 37 H19 L17 20 L6 22 V18 L17 14 Z" fill="${color}" stroke="${stroke}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>
-      <circle cx="20" cy="16" r="1.8" fill="${stroke}" />
-    </svg>
-  `;
-}
-
-function markerIcon(flight: FlightMapItem, selected: boolean, zoom: number): DivIcon {
+function markerIcon(flight: FlightMapItem, selected: boolean, zoom: number, isStatic: boolean): DivIcon {
   const heading = flight.heading ?? 0;
   const baseSize = markerBaseSize(flight.aircraftSize);
-  const scale = Math.min(2.3, Math.max(0.9, 1 + (zoom - 8) * 0.18));
-  const size = Math.round(baseSize * scale);
-  const color = markerColor(flight);
-  const stroke = selected ? '#ffffff' : markerStroke(flight);
+  const scale = Math.min(1.75, Math.max(0.95, 1 + (zoom - 8) * 0.13));
+  const rawSize = Math.round(baseSize * scale);
+  const size = rawSize % 2 === 0 ? rawSize : rawSize + 1;
+  const hitPadding = Math.max(6, Math.round(size * 0.24));
+  const rawHitSize = size + hitPadding;
+  const hitSize = rawHitSize % 2 === 0 ? rawHitSize : rawHitSize + 1;
   const pulseClass = selected ? 'marker-pulse' : '';
-  const glyph = markerGlyph(flight, size, color, stroke, selected);
+  const opacity = markerOpacity(selected, isStatic);
+  const debugClass = hitboxDebugEnabled() ? ' is-debug' : '';
+  const glyph = markerGlyph(flight, size, selected);
 
   return L.divIcon({
-    className: `aircraft-div-icon ${pulseClass}`,
-    iconSize: [size, size],
-    iconAnchor: [Math.round(size / 2), Math.round(size / 2)],
+    className: 'aircraft-div-icon',
+    iconSize: [hitSize, hitSize],
+    iconAnchor: [Math.round(hitSize / 2), Math.round(hitSize / 2)],
     html: `
-      <div class="aircraft-marker" style="transform: rotate(${heading}deg)">
-        ${glyph}
+      <div class="aircraft-hitbox${debugClass}" style="width: ${hitSize}px; height: ${hitSize}px">
+        <div class="aircraft-marker ${pulseClass}" style="width: ${size}px; height: ${size}px; opacity: ${opacity.toFixed(2)}">
+          <div class="aircraft-rotator" style="transform: rotate(${heading}deg)">
+            ${glyph}
+          </div>
+        </div>
       </div>
     `
   });
@@ -364,12 +373,14 @@ export default function App(): JSX.Element {
   const [showCityLabels, setShowCityLabels] = useState(true);
   const [mapZoom, setMapZoom] = useState(8);
   const [effectiveBbox, setEffectiveBbox] = useState<Bbox>(IDF_BBOX);
+  const [staticByIcao, setStaticByIcao] = useState<Record<string, true>>({});
   const [boostStatus, setBoostStatus] = useState<BboxBoostStatusResponse | null>(null);
   const [boostLoading, setBoostLoading] = useState(false);
   const lastBatchEpochRef = useRef<number | null>(null);
   const hasMetricsRef = useRef<boolean>(false);
   const missingSelectionCyclesRef = useRef<number>(0);
   const mapFlightsRef = useRef<FlightMapItem[]>([]);
+  const previousSnapshotPositionsRef = useRef<Map<string, { lat: number; lon: number }>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
   const effectiveBboxRef = useRef<Bbox>(IDF_BBOX);
 
@@ -435,6 +446,34 @@ export default function App(): JSX.Element {
     }
   }, []);
 
+  const computeStaticByIcao = useCallback((nextFlights: FlightMapItem[]): Record<string, true> => {
+    const previousPositions = previousSnapshotPositionsRef.current;
+    const nextPositions = new Map<string, { lat: number; lon: number }>();
+    const nextStatic: Record<string, true> = {};
+
+    for (const flight of nextFlights) {
+      if (!isFiniteNumber(flight.lat) || !isFiniteNumber(flight.lon)) {
+        continue;
+      }
+
+      const current = { lat: flight.lat, lon: flight.lon };
+      nextPositions.set(flight.icao24, current);
+
+      const previous = previousPositions.get(flight.icao24);
+      if (!previous) {
+        continue;
+      }
+
+      const movedDistanceKm = haversineKm(previous.lat, previous.lon, current.lat, current.lon);
+      if (movedDistanceKm <= STATIC_POSITION_THRESHOLD_KM) {
+        nextStatic[flight.icao24] = true;
+      }
+    }
+
+    previousSnapshotPositionsRef.current = nextPositions;
+    return nextStatic;
+  }, []);
+
   const refreshData = useCallback(async () => {
     try {
       const boost = await fetchBboxBoostStatus();
@@ -448,11 +487,13 @@ export default function App(): JSX.Element {
 
       const flightsResponse = await fetchFlights(requestedBbox, 400);
       const normalizedFlights = normalizeFlights(flightsResponse.items);
+      const staticFlights = computeStaticByIcao(normalizedFlights);
       const batchEpoch = flightsResponse.latestOpenSkyBatchEpoch;
       const previousBatchEpoch = lastBatchEpochRef.current;
       const batchChanged = batchEpoch !== previousBatchEpoch;
 
       setFlights(normalizedFlights);
+      setStaticByIcao(staticFlights);
 
       if (!mapFlightsRef.current.length) {
         cancelMarkerAnimation();
@@ -501,7 +542,7 @@ export default function App(): JSX.Element {
       setApiStatus((previous) => (previous === 'online' ? 'degraded' : 'offline'));
       setOpenSkyStatus('unknown');
     }
-  }, [animateMarkers, cancelMarkerAnimation, loadDetail, selectedIcao24]);
+  }, [animateMarkers, cancelMarkerAnimation, computeStaticByIcao, loadDetail, selectedIcao24]);
 
   const handleTriggerBoost = useCallback(async () => {
     try {
@@ -566,6 +607,16 @@ export default function App(): JSX.Element {
   );
 
   const trackSegments = useMemo(() => toTrackSegments(selectedDetail), [selectedDetail]);
+  const selectedFlight = useMemo(() => {
+    if (!selectedIcao24) {
+      return null;
+    }
+    return (
+      flights.find((flight) => flight.icao24 === selectedIcao24)
+      ?? mapFlights.find((flight) => flight.icao24 === selectedIcao24)
+      ?? null
+    );
+  }, [flights, mapFlights, selectedIcao24]);
   const activeAircraft = metrics?.activeAircraft ?? flights.length;
   const rectangleBounds = useMemo(() => toRectangleBounds(effectiveBbox), [effectiveBbox]);
   const nowEpoch = Math.floor(Date.now() / 1000);
@@ -640,19 +691,35 @@ export default function App(): JSX.Element {
 
           <Rectangle pathOptions={{ color: '#00f5ff', dashArray: '6 4', weight: 2, fillOpacity: 0.04 }} bounds={rectangleBounds} />
 
-          {trackSegments.map((segment, index) => (
-            <Polyline key={`track-${index}`} positions={segment} pathOptions={{ color: '#00f5ff', weight: 3, opacity: 0.9 }} />
+          {trackSegments.historical.map((segment, index) => (
+            <Polyline
+              key={`track-historical-${index}`}
+              positions={segment}
+              pathOptions={{ color: '#d5dee8', weight: 2, opacity: 0.65, dashArray: '4 4' }}
+            />
+          ))}
+          {trackSegments.current.map((segment, index) => (
+            <Polyline
+              key={`track-current-${index}`}
+              positions={segment}
+              pathOptions={{ color: '#00f5ff', weight: 3, opacity: 0.92 }}
+            />
           ))}
 
           {mapFlights.map((flight) => {
             const selected = selectedIcao24 === flight.icao24;
+            const isStatic = Boolean(staticByIcao[flight.icao24]);
             return (
               <Marker
                 key={flight.icao24}
                 position={[flight.lat as number, flight.lon as number]}
-                icon={markerIcon(flight, selected, mapZoom)}
+                icon={markerIcon(flight, selected, mapZoom, isStatic)}
                 eventHandlers={{
-                  click: () => {
+                  mousedown: (event) => {
+                    const mouseEvent = event.originalEvent as MouseEvent | undefined;
+                    if (mouseEvent && mouseEvent.button !== 0) {
+                      return;
+                    }
                     void handleSelectFlight(flight);
                   }
                 }}
@@ -662,17 +729,19 @@ export default function App(): JSX.Element {
                     <strong>{flight.callsign || flight.icao24}</strong>
                     <div>icao24: {flight.icao24}</div>
                     <div>altitude: {flight.altitude ?? 'n/a'} m</div>
-                    <div>speed: {flight.speed ?? 'n/a'} kt</div>
+                    <div>speed: {formatSpeedKmh(flight.speed)}</div>
                   </div>
                 </Popup>
               </Marker>
             );
           })}
         </MapContainer>
+        <MapLegend />
       </section>
 
       <DetailPanel
         detail={selectedDetail}
+        fleetType={selectedFlight?.fleetType ?? null}
         open={detailOpen}
         loading={detailLoading}
         error={detailError}
@@ -680,7 +749,7 @@ export default function App(): JSX.Element {
       />
 
       <section className="kpi-tabs glass-panel">
-        <span className="active">Traffic density</span>
+        <span>Traffic density</span>
         <span>Military share</span>
         <span>Aircraft types</span>
       </section>
