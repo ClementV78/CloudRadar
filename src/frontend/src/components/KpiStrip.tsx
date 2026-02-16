@@ -12,26 +12,34 @@ function formatNumber(value: number, digits = 0): string {
   }).format(value);
 }
 
-function Sparkline({ points }: { points: Array<{ epoch: number; count: number }> }): JSX.Element {
+function AreaChart({
+  points,
+  variant
+}: {
+  points: Array<{ epoch: number; count: number }>;
+  variant: 'cyan' | 'red';
+}): JSX.Element {
   if (points.length < 2) {
-    return <div className="sparkline-empty">insufficient points</div>;
+    return <div className="area-chart-empty">insufficient points</div>;
   }
 
   const max = Math.max(...points.map((point) => point.count), 1);
   const min = Math.min(...points.map((point) => point.count), 0);
   const span = Math.max(max - min, 1);
 
-  const commands = points
+  const lineCommands = points
     .map((point, index) => {
       const x = (index / (points.length - 1)) * 100;
       const y = 100 - ((point.count - min) / span) * 100;
       return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(' ');
+  const areaCommands = `${lineCommands} L 100 100 L 0 100 Z`;
 
   return (
-    <svg className="sparkline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-      <path d={commands} />
+    <svg className={`area-chart area-chart-${variant}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <path className="area-chart-fill" d={areaCommands} />
+      <path className="area-chart-line" d={lineCommands} />
     </svg>
   );
 }
@@ -126,7 +134,7 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
             <div className="kpi-sub">
               OpenSky credits/request (24h): {openSkyCreditsPerRequest24h === null ? 'n/a' : formatNumber(openSkyCreditsPerRequest24h, 2)}
             </div>
-            <Sparkline points={metrics?.activitySeries ?? []} />
+            <AreaChart points={metrics?.activitySeries ?? []} variant="cyan" />
           </div>
         </div>
       </article>
@@ -145,7 +153,7 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
             <div className="kpi-main kpi-danger">{formatNumber(defenseScore, 1)}</div>
             <div className="kpi-sub">defense activity score</div>
             <div className="kpi-sub">military share: {compactPercent(militaryShare)}</div>
-            <Sparkline points={metrics?.activitySeries ?? []} />
+            <AreaChart points={metrics?.activitySeries ?? []} variant="red" />
           </div>
         </div>
       </article>

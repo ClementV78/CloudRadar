@@ -3,17 +3,27 @@ import type { FlightDetailResponse } from '../types';
 
 interface DetailPanelProps {
   detail: FlightDetailResponse | null;
+  fleetType: string | null;
   open: boolean;
   loading: boolean;
   error: string | null;
   onClose: () => void;
 }
 
+const KNOT_TO_KMH = 1.852;
+
 function formatValue(value: string | number | boolean | null | undefined, suffix = ''): string {
   if (value === null || value === undefined || value === '') {
     return 'n/a';
   }
   return `${value}${suffix}`;
+}
+
+function formatSpeedKmh(speedKt: number | null | undefined): string {
+  if (speedKt === null || speedKt === undefined || !Number.isFinite(speedKt)) {
+    return 'n/a';
+  }
+  return `${(speedKt * KNOT_TO_KMH).toFixed(1)} km/h`;
 }
 
 function formatLastSeen(epoch: number | null | undefined): string {
@@ -33,7 +43,14 @@ function militaryHintLabel(value: boolean | null | undefined): string {
   return 'unknown';
 }
 
-export function DetailPanel({ detail, open, loading, error, onClose }: DetailPanelProps): JSX.Element {
+function fleetTypeLabel(value: string | null): string {
+  if (!value || value.trim() === '') {
+    return 'unknown';
+  }
+  return value;
+}
+
+export function DetailPanel({ detail, fleetType, open, loading, error, onClose }: DetailPanelProps): JSX.Element {
   const handleClose = (event: MouseEvent<HTMLButtonElement> | TouchEvent<HTMLButtonElement>): void => {
     event.preventDefault();
     event.stopPropagation();
@@ -80,7 +97,7 @@ export function DetailPanel({ detail, open, loading, error, onClose }: DetailPan
           <dd>{formatValue(detail.heading, ' deg')}</dd>
 
           <dt>speed</dt>
-          <dd>{formatValue(detail.groundSpeed, ' kt')}</dd>
+          <dd>{formatSpeedKmh(detail.groundSpeed)}</dd>
 
           <dt>altitude</dt>
           <dd>{formatValue(detail.altitude, ' m')}</dd>
@@ -93,6 +110,9 @@ export function DetailPanel({ detail, open, loading, error, onClose }: DetailPan
 
           <dt>category</dt>
           <dd>{formatValue(detail.category)}</dd>
+
+          <dt>fleet type</dt>
+          <dd>{fleetTypeLabel(fleetType)}</dd>
 
           <dt>military hint</dt>
           <dd>{militaryHintLabel(detail.militaryHint)}</dd>

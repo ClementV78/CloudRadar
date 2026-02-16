@@ -16,7 +16,7 @@ export interface FlightMapItem {
   altitude: number | null;
   militaryHint: boolean | null;
   airframeType: 'airplane' | 'helicopter' | 'unknown' | null;
-  fleetType: 'commercial' | 'military' | 'private' | 'unknown' | null;
+  fleetType: 'commercial' | 'military' | 'rescue' | 'private' | 'unknown' | null;
   aircraftSize: 'small' | 'medium' | 'large' | 'heavy' | 'unknown' | null;
 }
 
