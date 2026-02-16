@@ -45,22 +45,29 @@ spec:
                 memory: 1Gi
             serviceMonitorSelectorNilUsesHelmValues: false
             podMonitorSelectorNilUsesHelmValues: false
-        
+
         prometheus-node-exporter:
           enabled: true
-        
+          tolerations:
+            - key: "node-role.kubernetes.io/control-plane"
+              operator: "Exists"
+              effect: "NoSchedule"
+            - key: "node-role.kubernetes.io/master"
+              operator: "Exists"
+              effect: "NoSchedule"
+
         kube-state-metrics:
           enabled: true
-        
+
         # Basic auth via ESO-managed secret
         grafana:
           enabled: false
         # Exposure: handled at edge (EC2 nginx) + Traefik Ingress; no in-cluster proxy
-  
+
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
-  
+
   syncPolicy:
     automated:
       prune: true
