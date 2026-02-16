@@ -16,6 +16,8 @@ public class DashboardProperties {
   private final Redis redis = new Redis();
   private final Api api = new Api();
   private final AircraftDb aircraftDb = new AircraftDb();
+  private final Boost boost = new Boost();
+  private final Prometheus prometheus = new Prometheus();
 
   public Redis getRedis() {
     return redis;
@@ -27,6 +29,14 @@ public class DashboardProperties {
 
   public AircraftDb getAircraftDb() {
     return aircraftDb;
+  }
+
+  public Boost getBoost() {
+    return boost;
+  }
+
+  public Prometheus getPrometheus() {
+    return prometheus;
   }
 
   /** Redis key configuration used by dashboard read paths. */
@@ -245,6 +255,131 @@ public class DashboardProperties {
 
     public void setCacheSize(int cacheSize) {
       this.cacheSize = cacheSize;
+    }
+  }
+
+  /** Temporary OpenSky bbox boost control settings. */
+  public static class Boost {
+    private boolean enabled = true;
+    private double factor = 2.0;
+    private int durationSeconds = 180;
+    private int cooldownSeconds = 3600;
+    private String activeKey = "cloudradar:opensky:bbox:boost:active";
+    private String cooldownPrefix = "cloudradar:opensky:bbox:boost:cooldown:";
+    private String clientCookieName = "cloudradar_boost_client";
+    private long clientCookieMaxAgeSeconds = 60L * 60L * 24L * 365L;
+    private String ipHashSalt = "cloudradar-boost-salt";
+    private boolean secureCookie = true;
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+    }
+
+    public double getFactor() {
+      return factor;
+    }
+
+    public void setFactor(double factor) {
+      this.factor = factor;
+    }
+
+    public int getDurationSeconds() {
+      return durationSeconds;
+    }
+
+    public void setDurationSeconds(int durationSeconds) {
+      this.durationSeconds = durationSeconds;
+    }
+
+    public int getCooldownSeconds() {
+      return cooldownSeconds;
+    }
+
+    public void setCooldownSeconds(int cooldownSeconds) {
+      this.cooldownSeconds = cooldownSeconds;
+    }
+
+    public String getActiveKey() {
+      return activeKey;
+    }
+
+    public void setActiveKey(String activeKey) {
+      this.activeKey = activeKey;
+    }
+
+    public String getCooldownPrefix() {
+      return cooldownPrefix;
+    }
+
+    public void setCooldownPrefix(String cooldownPrefix) {
+      this.cooldownPrefix = cooldownPrefix;
+    }
+
+    public String getClientCookieName() {
+      return clientCookieName;
+    }
+
+    public void setClientCookieName(String clientCookieName) {
+      this.clientCookieName = clientCookieName;
+    }
+
+    public long getClientCookieMaxAgeSeconds() {
+      return clientCookieMaxAgeSeconds;
+    }
+
+    public void setClientCookieMaxAgeSeconds(long clientCookieMaxAgeSeconds) {
+      this.clientCookieMaxAgeSeconds = clientCookieMaxAgeSeconds;
+    }
+
+    public String getIpHashSalt() {
+      return ipHashSalt;
+    }
+
+    public void setIpHashSalt(String ipHashSalt) {
+      this.ipHashSalt = ipHashSalt;
+    }
+
+    public boolean isSecureCookie() {
+      return secureCookie;
+    }
+
+    public void setSecureCookie(boolean secureCookie) {
+      this.secureCookie = secureCookie;
+    }
+  }
+
+  /** Prometheus query settings used for derived observability KPIs. */
+  public static class Prometheus {
+    private boolean enabled = true;
+    private String baseUrl = "http://prometheus-prometheus-kube-prometheus-prometheus.monitoring.svc:9090";
+    private int queryTimeoutMs = 1500;
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+    }
+
+    public String getBaseUrl() {
+      return baseUrl;
+    }
+
+    public void setBaseUrl(String baseUrl) {
+      this.baseUrl = baseUrl;
+    }
+
+    public int getQueryTimeoutMs() {
+      return queryTimeoutMs;
+    }
+
+    public void setQueryTimeoutMs(int queryTimeoutMs) {
+      this.queryTimeoutMs = queryTimeoutMs;
     }
   }
 }

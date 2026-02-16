@@ -164,10 +164,25 @@ body,
   text-align: center;
 }
 
+.theme-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .theme-btn.active {
   border-color: rgba(0, 245, 255, 0.7);
   color: var(--accent);
   background: rgba(0, 245, 255, 0.12);
+}
+
+.boost-btn {
+  border-color: rgba(255, 190, 85, 0.45);
+}
+
+.boost-btn.active {
+  border-color: rgba(77, 226, 138, 0.8);
+  color: #7af0b0;
+  background: rgba(77, 226, 138, 0.14);
 }
 
 .meta-pill {
@@ -177,6 +192,12 @@ body,
   border-radius: 999px;
   color: var(--warn);
   background: rgba(255, 190, 85, 0.08);
+}
+
+.boost-pill {
+  border-color: rgba(0, 245, 255, 0.35);
+  color: #8de8ff;
+  background: rgba(0, 245, 255, 0.08);
 }
 
 .meta-updated {

@@ -10,6 +10,18 @@ interface HeaderProps {
   onThemeChange: (theme: 'dark' | 'satellite') => void;
   showCityLabels: boolean;
   onToggleCityLabels: () => void;
+  boostActive: boolean;
+  boostRemainingSeconds: number;
+  boostCooldownSeconds: number;
+  boostLoading: boolean;
+  onTriggerBoost: () => void;
+}
+
+function formatDuration(seconds: number): string {
+  const safe = Math.max(0, Math.floor(seconds));
+  const mm = String(Math.floor(safe / 60)).padStart(2, '0');
+  const ss = String(safe % 60).padStart(2, '0');
+  return `${mm}:${ss}`;
 }
 
 function badgeClass(status: ApiStatus | OpenSkyStatus): string {
@@ -40,8 +52,15 @@ export function Header({
   mapTheme,
   onThemeChange,
   showCityLabels,
-  onToggleCityLabels
+  onToggleCityLabels,
+  boostActive,
+  boostRemainingSeconds,
+  boostCooldownSeconds,
+  boostLoading,
+  onTriggerBoost
 }: HeaderProps): JSX.Element {
+  const boostDisabled = boostLoading || boostActive || boostCooldownSeconds > 0;
+
   return (
     <header className="top-header glass-panel">
       <div className="brand-block">
@@ -91,7 +110,19 @@ export function Header({
           >
             labels
           </button>
+          <button
+            type="button"
+            className={boostActive ? 'theme-btn boost-btn active' : 'theme-btn boost-btn'}
+            onClick={onTriggerBoost}
+            disabled={boostDisabled}
+          >
+            {boostLoading ? 'boosting...' : 'boost x2 (3m)'}
+          </button>
         </div>
+        {boostActive && <span className="meta-pill boost-pill">BBox boost active {formatDuration(boostRemainingSeconds)}</span>}
+        {!boostActive && boostCooldownSeconds > 0 && (
+          <span className="meta-pill boost-pill">Boost cooldown {formatDuration(boostCooldownSeconds)}</span>
+        )}
         <span className="meta-pill">alerts/zones pending (#128/#424)</span>
         <span className="meta-updated">{refreshedAt ? `Last refresh ${refreshedAt} UTC` : 'Waiting for first refresh'}</span>
       </div>

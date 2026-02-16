@@ -10,6 +10,9 @@ ingester:
     lat-max: ${OPENSKY_LAT_MAX:50.8836}
     lon-min: ${OPENSKY_LON_MIN:-0.7389}
     lon-max: ${OPENSKY_LON_MAX:5.4433}
+  bbox-boost:
+    redis-key: ${OPENSKY_BBOX_BOOST_ACTIVE_KEY:cloudradar:opensky:bbox:boost:active}
+    factor: ${OPENSKY_BBOX_BOOST_FACTOR:2.0}
   rate-limit:
     quota: ${OPENSKY_CREDITS_QUOTA:4000}
     warn-50: ${OPENSKY_CREDITS_WARN_50:50}

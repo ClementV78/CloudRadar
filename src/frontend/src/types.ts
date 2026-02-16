@@ -84,7 +84,17 @@ export interface FlightsMetricsResponse {
   aircraftSizes: TypeBreakdownItem[];
   aircraftTypes: TypeBreakdownItem[];
   activitySeries: ActivityPoint[];
+  openSkyCreditsPerRequest24h: number | null;
   timestamp: string;
+}
+
+export interface BboxBoostStatusResponse {
+  active: boolean;
+  factor: number;
+  bbox: Bbox;
+  activeUntilEpoch: number | null;
+  cooldownUntilEpoch: number | null;
+  serverEpoch: number;
 }
 
 export type ApiStatus = 'online' | 'degraded' | 'offline';

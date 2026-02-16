@@ -3,15 +3,18 @@ package com.cloudradar.dashboard.api;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.cloudradar.dashboard.model.BboxBoostStatusResponse;
 import com.cloudradar.dashboard.model.FlightDetailResponse;
 import com.cloudradar.dashboard.model.FlightListResponse;
 import com.cloudradar.dashboard.model.FlightMapItem;
 import com.cloudradar.dashboard.model.FlightTrackPoint;
 import com.cloudradar.dashboard.model.FlightsMetricsResponse;
 import com.cloudradar.dashboard.rate.ApiRateLimitFilter;
+import com.cloudradar.dashboard.service.BboxBoostService;
 import com.cloudradar.dashboard.service.FlightQueryService;
 import com.cloudradar.dashboard.service.FlightUpdateStreamService;
 import java.util.List;
@@ -32,6 +35,7 @@ class DashboardControllerTest {
 
   @MockBean private FlightQueryService flightQueryService;
   @MockBean private FlightUpdateStreamService flightUpdateStreamService;
+  @MockBean private BboxBoostService bboxBoostService;
   @MockBean private ApiRateLimitFilter apiRateLimitFilter;
 
   @Test
@@ -79,6 +83,7 @@ class DashboardControllerTest {
         List.of(new FlightsMetricsResponse.TypeBreakdownItem("A320", 1, 100.0)),
         List.of(new FlightsMetricsResponse.TimeBucket(1760000000L, 1)),
         new FlightsMetricsResponse.Estimates(null, null, null, Map.of("takeoffsLandings", "planned_v1_1")),
+        0.87,
         "2026-02-13T12:00:00Z");
 
     when(flightQueryService.getFlightsMetrics(eq(null), eq(null))).thenReturn(payload);
@@ -86,7 +91,8 @@ class DashboardControllerTest {
     mockMvc.perform(get("/api/flights/metrics"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.activeAircraft").value(1))
-        .andExpect(jsonPath("$.fleetBreakdown[0].key").value("commercial"));
+        .andExpect(jsonPath("$.fleetBreakdown[0].key").value("commercial"))
+        .andExpect(jsonPath("$.openSkyCreditsPerRequest24h").value(0.87));
   }
 
   @Test
@@ -145,5 +151,41 @@ class DashboardControllerTest {
 
     mockMvc.perform(get("/api/flights/stream"))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  void bboxBoostStatus_returns200() throws Exception {
+    BboxBoostStatusResponse payload = new BboxBoostStatusResponse(
+        true,
+        2.0,
+        Map.of("minLon", 0.0, "minLat", 45.0, "maxLon", 10.0, "maxLat", 55.0),
+        1760000300L,
+        1760003600L,
+        1760000000L);
+    when(bboxBoostService.getStatus(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(payload);
+
+    mockMvc.perform(get("/api/flights/bbox/boost"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.active").value(true))
+        .andExpect(jsonPath("$.factor").value(2.0));
+  }
+
+  @Test
+  void triggerBboxBoost_returns200() throws Exception {
+    BboxBoostStatusResponse payload = new BboxBoostStatusResponse(
+        true,
+        2.0,
+        Map.of("minLon", 0.0, "minLat", 45.0, "maxLon", 10.0, "maxLat", 55.0),
+        1760000300L,
+        1760003600L,
+        1760000000L);
+    when(bboxBoostService.triggerBoost(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(payload);
+
+    mockMvc.perform(post("/api/flights/bbox/boost"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.active").value(true))
+        .andExpect(jsonPath("$.factor").value(2.0));
   }
 }

@@ -55,6 +55,7 @@ public class FlightQueryService {
   private final ObjectMapper objectMapper;
   private final DashboardProperties properties;
   private final Optional<AircraftMetadataRepository> aircraftRepo;
+  private final Optional<PrometheusMetricsService> prometheusMetricsService;
 
   /**
    * Creates the query service.
@@ -63,16 +64,19 @@ public class FlightQueryService {
    * @param objectMapper JSON mapper for event payloads
    * @param properties typed dashboard configuration
    * @param aircraftRepo optional aircraft metadata repository
+   * @param prometheusMetricsService optional Prometheus query helper
    */
   public FlightQueryService(
       StringRedisTemplate redisTemplate,
       ObjectMapper objectMapper,
       DashboardProperties properties,
-      Optional<AircraftMetadataRepository> aircraftRepo) {
+      Optional<AircraftMetadataRepository> aircraftRepo,
+      Optional<PrometheusMetricsService> prometheusMetricsService) {
     this.redisTemplate = redisTemplate;
     this.objectMapper = objectMapper;
     this.properties = properties;
     this.aircraftRepo = aircraftRepo;
+    this.prometheusMetricsService = prometheusMetricsService;
   }
 
   /**
@@ -273,6 +277,11 @@ public class FlightQueryService {
             "noiseProxyIndex", "planned_v1_1_heuristic",
             "alerts", "out_of_scope_issue_129"));
 
+    Double openSkyCreditsPerRequest24h = prometheusMetricsService
+        .flatMap(PrometheusMetricsService::queryOpenSkyCreditsPerRequest24h)
+        .map(FlightQueryService::round2)
+        .orElse(null);
+
     return new FlightsMetricsResponse(
         active,
         density,
@@ -283,6 +292,7 @@ public class FlightQueryService {
         aircraftTypes,
         activitySeries,
         estimates,
+        openSkyCreditsPerRequest24h,
         ISO.format(Instant.now()));
   }
 

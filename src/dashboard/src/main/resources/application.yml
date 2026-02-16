@@ -36,6 +36,21 @@ dashboard:
     enabled: ${API_AIRCRAFT_DB_ENABLED:false}
     path: ${API_AIRCRAFT_DB_PATH:/refdata/aircraft.db}
     cache-size: ${API_AIRCRAFT_DB_CACHE_SIZE:50000}
+  boost:
+    enabled: ${OPENSKY_BBOX_BOOST_ENABLED:true}
+    factor: ${OPENSKY_BBOX_BOOST_FACTOR:2.0}
+    duration-seconds: ${OPENSKY_BBOX_BOOST_DURATION_SECONDS:180}
+    cooldown-seconds: ${OPENSKY_BBOX_BOOST_COOLDOWN_SECONDS:3600}
+    active-key: ${OPENSKY_BBOX_BOOST_ACTIVE_KEY:cloudradar:opensky:bbox:boost:active}
+    cooldown-prefix: ${OPENSKY_BBOX_BOOST_COOLDOWN_PREFIX:cloudradar:opensky:bbox:boost:cooldown:}
+    client-cookie-name: ${OPENSKY_BBOX_BOOST_COOKIE_NAME:cloudradar_boost_client}
+    client-cookie-max-age-seconds: ${OPENSKY_BBOX_BOOST_COOKIE_MAX_AGE_SECONDS:31536000}
+    ip-hash-salt: ${OPENSKY_BBOX_BOOST_IP_HASH_SALT:cloudradar-boost-salt}
+    secure-cookie: ${OPENSKY_BBOX_BOOST_SECURE_COOKIE:true}
+  prometheus:
+    enabled: ${DASHBOARD_PROMETHEUS_ENABLED:true}
+    base-url: ${DASHBOARD_PROMETHEUS_BASE_URL:http://prometheus-prometheus-kube-prometheus-prometheus.monitoring.svc:9090}
+    query-timeout-ms: ${DASHBOARD_PROMETHEUS_QUERY_TIMEOUT_MS:1500}
 
 management:
   endpoints:
