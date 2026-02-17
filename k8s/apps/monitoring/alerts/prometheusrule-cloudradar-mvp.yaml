@@ -1,0 +1,83 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: cloudradar-mvp-alerts
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: cloudradar-mvp-alerts
+    app.kubernetes.io/part-of: cloudradar
+spec:
+  groups:
+    - name: cloudradar.pipeline.rules
+      rules:
+        - alert: CloudRadarCriticalTargetDown
+          expr: avg_over_time(up{job=~"ingester|processor|dashboard|redis-exporter|traefik"}[5m]) < 1
+          for: 10m
+          labels:
+            severity: critical
+            component: monitoring
+            owner: platform
+          annotations:
+            summary: "Critical scrape target down ({{ $labels.job }})"
+            description: "Prometheus failed to scrape job {{ $labels.job }} for at least 10 minutes."
+            runbook_url: "https://github.com/ClementV78/CloudRadar/blob/main/docs/runbooks/observability.md"
+
+        - alert: CloudRadarProcessorStalled
+          expr: time() - max(processor_last_processed_epoch) > 600
+          for: 5m
+          labels:
+            severity: critical
+            component: processor
+            owner: app
+          annotations:
+            summary: "Processor appears stalled"
+            description: "No processor event progress detected for more than 10 minutes."
+            runbook_url: "https://github.com/ClementV78/CloudRadar/blob/main/docs/runbooks/operations/processor.md"
+
+        - alert: CloudRadarRedisQueueBacklogHigh
+          expr: max(processor_queue_depth) > 500
+          for: 10m
+          labels:
+            severity: warning
+            component: redis
+            owner: app
+          annotations:
+            summary: "Redis ingestion queue backlog is high"
+            description: "processor_queue_depth has been above 500 for at least 10 minutes."
+            runbook_url: "https://github.com/ClementV78/CloudRadar/blob/main/docs/runbooks/operations/redis.md"
+
+        - alert: CloudRadarIngesterBackoffActive
+          expr: max(ingester_opensky_backoff_seconds) > 0
+          for: 10m
+          labels:
+            severity: warning
+            component: ingester
+            owner: app
+          annotations:
+            summary: "Ingester OpenSky backoff is active"
+            description: "Ingester is in failure backoff mode for at least 10 minutes."
+            runbook_url: "https://github.com/ClementV78/CloudRadar/blob/main/docs/runbooks/operations/ingester.md"
+
+        - alert: CloudRadarIngesterDisabled
+          expr: max(ingester_opensky_disabled) > 0
+          for: 2m
+          labels:
+            severity: critical
+            component: ingester
+            owner: app
+          annotations:
+            summary: "Ingester disabled after repeated failures"
+            description: "Ingester entered terminal disabled mode and requires restart/intervention."
+            runbook_url: "https://github.com/ClementV78/CloudRadar/blob/main/docs/runbooks/operations/ingester.md"
+
+        - alert: CloudRadarOpenSkyRateLimited
+          expr: sum(rate(ingester_opensky_states_http_requests_total{outcome="rate_limited"}[5m])) > 0
+          for: 10m
+          labels:
+            severity: warning
+            component: ingester
+            owner: app
+          annotations:
+            summary: "OpenSky API is rate limiting requests"
+            description: "OpenSky returned rate-limited responses continuously for at least 10 minutes."
+            runbook_url: "https://github.com/ClementV78/CloudRadar/blob/main/docs/runbooks/operations/ingester.md"

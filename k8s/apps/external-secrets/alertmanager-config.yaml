@@ -1,0 +1,42 @@
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: alertmanager-config
+  namespace: monitoring
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: ssm-parameter-store
+    kind: ClusterSecretStore
+  target:
+    name: cloudradar-alertmanager-config
+    creationPolicy: Owner
+    template:
+      engineVersion: v2
+      data:
+        alertmanager.yaml: |
+          global:
+            resolve_timeout: 5m
+          route:
+            group_by: ["alertname", "severity", "component"]
+            group_wait: 30s
+            group_interval: 5m
+            repeat_interval: 4h
+            receiver: {{ if eq .enabled "true" }}"sns-email"{{ else }}"null"{{ end }}
+          receivers:
+            {{- if eq .enabled "true" }}
+            - name: "sns-email"
+              sns_configs:
+                - topic_arn: "{{ .sns_topic_arn }}"
+                  send_resolved: true
+                  subject: "CloudRadar alert"
+            {{- else }}
+            - name: "null"
+            {{- end }}
+  data:
+    - secretKey: sns_topic_arn
+      remoteRef:
+        key: /cloudradar/alerting/sns-topic-arn
+    - secretKey: enabled
+      remoteRef:
+        key: /cloudradar/alerting/enabled
