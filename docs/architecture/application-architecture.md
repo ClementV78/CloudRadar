@@ -148,7 +148,8 @@ After the final backoff, ingestion is disabled until pod restart.
 - `opensky_requests_total` — Total API requests sent
 - `opensky_errors_total` — Total API errors
 - `ingester_events_published_total` — Total events pushed to Redis
-- `ingester_backoff_level` — Current backoff tier (0 = no backoff)
+- `ingester_opensky_backoff_seconds` — Current OpenSky failure backoff duration in seconds
+- `ingester_opensky_disabled` — Ingester disabled flag (1 = disabled after repeated failures)
 
 ---
 
@@ -527,6 +528,6 @@ python3 app.py
 
 - **Dashboard MVP** (v1.1): React/Leaflet map + Grafana embeds
 - **Persistence** (#165): SQLite for event history
-- **Alerting** (Sprint 2): AlertManager rules for anomalies
+- **Alerting** (MVP implemented): Alertmanager baseline rules for platform/pipeline anomalies
 - **Loki** (v2): Log aggregation and analysis
 - **API** (v2): REST/GraphQL interface to aggregates

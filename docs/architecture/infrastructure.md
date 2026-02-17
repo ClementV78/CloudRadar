@@ -125,8 +125,13 @@ flowchart LR
   subgraph Obs["observability namespace"]
     direction TB
     prom["Prometheus"]
+    am["Alertmanager"]
     graf["Grafana"]
   end
+  eso["External Secrets Operator"]
+  ssm["AWS SSM Parameter Store"]
+  sns["AWS SNS (email)"]
+  cw["CloudWatch alarms"]
 
   opensky["OpenSky API"]
 
@@ -137,7 +142,12 @@ flowchart LR
 
   prom -. "4. scrape" .-> ingester
   prom -. "5. scrape" .-> processor
-  graf -- "6. query" --> prom
+  prom -. "6. alert eval" .-> am
+  graf -- "7. query" --> prom
+  eso -. "8. sync secret" .-> am
+  ssm -. "9. source of truth" .-> eso
+  am -- "10. notify" --> sns
+  cw -- "11. infra alerts" --> sns
 ```
 
 ## Resource inventory (per environment)
@@ -213,24 +223,27 @@ Prod values are currently aligned with module defaults and may be overridden lat
 
 | Component | Details | Status |
 | --- | --- | --- |
-| **Namespace** | `monitoring` | Created by Terraform/K8s (manual) |
-| **Prometheus** | `prometheus-community/kube-prometheus-stack` v60.0.2 | Deployed via ArgoCD Application |
-| **Grafana** | `grafana/grafana` v7.6.10 | Deployed via ArgoCD Application |
+| **Namespace** | `monitoring` | Managed by GitOps/ArgoCD |
+| **Prometheus** | `prometheus-community/kube-prometheus-stack` v81.4.2 | Deployed via ArgoCD Application |
+| **Alertmanager** | Included in kube-prometheus-stack | Enabled with config from ESO (`cloudradar-alertmanager-config`) |
+| **Grafana** | `grafana/grafana` v10.5.15 | Deployed via ArgoCD Application |
 | **Storage** | 5GB gp3 EBS (Prometheus PVC) | Provisioned via EBS CSI + gp3 StorageClass |
 | **Retention** | 7 days (or when 4GB limit hit) | Configurable in Prometheus Helm values |
-| **Datasource** | Prometheus → Grafana (internal DNS) | Auto-configured, cluster-local |
+| **Datasource** | Prometheus + CloudWatch → Grafana | Auto-configured, cluster-local |
 | **Ingress** | Traefik ingress controller (k3s default) | `grafana.cloudradar.local` + `prometheus.cloudradar.local` via edge (host rewrite) |
-| **Authentication** | K8s Secret `grafana-admin` (password) | Created manually post-bootstrap (see runbook) |
-| **Password Storage** | AWS SSM Parameter Store | `/cloudradar/grafana/admin-password` |
+| **Authentication** | K8s Secrets (`grafana-admin`, `cloudradar-alertmanager-config`) | Synced by ESO from SSM |
+| **Secrets Storage** | AWS SSM Parameter Store | `/cloudradar/grafana-admin-*`, `/cloudradar/alerting/*` |
+| **External Notifications** | SNS email | Triggered by Alertmanager (in-cluster) and CloudWatch alarms (external) |
 | **Cost** | ~$0.50/month (PVC only) | 5GB gp3 @ $0.10/GB/month |
 | **Metrics Targets** | node-exporter, kube-state-metrics, app pods (with scrape labels) | Auto-discovered via ServiceMonitor |
 
 **Deployment Flow:**
-1. Terraform generates passwords + stores in SSM (no K8s create)
-2. Manual: create K8s Secrets in monitoring namespace (post-bootstrap)
-3. ArgoCD detects `k8s/apps/monitoring/` and syncs Applications
-4. Prometheus starts, scrapes metrics; Grafana connects as datasource
-5. Edge Nginx routes `/grafana` and `/prometheus` to k3s Ingress and rewrites Host to `grafana.cloudradar.local` / `prometheus.cloudradar.local`
+1. Terraform provisions infra and alerting resources (SNS + CloudWatch alarms) and writes SSM parameters for observability/alerting secrets.
+2. ArgoCD syncs monitoring apps (`prometheus`, `grafana`) from `k8s/apps/monitoring/`.
+3. ESO syncs SSM parameters into Kubernetes Secrets (`grafana-admin`, `grafana-domain`, `cloudradar-alertmanager-config`).
+4. Prometheus scrapes targets and evaluates alert rules; Alertmanager routes alert notifications to SNS when enabled.
+5. Grafana queries Prometheus and CloudWatch datasources.
+6. Edge Nginx routes `/grafana` and `/prometheus` to k3s Ingress and rewrites Host to `grafana.cloudradar.local` / `prometheus.cloudradar.local`.
 
 See [docs/runbooks/observability.md](../runbooks/observability.md) for operational details and setup steps.
 
@@ -239,9 +252,10 @@ See [docs/runbooks/observability.md](../runbooks/observability.md) for operation
 - Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, S3 backup bucket for SQLite snapshots.
 - Implemented (IaC, dev): SSM/KMS interface endpoints are temporarily disabled to reduce cost; edge uses HTTPS egress for SSM.
 - Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery, Redis buffer in the data namespace, EBS CSI driver + `ebs-gp3` StorageClass.
-- Implemented (Observability): Prometheus + Grafana stack (7d retention, 5GB PVC, $0.50/month), auto-deployed via ArgoCD, manual K8s Secret setup.
+- Implemented (Observability): Prometheus + Grafana stack (7d retention, 5GB PVC, $0.50/month), auto-deployed via ArgoCD, secrets/config synced from SSM via ESO.
 - Planned: migrate Redis PVC off `local-path` to resilient storage (`ebs-gp3`) to avoid node affinity lock-in (issue #221).
-- Planned: additional network hardening, AlertManager rules (Sprint 2).
+- Planned: additional network hardening.
+- Implemented (Alerting MVP): Alertmanager enabled in-cluster with baseline CloudRadar rules and SNS routing configured via Terraform -> SSM -> ESO, plus external CloudWatch/SNS email alarms (k3s/edge/nat status checks), with workflow-driven mute/re-enable during destroy/apply.
 
 ## Notes
 
