@@ -323,6 +323,9 @@ jobs:
           PROCESSOR_AIRCRAFT_DB_ENABLED="${{ vars.PROCESSOR_AIRCRAFT_DB_ENABLED }}"
           PROCESSOR_AIRCRAFT_DB_S3_URI="${{ vars.PROCESSOR_AIRCRAFT_DB_S3_URI }}"
           PROCESSOR_AIRCRAFT_DB_SHA256="${{ vars.PROCESSOR_AIRCRAFT_DB_SHA256 }}"
+          ENABLE_EXTERNAL_ALERTING="${{ vars.ENABLE_EXTERNAL_ALERTING }}"
+          ALERTS_ENABLED_VAR="${{ vars.ALERTS_ENABLED }}"
+          ALERT_EMAIL_ENDPOINT="${{ vars.ALERT_EMAIL_ENDPOINT }}"
           EXTRA_VARS=()
 
           if [[ "${{ inputs.environment }}" == "dev" && -n "${BACKUP_BUCKET_NAME}" ]]; then
@@ -360,6 +363,17 @@ jobs:
           fi
           if [[ -n "${PROCESSOR_AIRCRAFT_DB_SHA256}" ]]; then
             EXTRA_VARS+=("-var=processor_aircraft_db_sha256=${PROCESSOR_AIRCRAFT_DB_SHA256}")
+          fi
+
+          if [[ -n "${ENABLE_EXTERNAL_ALERTING}" ]]; then
+            EXTRA_VARS+=("-var=enable_external_alerting=${ENABLE_EXTERNAL_ALERTING}")
+          fi
+          if [[ -z "${ALERTS_ENABLED_VAR}" ]]; then
+            ALERTS_ENABLED_VAR="true"
+          fi
+          EXTRA_VARS+=("-var=alerts_enabled=${ALERTS_ENABLED_VAR}")
+          if [[ -n "${ALERT_EMAIL_ENDPOINT}" ]]; then
+            EXTRA_VARS+=("-var=alert_email_endpoint=${ALERT_EMAIL_ENDPOINT}")
           fi
 
           terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" plan -input=false -no-color -var-file=terraform.tfvars \
@@ -437,6 +451,9 @@ jobs:
           PROCESSOR_AIRCRAFT_DB_ENABLED="${{ vars.PROCESSOR_AIRCRAFT_DB_ENABLED }}"
           PROCESSOR_AIRCRAFT_DB_S3_URI="${{ vars.PROCESSOR_AIRCRAFT_DB_S3_URI }}"
           PROCESSOR_AIRCRAFT_DB_SHA256="${{ vars.PROCESSOR_AIRCRAFT_DB_SHA256 }}"
+          ENABLE_EXTERNAL_ALERTING="${{ vars.ENABLE_EXTERNAL_ALERTING }}"
+          ALERTS_ENABLED_VAR="${{ vars.ALERTS_ENABLED }}"
+          ALERT_EMAIL_ENDPOINT="${{ vars.ALERT_EMAIL_ENDPOINT }}"
           EXTRA_VARS=()
 
           if [[ "${{ inputs.environment }}" == "dev" && -n "${BACKUP_BUCKET_NAME}" ]]; then
@@ -476,8 +493,36 @@ jobs:
             EXTRA_VARS+=("-var=processor_aircraft_db_sha256=${PROCESSOR_AIRCRAFT_DB_SHA256}")
           fi
 
+          if [[ -n "${ENABLE_EXTERNAL_ALERTING}" ]]; then
+            EXTRA_VARS+=("-var=enable_external_alerting=${ENABLE_EXTERNAL_ALERTING}")
+          fi
+          if [[ -z "${ALERTS_ENABLED_VAR}" ]]; then
+            ALERTS_ENABLED_VAR="true"
+          fi
+          EXTRA_VARS+=("-var=alerts_enabled=${ALERTS_ENABLED_VAR}")
+          if [[ -n "${ALERT_EMAIL_ENDPOINT}" ]]; then
+            EXTRA_VARS+=("-var=alert_email_endpoint=${ALERT_EMAIL_ENDPOINT}")
+          fi
+
           terraform -chdir="${{ needs.env-select.outputs.tf_dir }}" apply -input=false -auto-approve -var-file=terraform.tfvars \
             "${EXTRA_VARS[@]}"
+
+      - name: Re-enable CloudWatch alarm actions (best effort)
+        if: ${{ vars.ALERTS_ENABLED != 'false' }}
+        run: |
+          set -euo pipefail
+          ALARM_PREFIX="cloudradar-${{ inputs.environment }}-"
+          mapfile -t alarms < <(aws cloudwatch describe-alarms \
+            --query "MetricAlarms[?starts_with(AlarmName, \`${ALARM_PREFIX}\`) && contains(AlarmName, \`status-check-failed\`)].AlarmName" \
+            --output text | tr '\t' '\n' | sed '/^$/d')
+
+          if (( ${#alarms[@]} == 0 )); then
+            echo "::notice title=cloudwatch-alerting::No status-check alarms found for prefix ${ALARM_PREFIX}."
+            exit 0
+          fi
+
+          aws cloudwatch enable-alarm-actions --alarm-names "${alarms[@]}"
+          echo "::notice title=cloudwatch-alerting::Re-enabled alarm actions for ${#alarms[@]} alarm(s)."
 
       - name: tf-apply summary
         if: ${{ always() }}

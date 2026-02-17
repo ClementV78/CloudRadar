@@ -29,6 +29,12 @@ k3s_server_extra_args     = ["--node-taint=node-role.kubernetes.io/control-plane
 # Grafana CloudWatch datasource uses the EC2 instance role (no static keys).
 enable_grafana_cloudwatch_read = true
 
+# Optional: external AWS alerting (CloudWatch -> SNS email).
+# Keep disabled by default for cost control.
+# enable_external_alerting = true
+# alerts_enabled           = true
+# alert_email_endpoint     = "alerts@example.com"
+
 # Optional: additional k3s flags.
 # k3s_server_extra_args = ["--tls-san=example.com"]
 # k3s_agent_extra_args  = []
