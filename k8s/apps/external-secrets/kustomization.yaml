@@ -7,3 +7,4 @@ resources:
   - grafana-secret.yaml
   - opensky-secret.yaml
   - processor-aircraft-db.yaml
+  - alertmanager-config.yaml

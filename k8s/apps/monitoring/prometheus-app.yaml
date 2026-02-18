@@ -45,6 +45,7 @@ spec:
                 memory: 1Gi
             serviceMonitorSelectorNilUsesHelmValues: false
             podMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
 
         prometheus-node-exporter:
           enabled: true
@@ -58,6 +59,18 @@ spec:
 
         kube-state-metrics:
           enabled: true
+
+        alertmanager:
+          enabled: true
+          alertmanagerSpec:
+            configSecret: cloudradar-alertmanager-config
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                cpu: 200m
+                memory: 256Mi
 
         # Basic auth via ESO-managed secret
         grafana:

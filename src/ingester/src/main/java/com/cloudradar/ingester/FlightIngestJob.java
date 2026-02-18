@@ -61,6 +61,8 @@ public class FlightIngestJob {
   private final java.util.concurrent.atomic.AtomicLong creditsUsedSinceReset = new java.util.concurrent.atomic.AtomicLong(0);
   private final java.util.concurrent.atomic.AtomicLong eventsSinceReset = new java.util.concurrent.atomic.AtomicLong(0);
   private final java.util.concurrent.atomic.AtomicLong lastStatesCount = new java.util.concurrent.atomic.AtomicLong(0);
+  private final java.util.concurrent.atomic.AtomicLong currentBackoffSeconds = new java.util.concurrent.atomic.AtomicLong(0);
+  private final java.util.concurrent.atomic.AtomicInteger disabledGauge = new java.util.concurrent.atomic.AtomicInteger(0);
 
   public FlightIngestJob(
       OpenSkyClient openSkyClient,
@@ -123,6 +125,8 @@ public class FlightIngestJob {
       updateResetTracking(result.creditLimit(), result.resetAtEpochSeconds());
       updateRateLimit(result.remainingCredits());
       consecutiveFailures.set(0);
+      currentBackoffSeconds.set(0);
+      disabledGauge.set(0);
       nextAllowedAtMs = System.currentTimeMillis() + currentDelayMs;
     } catch (Exception ex) {
       // Keep the scheduler running even if a cycle fails.
@@ -132,9 +136,12 @@ public class FlightIngestJob {
       if (failureCount <= FAILURE_BACKOFF_MS.length) {
         long backoffMs = FAILURE_BACKOFF_MS[failureCount - 1];
         nextAllowedAtMs = System.currentTimeMillis() + backoffMs;
+        currentBackoffSeconds.set(backoffMs / 1000);
         log.warn("OpenSky fetch failed (attempt {}), backing off for {} ms", failureCount, backoffMs);
       } else {
         disabled = true;
+        currentBackoffSeconds.set(0);
+        disabledGauge.set(1);
         nextAllowedAtMs = Long.MAX_VALUE;
         log.error("OpenSky fetch failed {} times. Disabling ingestion until restart.", failureCount);
       }
@@ -176,6 +183,8 @@ public class FlightIngestJob {
     meterRegistry.gauge("ingester.opensky.threshold.warn50", this, job -> job.thresholdPercent("warn50"));
     meterRegistry.gauge("ingester.opensky.threshold.warn80", this, job -> job.thresholdPercent("warn80"));
     meterRegistry.gauge("ingester.opensky.threshold.warn95", this, job -> job.thresholdPercent("warn95"));
+    meterRegistry.gauge("ingester.opensky.backoff.seconds", currentBackoffSeconds);
+    meterRegistry.gauge("ingester.opensky.disabled", disabledGauge);
   }
 
   private void updateCreditTracking(Integer remaining) {

@@ -108,3 +108,21 @@ variable "vpc_flow_logs_max_aggregation_interval" {
   type        = number
   default     = 60
 }
+
+variable "enable_external_alerting" {
+  description = "Whether to provision external AWS alerting resources (SNS + CloudWatch alarms)."
+  type        = bool
+  default     = false
+}
+
+variable "alerts_enabled" {
+  description = "Global switch for alarm actions (true = notifications enabled, false = muted)."
+  type        = bool
+  default     = true
+}
+
+variable "alert_email_endpoint" {
+  description = "Email endpoint subscribed to the SNS alert topic (leave empty to disable email subscription)."
+  type        = string
+  default     = ""
+}

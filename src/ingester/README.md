@@ -109,6 +109,8 @@ OpenSky performance:
 - `ingester_opensky_token_http_requests_total{outcome="success|client_error|server_error|exception"}`
 - `ingester_opensky_credits_consumed_percent` (gauge)
 - `ingester_opensky_reset_eta_seconds` (gauge; `0` if header not available)
+- `ingester_opensky_backoff_seconds` (gauge; OpenSky failure backoff duration)
+- `ingester_opensky_disabled` (gauge; `1` when ingestion is disabled after repeated failures)
 
 Throughput (telemetry ingestion):
 - `ingester_fetch_total` (counter; increments by number of states fetched)

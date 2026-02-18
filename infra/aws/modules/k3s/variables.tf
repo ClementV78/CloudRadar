@@ -97,6 +97,12 @@ variable "enable_grafana_cloudwatch_read" {
   default     = false
 }
 
+variable "alerting_sns_topic_arns" {
+  description = "Optional SNS topic ARNs the k3s node role can publish to (for Alertmanager SNS receiver)."
+  type        = list(string)
+  default     = []
+}
+
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)

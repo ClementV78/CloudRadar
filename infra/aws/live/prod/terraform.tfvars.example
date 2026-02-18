@@ -12,6 +12,12 @@ private_subnet_cidrs = ["10.1.101.0/24"]
 # vpc_flow_logs_traffic_type = "ALL"
 # vpc_flow_logs_max_aggregation_interval = 60
 
+# Optional: external AWS alerting (CloudWatch -> SNS email).
+# Keep disabled by default for cost control.
+# enable_external_alerting = true
+# alerts_enabled           = true
+# alert_email_endpoint     = "alerts@example.com"
+
 # Optional delegated subdomain managed in Route53 (leave empty to disable).
 dns_zone_name = "cloudradar.example.com"
 

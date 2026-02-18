@@ -94,6 +94,7 @@ module "k3s" {
   backup_bucket_name             = local.sqlite_backup_bucket_name
   aircraft_reference_bucket_name = local.aircraft_reference_bucket_name
   enable_grafana_cloudwatch_read = var.enable_grafana_cloudwatch_read
+  alerting_sns_topic_arns        = local.external_alerting_enabled ? [aws_sns_topic.external_alerting[0].arn] : []
   tags                           = local.tags
 }
 

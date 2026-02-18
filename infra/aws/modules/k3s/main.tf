@@ -262,6 +262,32 @@ resource "aws_iam_role_policy_attachment" "grafana_cloudwatch_read" {
   policy_arn = aws_iam_policy.grafana_cloudwatch_read[0].arn
 }
 
+data "aws_iam_policy_document" "alertmanager_sns_publish" {
+  count = length(var.alerting_sns_topic_arns) > 0 ? 1 : 0
+
+  statement {
+    actions = [
+      "sns:Publish"
+    ]
+    resources = var.alerting_sns_topic_arns
+  }
+}
+
+resource "aws_iam_policy" "alertmanager_sns_publish" {
+  count = length(var.alerting_sns_topic_arns) > 0 ? 1 : 0
+
+  name_prefix = "${var.name}-alertmanager-sns-publish-"
+  policy      = data.aws_iam_policy_document.alertmanager_sns_publish[0].json
+  tags        = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "alertmanager_sns_publish" {
+  count = length(var.alerting_sns_topic_arns) > 0 ? 1 : 0
+
+  role       = aws_iam_role.k3s_nodes.name
+  policy_arn = aws_iam_policy.alertmanager_sns_publish[0].arn
+}
+
 resource "aws_security_group" "k3s_nodes" {
   name_prefix = "${var.name}-k3s-"
   vpc_id      = var.vpc_id
