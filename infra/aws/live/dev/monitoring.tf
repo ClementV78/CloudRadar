@@ -18,6 +18,7 @@ resource "aws_ssm_parameter" "grafana_admin_password" {
   description = "Grafana admin password (created by Terraform, stored for audit + recovery)"
   type        = "SecureString"
   value       = local.grafana_admin_password
+  overwrite   = true
 
   tags = merge(var.tags, {
     Name = "cloudradar-grafana-admin-password"
