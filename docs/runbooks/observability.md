@@ -454,6 +454,86 @@ Current operating model:
 
 This avoids SMTP/provider complexity for MVP while keeping an external failure channel.
 
+Alerting layers (MVP):
+
+```mermaid
+flowchart LR
+  subgraph L1["Layer 1: In-cluster alerting"]
+    IC1[App + platform metrics] --> IC2[Prometheus rules]
+    IC2 --> IC3[Alertmanager]
+    IC3 --> SNS[(SNS email)]
+  end
+
+  subgraph L2["Layer 2: External infra alerting"]
+    EX1[EC2 status checks] --> EX2[CloudWatch alarms]
+    EX2 --> SNS
+  end
+
+  subgraph CTRL["Control layer: CI lifecycle guardrail"]
+    C1[ci-infra-destroy] --> C2[Mute: disable CW actions + scale Alertmanager=0]
+    C3[ci-infra apply] --> C4[Unmute: enable CW actions + scale Alertmanager=1]
+  end
+```
+
+Toward a complete alerting model (next layers):
+- **Edge/Synthetic alerting**: internet-facing probes for `/healthz`, `/api`, and latency thresholds (user-perceived availability).
+- **SLO burn-rate alerting**: multi-window, multi-burn alerts on error rate and latency budgets to reduce false positives.
+- **Log-based alerting**: repeated 5xx/exception/OOM patterns from centralized logs (Loki or CloudWatch Logs).
+- **Data quality/freshness alerting**: detect stale OpenSky batches, ingestion gaps, and abnormal throughput drops.
+- **Security alerting**: GuardDuty/CloudTrail/IAM anomaly signals for suspicious actions and permission drift.
+- **FinOps alerting**: AWS budget and anomaly alerts for cost spikes (CloudWatch + Budgets).
+
+Business function (why alerting exists):
+- Detect service degradation early enough to act before user-facing impact grows.
+- Separate critical incidents (immediate action) from warnings (monitor + schedule fix).
+- Provide one external channel (SNS email) for incidents that matter outside cluster dashboards.
+
+```mermaid
+flowchart LR
+  A[Platform and app signals] --> B[Alert rules evaluate severity]
+  B --> C{Severity}
+  C -->|Critical| D[Immediate operator action]
+  C -->|Warning| E[Planned remediation]
+  D --> F[Lower downtime and faster recovery]
+  E --> G[Reduced noise and backlog control]
+  F --> H[Higher service trust]
+  G --> H
+```
+
+Technical function (how it works):
+
+```mermaid
+flowchart TB
+  subgraph K8s["k3s cluster"]
+    T[Scrape targets]
+    P[Prometheus]
+    R[PrometheusRule]
+    A[Alertmanager]
+    E[ESO ExternalSecret]
+    S[K8s Secret cloudradar-alertmanager-config]
+    T --> P
+    R --> P
+    E --> S --> A
+    P --> A
+  end
+
+  subgraph AWS["AWS"]
+    TF[Terraform]
+    SSMSNS[SSM /cloudradar/alerting/sns-topic-arn]
+    SSMEN[SSM /cloudradar/alerting/enabled]
+    SNS[SNS topic + email subscription]
+    CW[CloudWatch EC2 status alarms]
+    TF --> SSMSNS
+    TF --> SSMEN
+    TF --> CW --> SNS
+    TF --> SNS
+  end
+
+  SSMSNS --> E
+  SSMEN --> E
+  A --> SNS
+```
+
 Key custom alerts (CloudRadar):
 - `CloudRadarCriticalTargetDown`
 - `CloudRadarProcessorStalled`
@@ -464,7 +544,7 @@ Key custom alerts (CloudRadar):
 
 Destroy/deploy lifecycle guardrail:
 - `ci-infra-destroy` disables CloudWatch alarm actions before destroy and scales Alertmanager down (best effort, dev).
-- `ci-infra` re-enables CloudWatch alarm actions after apply when alerting is enabled.
+- `ci-infra` re-enables CloudWatch alarm actions after apply and scales Alertmanager back to 1 replica (best effort, dev).
 
 ## Dashboards
 

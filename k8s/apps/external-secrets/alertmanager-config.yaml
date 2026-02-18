@@ -30,6 +30,8 @@ spec:
                 - topic_arn: "{{ .sns_topic_arn }}"
                   send_resolved: true
                   subject: "CloudRadar alert"
+                  sigv4:
+                    region: us-east-1
             {{- else }}
             - name: "null"
             {{- end }}

@@ -37,7 +37,7 @@ resource "aws_ssm_parameter" "alerting_enabled" {
   name        = "/cloudradar/alerting/enabled"
   description = "Whether Alertmanager SNS notifications are enabled"
   type        = "String"
-  value       = local.external_alerting_enabled ? "true" : "false"
+  value       = (local.external_alerting_enabled && var.alerts_enabled) ? "true" : "false"
 
   tags = merge(local.tags, {
     Name = "cloudradar-alerting-enabled"

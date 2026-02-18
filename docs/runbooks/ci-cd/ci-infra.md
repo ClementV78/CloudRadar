@@ -36,6 +36,10 @@ Jobs run in CI to validate Terraform safely (no apply):
   - `ENABLE_EXTERNAL_ALERTING` (`true|false`)
   - `ALERTS_ENABLED` (`true|false`, defaults to `true`)
   - `ALERT_EMAIL_ENDPOINT` (SNS email subscription endpoint)
+  - Semantics:
+    - `ENABLE_EXTERNAL_ALERTING` controls resource provisioning (SNS topic/subscription + CloudWatch alarms).
+    - `ALERTS_ENABLED` controls notification muting at runtime.
+    - `/cloudradar/alerting/enabled` is `true` only when both are `true`.
   - Terraform also writes Alertmanager SSM parameters consumed by ESO:
     - `/cloudradar/alerting/sns-topic-arn`
     - `/cloudradar/alerting/enabled`

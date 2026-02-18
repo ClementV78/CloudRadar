@@ -45,6 +45,7 @@ spec:
                 memory: 1Gi
             serviceMonitorSelectorNilUsesHelmValues: false
             podMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
 
         prometheus-node-exporter:
           enabled: true
