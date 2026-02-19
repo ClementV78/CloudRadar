@@ -2,7 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, Rectangle, TileLayer, useMapEvents } from 'react-leaflet';
 import L, { type DivIcon } from 'leaflet';
 
-import { fetchBboxBoostStatus, fetchFlightDetail, fetchFlights, fetchIngesterScale, fetchMetrics, scaleIngester, subscribeFlightUpdates, triggerBboxBoost } from './api';
+import {
+  fetchBboxBoostStatus,
+  fetchFlightDetail,
+  fetchFlights,
+  fetchIngesterScale,
+  fetchIngesterScalePublic,
+  fetchMetrics,
+  scaleIngester,
+  subscribeFlightUpdates,
+  triggerBboxBoost
+} from './api';
 import { IDF_BBOX, MAP_MAX_BOUNDS, REFRESH_INTERVAL_MS, STALE_AFTER_SECONDS } from './constants';
 import { DetailPanel } from './components/DetailPanel';
 import { Header } from './components/Header';
@@ -598,22 +608,34 @@ export default function App(): JSX.Element {
   }, []);
 
   const loadIngesterStatus = useCallback(async (interactive: boolean) => {
-    const credentials = getEdgeCredentials(interactive);
-    if (!credentials) {
+    const cachedCredentials = getEdgeCredentials(false);
+    const useAuthenticatedCall = interactive || cachedCredentials !== null;
+    const credentials = useAuthenticatedCall ? getEdgeCredentials(interactive) : null;
+
+    if (useAuthenticatedCall && !credentials) {
       return;
     }
 
     try {
       setIngesterLoading(true);
-      const response = await fetchIngesterScale(credentials.username, credentials.password);
+      const response = credentials
+        ? await fetchIngesterScale(credentials.username, credentials.password)
+        : await fetchIngesterScalePublic();
       setIngesterEnabled(response.replicas > 0);
       setIngesterKnown(true);
       setRefreshError(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unable to load ingester status';
-      setRefreshError(`ingester status failed: ${message}`);
-      window.sessionStorage.removeItem(EDGE_AUTH_STORAGE_KEY);
+      const lowerMessage = message.toLowerCase();
+      const unauthorized = lowerMessage.includes('401') || lowerMessage.includes('unauthorized');
+      if (useAuthenticatedCall) {
+        window.sessionStorage.removeItem(EDGE_AUTH_STORAGE_KEY);
+      }
       setIngesterKnown(false);
+      if (!interactive && unauthorized) {
+        return;
+      }
+      setRefreshError(`ingester status failed: ${message}`);
     } finally {
       setIngesterLoading(false);
     }
@@ -675,7 +697,8 @@ export default function App(): JSX.Element {
   }, [refreshData]);
 
   useEffect(() => {
-    void loadIngesterStatus(true);
+    // Do not trigger auth prompt on page load; only refresh status if credentials are already cached.
+    void loadIngesterStatus(false);
   }, [loadIngesterStatus]);
 
   useEffect(() => {

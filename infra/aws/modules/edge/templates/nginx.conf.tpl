@@ -51,6 +51,12 @@ server {
   }
 
   location /admin/ {
+    # Allow read-only ingester status without Basic Auth; keep auth for mutating methods.
+    auth_basic off;
+    limit_except GET HEAD {
+      auth_basic "CloudRadar";
+      auth_basic_user_file /etc/nginx/.htpasswd;
+    }
     # Route admin scale traffic to the private backend.
     proxy_pass http://admin_upstream;
     proxy_http_version 1.1;

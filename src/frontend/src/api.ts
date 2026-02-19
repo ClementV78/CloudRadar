@@ -181,6 +181,10 @@ export async function fetchIngesterScale(username: string, password: string): Pr
   return apiGetWithAuth<IngesterScaleResponse>(ADMIN_SCALE_PATH, username, password);
 }
 
+export async function fetchIngesterScalePublic(): Promise<IngesterScaleResponse> {
+  return apiGet<IngesterScaleResponse>(ADMIN_SCALE_PATH);
+}
+
 export interface FlightStreamEvent {
   latestOpenSkyBatchEpoch: number | null;
   timestamp: string;

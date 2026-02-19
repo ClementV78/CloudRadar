@@ -44,6 +44,29 @@ function AreaChart({
   );
 }
 
+function TrendBlock({
+  title,
+  subtitle,
+  points,
+  variant,
+  footer
+}: {
+  title: string;
+  subtitle: string;
+  points: Array<{ epoch: number; count: number }>;
+  variant: 'cyan' | 'red';
+  footer: string;
+}): JSX.Element {
+  return (
+    <div className="kpi-trend-block">
+      <div className="kpi-trend-title">{title}</div>
+      <div className="kpi-trend-subtitle">{subtitle}</div>
+      <AreaChart points={points} variant={variant} />
+      <div className="kpi-trend-footer">{footer}</div>
+    </div>
+  );
+}
+
 function topBreakdown(items: TypeBreakdownItem[] | undefined, limit = 3): TypeBreakdownItem[] {
   if (!items?.length) {
     return [];
@@ -128,13 +151,23 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
             centerBottom="active"
           />
           <div className="kpi-panel">
-            <div className="kpi-main">{formatNumber(trafficDensity, 1)}</div>
-            <div className="kpi-sub">density / 10k km2</div>
-            <div className="kpi-sub">peak window: {formatNumber(maxActivity)}</div>
-            <div className="kpi-sub">
-              OpenSky credits/request (24h): {openSkyCreditsPerRequest24h === null ? 'n/a' : formatNumber(openSkyCreditsPerRequest24h, 2)}
+            <div className="kpi-main-row">
+              <div>
+                <div className="kpi-main">{formatNumber(trafficDensity, 1)}</div>
+                <div className="kpi-sub">density / 10k km2</div>
+                <div className="kpi-sub">peak window: {formatNumber(maxActivity)}</div>
+                <div className="kpi-sub">
+                  OpenSky credits/request (24h): {openSkyCreditsPerRequest24h === null ? 'n/a' : formatNumber(openSkyCreditsPerRequest24h, 2)}
+                </div>
+              </div>
+              <TrendBlock
+                title="Aircraft count (last 24h)"
+                subtitle="current aircraft in bbox"
+                points={metrics?.activitySeries ?? []}
+                variant="cyan"
+                footer={`${formatNumber(activeAircraft)} now`}
+              />
             </div>
-            <AreaChart points={metrics?.activitySeries ?? []} variant="cyan" />
           </div>
         </div>
       </article>
@@ -150,10 +183,20 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
             centerBottom="military"
           />
           <div className="kpi-panel">
-            <div className="kpi-main kpi-danger">{formatNumber(defenseScore, 1)}</div>
-            <div className="kpi-sub">defense activity score</div>
-            <div className="kpi-sub">military share: {compactPercent(militaryShare)}</div>
-            <AreaChart points={metrics?.activitySeries ?? []} variant="red" />
+            <div className="kpi-main-row">
+              <div>
+                <div className="kpi-main kpi-danger">{formatNumber(defenseScore, 1)}</div>
+                <div className="kpi-sub">defense activity score</div>
+                <div className="kpi-sub">military share: {compactPercent(militaryShare)}</div>
+              </div>
+              <TrendBlock
+                title="Defense activity"
+                subtitle="military presence trend"
+                points={metrics?.activitySeries ?? []}
+                variant="red"
+                footer={`${compactPercent(militaryShare)} military`}
+              />
+            </div>
           </div>
         </div>
       </article>
