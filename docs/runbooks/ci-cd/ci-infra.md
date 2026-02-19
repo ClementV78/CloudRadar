@@ -76,11 +76,12 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
 11. `eso-ready-check` (dev): wait for ESO readiness.
 12. `argocd-apps` (dev): bootstrap root apps from `k8s/apps`.
 13. `eso-secrets-ready` (dev): enforce External Secrets synchronization (`ExternalSecret Ready=True` and target Secrets materialized) before restore/smoke.
-14. `REDIS-RESTORE` (dev): restore Redis from the latest backup.
+14. `alertmanager-reenable` (dev): best-effort in-cluster Alertmanager scale-up after GitOps/ESO readiness.
+15. `REDIS-RESTORE` (dev): restore Redis from the latest backup.
    - Visible as a dedicated job in the Actions graph.
    - Logs explicit decision and reason (`RUN` / `SKIPPED`) in both logs and Step Summary.
    - Skips restore safely when disabled by input, when no backup is found, or when Redis `/data` is not empty.
-15. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
+16. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
    - Logs explicit decision and reason (`RUN` / `SKIPPED`) in both logs and Step Summary.
    - Uses signal-focused annotations (decision/outcome) instead of internal `command_id` noise.
 
@@ -114,11 +115,14 @@ flowchart TB
     eso-ready-check[eso-ready-check]
     argocd-apps[argocd-apps]
     eso-secrets-ready[eso-secrets-ready]
+    alertmanager-reenable[alertmanager-reenable]
     redis-restore[REDIS-RESTORE]
     smoke-tests[smoke-tests]
 
     env-select --> tf-validate --> orphan-scan-pre-deploy --> tf-plan --> tf-apply --> tf-outputs
-    tf-outputs --> k3s-ready-check --> prometheus-crds --> argocd-install --> argocd-platform --> eso-ready-check --> argocd-apps --> eso-secrets-ready --> redis-restore --> smoke-tests
+    tf-outputs --> k3s-ready-check --> prometheus-crds --> argocd-install --> argocd-platform --> eso-ready-check --> argocd-apps --> eso-secrets-ready
+    eso-secrets-ready --> alertmanager-reenable
+    eso-secrets-ready --> redis-restore --> smoke-tests
   end
 
   PR --> Dispatch
@@ -144,6 +148,8 @@ flowchart TB
 - The Redis restore phase is represented by a dedicated job named `REDIS-RESTORE` in the graph.
   - If `redis_backup_restore=false`, the job emits an explicit skip reason in logs and summary.
   - If restore is requested, the job still protects data by skipping restore when Redis data is not fresh.
+- `alertmanager-reenable` runs after `eso-secrets-ready` (not in `tf-apply`) to avoid early SSM/instance readiness races.
+  - It is best-effort and emits `warning` signals instead of failing the pipeline.
 - `orphan-scan-pre-deploy` runs a strict `state vs tagged` scan before planning/apply and fails fast on tagged resources found in AWS but missing from Terraform state.
 - Both `orphan-scan-pre-deploy` and `ci-infra-destroy` post-destroy scan append findings to `GITHUB_STEP_SUMMARY`.
 - Script details (modes, usage, flow): `scripts/ci/find-orphans.md`.
