@@ -31,6 +31,13 @@ scripts/bootstrap-prometheus-crds.sh <instance-id> us-east-1
 Notes:
 - Overrides: `PROMETHEUS_CRD_REPO`, `PROMETHEUS_CRD_REVISION`, `PROMETHEUS_CRD_DIR`, `PROMETHEUS_CRD_TIMEOUT`.
 
+## ci/find-orphans.sh
+
+Runs state-vs-tagged orphan checks used by infra CI before deploy and after destroy.
+
+See detailed documentation:
+- `scripts/ci/find-orphans.md`
+
 ## build-aircraft-sqlite.py
 
 Builds a lightweight aircraft reference database (`aircraft.db`) from a large CSV dataset.
