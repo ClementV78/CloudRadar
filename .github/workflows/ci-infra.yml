@@ -644,8 +644,10 @@ jobs:
           else
             params="$(jq -n \
               --arg c0 'export KUBECONFIG=/etc/rancher/k3s/k3s.yaml' \
-              --arg c1 'sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n monitoring scale statefulset/alertmanager-kube-prometheus-alertmanager --replicas=1' \
-              '{commands:[$c0,$c1]}')"
+              --arg c1 'AM_STS=$(sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n monitoring get statefulset -l app.kubernetes.io/name=alertmanager -o jsonpath="{.items[0].metadata.name}" 2>/dev/null || true)' \
+              --arg c2 'if [ -z "$AM_STS" ]; then echo "Alertmanager statefulset not found in namespace monitoring"; exit 2; fi' \
+              --arg c3 'sudo --preserve-env=KUBECONFIG /usr/local/bin/kubectl -n monitoring scale "statefulset/$AM_STS" --replicas=1' \
+              '{commands:[$c0,$c1,$c2,$c3]}')"
 
             unmute_cmd_id="$(aws ssm send-command \
               --instance-ids "${K3S_SERVER_INSTANCE_ID}" \
