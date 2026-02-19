@@ -16,6 +16,11 @@ export default defineConfig(({ mode }) => {
           target: devApiTarget,
           changeOrigin: true,
           secure: !allowInsecureTls
+        },
+        '/admin': {
+          target: devApiTarget,
+          changeOrigin: true,
+          secure: !allowInsecureTls
         }
       }
     }

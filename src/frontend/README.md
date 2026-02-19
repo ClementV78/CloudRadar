@@ -15,7 +15,7 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
   - KPI strip based on `/api/flights/metrics`
   - backend-driven refresh via SSE (`/api/flights/stream`) with 10s fallback polling
   - marker interpolation between consecutive OpenSky batches (smooth N-1 -> N movement)
-  - ingester ON/OFF toggle via `/admin/ingester/scale` (Basic Auth prompt)
+  - ingester ON/OFF toggle via `/admin/ingester/scale` (Basic Auth prompt on first toggle action, not on page load)
 - Deferred by design:
   - live zones/alerts integration (`#128`, `#424`)
 
@@ -84,7 +84,7 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
 - `GET /api/flights`
 - `GET /api/flights/{icao24}`
 - `GET /api/flights/metrics`
-- `GET /admin/ingester/scale` (read current replicas, authenticated)
+- `GET /admin/ingester/scale` (read current replicas, no Basic Auth prompt)
 - `POST /admin/ingester/scale` (replicas `0|1`, authenticated)
 
 Note: `/api/alerts` is intentionally not consumed yet (deferred to #424).
@@ -99,11 +99,24 @@ npm run dev
 
 Default dev proxy:
 - `/api` -> `http://localhost:8080`
+- `/admin` -> `http://localhost:8080`
 
 Override API origin:
 
 ```bash
 VITE_DEV_API_ORIGIN=http://localhost:8081 npm run dev
+```
+
+Run locally against deployed edge/API (example):
+
+```bash
+VITE_DEV_API_ORIGIN=https://cloudradar.iotx.fr npm run dev
+```
+
+If your edge certificate is self-signed in non-prod, allow insecure TLS in dev proxy:
+
+```bash
+VITE_DEV_API_ORIGIN=https://cloudradar.iotx.fr VITE_DEV_API_INSECURE=true npm run dev
 ```
 
 Build production assets:

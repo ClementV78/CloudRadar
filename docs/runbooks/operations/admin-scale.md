@@ -5,7 +5,7 @@ Purpose: scale the ingester deployment via a small admin API that talks to the K
 ## Overview (DevOps flow)
 ```mermaid
 flowchart LR
-  user[User UI] -->|HTTPS + Basic Auth GET /admin/ingester/scale| edge[Edge Nginx]
+  user[User UI] -->|HTTPS GET /admin/ingester/scale| edge[Edge Nginx]
   user -->|HTTPS + Basic Auth POST /admin/ingester/scale| edge
   edge -->|Inject X-Internal-Token| svc[Admin API Service]
   svc --> pod[Admin API Pod]
@@ -46,8 +46,8 @@ The admin API reads the token directly from SSM (same source as the edge).
 - The frontend can call `POST /admin/ingester/scale` to toggle ingester replicas:
   - OFF -> `{"replicas": 0}`
   - ON -> `{"replicas": 1}`
-- The frontend calls `GET /admin/ingester/scale` on load to initialize toggle state.
-- Before each call, the UI prompts for edge Basic Auth credentials (login/password).
+- On page load, the frontend reads ingester status using `GET /admin/ingester/scale` without prompting Basic Auth.
+- On first user toggle action, the UI prompts for edge Basic Auth credentials (login/password), then reuses them for subsequent calls in the same tab session.
 - Credentials are cached in browser session storage for the current tab session.
 - Edge Nginx still injects `X-Internal-Token` server-side.
 

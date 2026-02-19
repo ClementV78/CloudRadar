@@ -579,7 +579,7 @@ body,
   border: 1px solid rgba(0, 245, 255, 0.24);
   display: grid;
   gap: 10px;
-  min-height: 228px;
+  min-height: 248px;
   background: linear-gradient(160deg, rgba(18, 24, 38, 0.9), rgba(10, 14, 22, 0.92));
 }
 
@@ -612,6 +612,13 @@ body,
 .kpi-panel {
   display: grid;
   gap: 4px;
+}
+
+.kpi-main-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 45%);
+  gap: 10px;
+  align-items: stretch;
 }
 
 .kpi-ring {
@@ -658,9 +665,24 @@ body,
   place-items: center;
   text-align: center;
   pointer-events: none;
+  isolation: isolate;
+}
+
+.kpi-ring-center::before {
+  content: '';
+  position: absolute;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(26, 36, 50, 0.96), rgba(9, 14, 22, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.38);
+  z-index: 0;
 }
 
 .kpi-ring-center strong {
+  position: relative;
+  z-index: 1;
   font-family: 'JetBrains Mono', monospace;
   font-size: 1.05rem;
   line-height: 1;
@@ -668,6 +690,8 @@ body,
 }
 
 .kpi-ring-center span {
+  position: relative;
+  z-index: 1;
   margin-top: 2px;
   font-size: 0.68rem;
   text-transform: uppercase;
@@ -682,8 +706,8 @@ body,
 
 .area-chart {
   width: 100%;
-  height: 42px;
-  margin-top: 8px;
+  height: 56px;
+  margin-top: 6px;
 }
 
 .area-chart-fill {
@@ -714,9 +738,42 @@ body,
 }
 
 .area-chart-empty {
-  margin-top: 8px;
+  margin-top: 6px;
   font-size: 0.72rem;
   color: var(--muted);
+}
+
+.kpi-trend-block {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  padding: 8px 10px;
+  min-height: 120px;
+}
+
+.kpi-trend-title {
+  font-size: 0.72rem;
+  color: #d7e7fa;
+}
+
+.kpi-trend-subtitle {
+  font-size: 0.67rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.kpi-trend-footer {
+  margin-top: 2px;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.kpi-trend-block .area-chart {
+  height: 96px;
+  margin-top: 4px;
 }
 
 .mix-list {
@@ -858,6 +915,11 @@ body,
   .fleet-grid {
     grid-template-columns: 1fr;
     justify-items: start;
+  }
+
+  .kpi-main-row {
+    grid-template-columns: 1fr;
+    width: 100%;
   }
 
   .kpi-ring {
