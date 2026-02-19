@@ -15,6 +15,10 @@ interface HeaderProps {
   boostCooldownSeconds: number;
   boostLoading: boolean;
   onTriggerBoost: () => void;
+  ingesterEnabled: boolean;
+  ingesterKnown: boolean;
+  ingesterLoading: boolean;
+  onToggleIngester: (enabled: boolean) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -57,7 +61,11 @@ export function Header({
   boostRemainingSeconds,
   boostCooldownSeconds,
   boostLoading,
-  onTriggerBoost
+  onTriggerBoost,
+  ingesterEnabled,
+  ingesterKnown,
+  ingesterLoading,
+  onToggleIngester
 }: HeaderProps): JSX.Element {
   const boostDisabled = boostLoading || boostActive || boostCooldownSeconds > 0;
 
@@ -76,6 +84,22 @@ export function Header({
         <div className="status-item">
           <span className="status-label">OpenSky Feed</span>
           <span className={badgeClass(openSkyStatus)}>{prettyStatus(openSkyStatus)}</span>
+        </div>
+        <div className="status-item">
+          <span className="status-label">Ingester</span>
+          <label className="ingester-toggle" htmlFor="ingester-toggle">
+            <input
+              id="ingester-toggle"
+              type="checkbox"
+              checked={ingesterEnabled}
+              disabled={ingesterLoading}
+              onChange={(event) => onToggleIngester(event.target.checked)}
+            />
+            <span className="ingester-slider" />
+            <span className={ingesterKnown ? 'status-value' : 'status-badge status-unknown'}>
+              {ingesterLoading ? 'updating...' : ingesterKnown ? (ingesterEnabled ? 'ON' : 'OFF') : 'UNKNOWN'}
+            </span>
+          </label>
         </div>
         <div className="status-item">
           <span className="status-label">Active aircraft</span>

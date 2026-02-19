@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, Rectangle, TileLayer, useMapEvents } from 'react-leaflet';
 import L, { type DivIcon } from 'leaflet';
 
-import { fetchBboxBoostStatus, fetchFlightDetail, fetchFlights, fetchMetrics, subscribeFlightUpdates, triggerBboxBoost } from './api';
+import { fetchBboxBoostStatus, fetchFlightDetail, fetchFlights, fetchMetrics, scaleIngester, subscribeFlightUpdates, triggerBboxBoost } from './api';
 import { IDF_BBOX, MAP_MAX_BOUNDS, REFRESH_INTERVAL_MS, STALE_AFTER_SECONDS } from './constants';
 import { DetailPanel } from './components/DetailPanel';
 import { Header } from './components/Header';
@@ -376,6 +376,9 @@ export default function App(): JSX.Element {
   const [staticByIcao, setStaticByIcao] = useState<Record<string, true>>({});
   const [boostStatus, setBoostStatus] = useState<BboxBoostStatusResponse | null>(null);
   const [boostLoading, setBoostLoading] = useState(false);
+  const [ingesterEnabled, setIngesterEnabled] = useState(false);
+  const [ingesterKnown, setIngesterKnown] = useState(false);
+  const [ingesterLoading, setIngesterLoading] = useState(false);
   const lastBatchEpochRef = useRef<number | null>(null);
   const hasMetricsRef = useRef<boolean>(false);
   const missingSelectionCyclesRef = useRef<number>(0);
@@ -561,6 +564,31 @@ export default function App(): JSX.Element {
     }
   }, [refreshData]);
 
+  const handleToggleIngester = useCallback(async (enabled: boolean) => {
+    const username = window.prompt('Edge login');
+    if (!username) {
+      return;
+    }
+
+    const password = window.prompt('Edge password');
+    if (!password) {
+      return;
+    }
+
+    try {
+      setIngesterLoading(true);
+      const response = await scaleIngester(enabled ? 1 : 0, username, password);
+      setIngesterEnabled(response.replicas > 0);
+      setIngesterKnown(true);
+      setRefreshError(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unable to scale ingester';
+      setRefreshError(`ingester toggle failed: ${message}`);
+    } finally {
+      setIngesterLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const clockTimer = window.setInterval(() => {
       setUtcClock(formatUtcClock(new Date()));
@@ -678,6 +706,10 @@ export default function App(): JSX.Element {
         boostCooldownSeconds={boostCooldownSeconds}
         boostLoading={boostLoading}
         onTriggerBoost={() => void handleTriggerBoost()}
+        ingesterEnabled={ingesterEnabled}
+        ingesterKnown={ingesterKnown}
+        ingesterLoading={ingesterLoading}
+        onToggleIngester={(enabled) => void handleToggleIngester(enabled)}
       />
 
       <section className="map-shell glass-panel">

@@ -38,6 +38,14 @@ The admin API reads the token directly from SSM (same source as the edge).
 - The token is loaded from SSM using `ADMIN_TOKEN_SSM_NAME` and `AWS_REGION`.
 - In code: `src/admin-scale/app.py` compares the header value to the SSM token and returns **401** when invalid.
 
+## Frontend toggle behavior
+
+- The frontend can call `POST /admin/ingester/scale` to toggle ingester replicas:
+  - OFF -> `{"replicas": 0}`
+  - ON -> `{"replicas": 1}`
+- Before each call, the UI prompts for edge Basic Auth credentials (login/password).
+- Edge Nginx still injects `X-Internal-Token` server-side.
+
 ## Steps
 
 ### 1) Build and publish the image

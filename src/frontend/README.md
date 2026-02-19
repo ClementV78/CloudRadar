@@ -15,6 +15,7 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
   - KPI strip based on `/api/flights/metrics`
   - backend-driven refresh via SSE (`/api/flights/stream`) with 10s fallback polling
   - marker interpolation between consecutive OpenSky batches (smooth N-1 -> N movement)
+  - ingester ON/OFF toggle via `/admin/ingester/scale` (Basic Auth prompt)
 - Deferred by design:
   - live zones/alerts integration (`#128`, `#424`)
 
@@ -83,6 +84,7 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
 - `GET /api/flights`
 - `GET /api/flights/{icao24}`
 - `GET /api/flights/metrics`
+- `POST /admin/ingester/scale` (replicas `0|1`, authenticated)
 
 Note: `/api/alerts` is intentionally not consumed yet (deferred to #424).
 
