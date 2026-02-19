@@ -182,6 +182,12 @@ body,
   transform: translateX(16px);
 }
 
+.ingester-toggle input:focus + .ingester-slider,
+.ingester-toggle input:focus-visible + .ingester-slider {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .ingester-toggle input:disabled + .ingester-slider {
   opacity: 0.55;
 }

@@ -84,6 +84,7 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
 - `GET /api/flights`
 - `GET /api/flights/{icao24}`
 - `GET /api/flights/metrics`
+- `GET /admin/ingester/scale` (read current replicas, authenticated)
 - `POST /admin/ingester/scale` (replicas `0|1`, authenticated)
 
 Note: `/api/alerts` is intentionally not consumed yet (deferred to #424).

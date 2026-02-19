@@ -91,6 +91,7 @@ export function Header({
             <input
               id="ingester-toggle"
               type="checkbox"
+              aria-label="Toggle ingester on or off"
               checked={ingesterEnabled}
               disabled={ingesterLoading}
               onChange={(event) => onToggleIngester(event.target.checked)}

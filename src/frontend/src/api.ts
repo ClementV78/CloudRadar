@@ -61,6 +61,47 @@ async function apiPost<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+function toBasicAuthorization(username: string, password: string): string {
+  const credentials = `${username}:${password}`;
+  const credentialsBytes = new TextEncoder().encode(credentials);
+  let binary = '';
+  for (const byte of credentialsBytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return `Basic ${window.btoa(binary)}`;
+}
+
+async function apiGetWithAuth<T>(
+  path: string,
+  username: string,
+  password: string
+): Promise<T> {
+  const response = await fetch(path, {
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      Authorization: toBasicAuthorization(username, password)
+    }
+  });
+
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const payload = await response.json();
+      if (payload?.error) {
+        message = payload.error;
+      } else if (payload?.message) {
+        message = payload.message;
+      }
+    } catch {
+      // Keep default HTTP status text when body is not JSON.
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as T;
+}
+
 async function apiPostWithAuth<T>(
   path: string,
   body: Record<string, unknown>,
@@ -73,7 +114,7 @@ async function apiPostWithAuth<T>(
     headers: {
       Accept: 'application/json',
       'Content-Type': 'application/json',
-      Authorization: `Basic ${window.btoa(`${username}:${password}`)}`
+      Authorization: toBasicAuthorization(username, password)
     },
     body: JSON.stringify(body)
   });
@@ -134,6 +175,10 @@ export async function scaleIngester(
   password: string
 ): Promise<IngesterScaleResponse> {
   return apiPostWithAuth<IngesterScaleResponse>(ADMIN_SCALE_PATH, { replicas }, username, password);
+}
+
+export async function fetchIngesterScale(username: string, password: string): Promise<IngesterScaleResponse> {
+  return apiGetWithAuth<IngesterScaleResponse>(ADMIN_SCALE_PATH, username, password);
 }
 
 export interface FlightStreamEvent {

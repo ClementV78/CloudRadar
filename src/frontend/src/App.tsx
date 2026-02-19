@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, Rectangle, TileLayer, useMapEvents } from 'react-leaflet';
 import L, { type DivIcon } from 'leaflet';
 
-import { fetchBboxBoostStatus, fetchFlightDetail, fetchFlights, fetchMetrics, scaleIngester, subscribeFlightUpdates, triggerBboxBoost } from './api';
+import { fetchBboxBoostStatus, fetchFlightDetail, fetchFlights, fetchIngesterScale, fetchMetrics, scaleIngester, subscribeFlightUpdates, triggerBboxBoost } from './api';
 import { IDF_BBOX, MAP_MAX_BOUNDS, REFRESH_INTERVAL_MS, STALE_AFTER_SECONDS } from './constants';
 import { DetailPanel } from './components/DetailPanel';
 import { Header } from './components/Header';
@@ -37,6 +37,12 @@ const MAX_INTERPOLATION_LAST_SEEN_GAP_SECONDS = 180;
 const MAX_INTERPOLATION_DISTANCE_KM = 200;
 const STATIC_POSITION_THRESHOLD_KM = 0.05;
 const KNOT_TO_KMH = 1.852;
+const EDGE_AUTH_STORAGE_KEY = 'cloudradar.edge.basic_auth';
+
+interface EdgeCredentials {
+  username: string;
+  password: string;
+}
 
 function formatUtcClock(date: Date): string {
   const text = date.toISOString();
@@ -564,30 +570,75 @@ export default function App(): JSX.Element {
     }
   }, [refreshData]);
 
-  const handleToggleIngester = useCallback(async (enabled: boolean) => {
+  const getEdgeCredentials = useCallback((interactive: boolean): EdgeCredentials | null => {
+    const cached = window.sessionStorage.getItem(EDGE_AUTH_STORAGE_KEY);
+    if (cached) {
+      const [username, password] = cached.split(':', 2);
+      if (username && password) {
+        return { username, password };
+      }
+    }
+
+    if (!interactive) {
+      return null;
+    }
+
     const username = window.prompt('Edge login');
     if (!username) {
-      return;
+      return null;
     }
 
     const password = window.prompt('Edge password');
     if (!password) {
+      return null;
+    }
+
+    window.sessionStorage.setItem(EDGE_AUTH_STORAGE_KEY, `${username}:${password}`);
+    return { username, password };
+  }, []);
+
+  const loadIngesterStatus = useCallback(async (interactive: boolean) => {
+    const credentials = getEdgeCredentials(interactive);
+    if (!credentials) {
       return;
     }
 
     try {
       setIngesterLoading(true);
-      const response = await scaleIngester(enabled ? 1 : 0, username, password);
+      const response = await fetchIngesterScale(credentials.username, credentials.password);
+      setIngesterEnabled(response.replicas > 0);
+      setIngesterKnown(true);
+      setRefreshError(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unable to load ingester status';
+      setRefreshError(`ingester status failed: ${message}`);
+      window.sessionStorage.removeItem(EDGE_AUTH_STORAGE_KEY);
+      setIngesterKnown(false);
+    } finally {
+      setIngesterLoading(false);
+    }
+  }, [getEdgeCredentials]);
+
+  const handleToggleIngester = useCallback(async (enabled: boolean) => {
+    const credentials = getEdgeCredentials(true);
+    if (!credentials) {
+      return;
+    }
+
+    try {
+      setIngesterLoading(true);
+      const response = await scaleIngester(enabled ? 1 : 0, credentials.username, credentials.password);
       setIngesterEnabled(response.replicas > 0);
       setIngesterKnown(true);
       setRefreshError(null);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unable to scale ingester';
       setRefreshError(`ingester toggle failed: ${message}`);
+      window.sessionStorage.removeItem(EDGE_AUTH_STORAGE_KEY);
     } finally {
       setIngesterLoading(false);
     }
-  }, []);
+  }, [getEdgeCredentials]);
 
   useEffect(() => {
     const clockTimer = window.setInterval(() => {
@@ -622,6 +673,10 @@ export default function App(): JSX.Element {
       window.clearInterval(refreshTimer);
     };
   }, [refreshData]);
+
+  useEffect(() => {
+    void loadIngesterStatus(true);
+  }, [loadIngesterStatus]);
 
   useEffect(() => {
     mapFlightsRef.current = mapFlights;
