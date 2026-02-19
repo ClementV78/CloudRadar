@@ -259,3 +259,14 @@ jobs:
 
       - name: Terraform destroy
         run: terraform -chdir="${TF_DIR}" destroy -input=false -auto-approve -var-file=terraform.tfvars
+
+      - name: Orphan scan post-destroy (best effort)
+        if: ${{ always() }}
+        continue-on-error: true
+        run: |
+          scripts/ci/find-orphans.sh \
+            --environment "${{ inputs.environment }}" \
+            --tf-dir "${TF_DIR}" \
+            --mode post-destroy \
+            --strict false \
+            --summary-path "$GITHUB_STEP_SUMMARY"
