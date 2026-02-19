@@ -1,10 +1,11 @@
-import { API_FLIGHTS_BASE } from './constants';
+import { ADMIN_SCALE_PATH, API_FLIGHTS_BASE } from './constants';
 import type {
   BboxBoostStatusResponse,
   Bbox,
   FlightDetailResponse,
   FlightListResponse,
-  FlightsMetricsResponse
+  FlightsMetricsResponse,
+  IngesterScaleResponse
 } from './types';
 
 function toBboxQuery(bbox: Bbox): string {
@@ -60,6 +61,82 @@ async function apiPost<T>(path: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+function toBasicAuthorization(username: string, password: string): string {
+  const credentials = `${username}:${password}`;
+  const credentialsBytes = new TextEncoder().encode(credentials);
+  let binary = '';
+  for (const byte of credentialsBytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return `Basic ${window.btoa(binary)}`;
+}
+
+async function apiGetWithAuth<T>(
+  path: string,
+  username: string,
+  password: string
+): Promise<T> {
+  const response = await fetch(path, {
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      Authorization: toBasicAuthorization(username, password)
+    }
+  });
+
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const payload = await response.json();
+      if (payload?.error) {
+        message = payload.error;
+      } else if (payload?.message) {
+        message = payload.message;
+      }
+    } catch {
+      // Keep default HTTP status text when body is not JSON.
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function apiPostWithAuth<T>(
+  path: string,
+  body: Record<string, unknown>,
+  username: string,
+  password: string
+): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: toBasicAuthorization(username, password)
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    let message = `${response.status} ${response.statusText}`;
+    try {
+      const payload = await response.json();
+      if (payload?.error) {
+        message = payload.error;
+      } else if (payload?.message) {
+        message = payload.message;
+      }
+    } catch {
+      // Keep default HTTP status text when body is not JSON.
+    }
+    throw new Error(message);
+  }
+
+  return (await response.json()) as T;
+}
+
 export async function fetchFlights(bbox: Bbox, limit = 400): Promise<FlightListResponse> {
   const params = new URLSearchParams({
     bbox: toBboxQuery(bbox),
@@ -90,6 +167,18 @@ export async function fetchBboxBoostStatus(): Promise<BboxBoostStatusResponse> {
 
 export async function triggerBboxBoost(): Promise<BboxBoostStatusResponse> {
   return apiPost<BboxBoostStatusResponse>(`${API_FLIGHTS_BASE}/bbox/boost`);
+}
+
+export async function scaleIngester(
+  replicas: 0 | 1,
+  username: string,
+  password: string
+): Promise<IngesterScaleResponse> {
+  return apiPostWithAuth<IngesterScaleResponse>(ADMIN_SCALE_PATH, { replicas }, username, password);
+}
+
+export async function fetchIngesterScale(username: string, password: string): Promise<IngesterScaleResponse> {
+  return apiGetWithAuth<IngesterScaleResponse>(ADMIN_SCALE_PATH, username, password);
 }
 
 export interface FlightStreamEvent {

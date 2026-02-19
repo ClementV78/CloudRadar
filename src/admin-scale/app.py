@@ -43,6 +43,16 @@ def _k8s_patch_json(token, path, payload, timeout=3):
     return json.loads(resp.read().decode("utf-8"))
 
 
+def _k8s_get_json(token, path, timeout=3):
+  url = f"{K8S_HOST}{path}"
+  req = urllib.request.Request(url, method="GET")
+  req.add_header("Authorization", f"Bearer {token}")
+  req.add_header("Accept", "application/json")
+  context = ssl.create_default_context(cafile=CA_PATH)
+  with urllib.request.urlopen(req, context=context, timeout=timeout) as resp:
+    return json.loads(resp.read().decode("utf-8"))
+
+
 def _allowed_replicas():
   values = []
   for raw in ALLOWED_REPLICAS.split(","):
@@ -93,12 +103,50 @@ def _get_internal_token():
 
 class AdminHandler(BaseHTTPRequestHandler):
   def do_GET(self):  # noqa: N802
-    if self.path != "/healthz":
+    if self.path == "/healthz":
+      _json_response(self, 200, {"status": "ok", "timestamp": _utc_now()})
+      return
+
+    if self.path != "/admin/ingester/scale":
       self.send_response(404)
       self.end_headers()
       return
 
-    _json_response(self, 200, {"status": "ok", "timestamp": _utc_now()})
+    token = _get_internal_token()
+    if not token:
+      _json_response(self, 502, {"error": "admin token unavailable from ssm"})
+      return
+
+    if not _is_authorized(self.headers.get("X-Internal-Token", ""), token):
+      _unauthorized(self)
+      return
+
+    token = _load_token()
+    if not token:
+      _json_response(self, 500, {"error": "serviceaccount token not found"})
+      return
+
+    try:
+      result = _k8s_get_json(
+        token,
+        f"/apis/apps/v1/namespaces/{NAMESPACE}/deployments/{DEPLOYMENT}/scale",
+      )
+    except urllib.error.HTTPError as exc:
+      _json_response(self, 502, {"error": f"k8s api error: {exc.code}"})
+      return
+    except Exception as exc:  # noqa: BLE001
+      _json_response(self, 502, {"error": f"k8s api error: {exc}"})
+      return
+
+    status = result.get("status", {})
+    _json_response(self, 200, {
+      "status": "ok",
+      "deployment": DEPLOYMENT,
+      "replicas": status.get("replicas", 0),
+      "available": status.get("availableReplicas", 0),
+      "updated": status.get("updatedReplicas", 0),
+      "timestamp": _utc_now(),
+    })
 
   def do_POST(self):  # noqa: N802
     if self.path != "/admin/ingester/scale":

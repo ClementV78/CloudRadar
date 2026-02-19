@@ -5,11 +5,14 @@ Purpose: scale the ingester deployment via a small admin API that talks to the K
 ## Overview (DevOps flow)
 ```mermaid
 flowchart LR
-  user[User UI] -->|HTTPS + Basic Auth| edge[Edge Nginx]
-  edge -->|Internal header token| svc[Admin API Service]
+  user[User UI] -->|HTTPS + Basic Auth GET /admin/ingester/scale| edge[Edge Nginx]
+  user -->|HTTPS + Basic Auth POST /admin/ingester/scale| edge
+  edge -->|Inject X-Internal-Token| svc[Admin API Service]
   svc --> pod[Admin API Pod]
-  pod -->|ServiceAccount token| k8s[Kubernetes API]
-  k8s -->|patch deployments/scale| deploy[ingester Deployment]
+  pod -->|ServiceAccount token + GET deployment/scale| k8s[Kubernetes API]
+  pod -->|ServiceAccount token + PATCH deployment/scale| k8s
+  k8s -->|status.replicas| user
+  k8s -->|update replicas| deploy[ingester Deployment]
 
   admin[Admin via SSM] -->|curl + internal token| svc
 ```
@@ -37,6 +40,16 @@ The admin API reads the token directly from SSM (same source as the edge).
 - The API expects the header `X-Internal-Token`.
 - The token is loaded from SSM using `ADMIN_TOKEN_SSM_NAME` and `AWS_REGION`.
 - In code: `src/admin-scale/app.py` compares the header value to the SSM token and returns **401** when invalid.
+
+## Frontend toggle behavior
+
+- The frontend can call `POST /admin/ingester/scale` to toggle ingester replicas:
+  - OFF -> `{"replicas": 0}`
+  - ON -> `{"replicas": 1}`
+- The frontend calls `GET /admin/ingester/scale` on load to initialize toggle state.
+- Before each call, the UI prompts for edge Basic Auth credentials (login/password).
+- Credentials are cached in browser session storage for the current tab session.
+- Edge Nginx still injects `X-Internal-Token` server-side.
 
 ## Steps
 

@@ -97,5 +97,14 @@ export interface BboxBoostStatusResponse {
   serverEpoch: number;
 }
 
+export interface IngesterScaleResponse {
+  status: string;
+  deployment: string;
+  replicas: number;
+  available: number;
+  updated: number;
+  timestamp: string;
+}
+
 export type ApiStatus = 'online' | 'degraded' | 'offline';
 export type OpenSkyStatus = 'online' | 'stale' | 'unknown';

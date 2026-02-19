@@ -19,3 +19,4 @@ export const REFRESH_INTERVAL_MS = Number.isFinite(REFRESH_MS_ENV) && REFRESH_MS
 export const STALE_AFTER_SECONDS = 120;
 
 export const API_FLIGHTS_BASE = import.meta.env.VITE_API_FLIGHTS_BASE || '/api/flights';
+export const ADMIN_SCALE_PATH = import.meta.env.VITE_ADMIN_SCALE_PATH || '/admin/ingester/scale';
