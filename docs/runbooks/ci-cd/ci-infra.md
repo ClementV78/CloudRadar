@@ -150,6 +150,7 @@ flowchart TB
   - If restore is requested, the job still protects data by skipping restore when Redis data is not fresh.
 - `alertmanager-reenable` runs after `eso-secrets-ready` (not in `tf-apply`) to avoid early SSM/instance readiness races.
   - It is best-effort and emits `warning` signals instead of failing the pipeline.
+  - It resolves the Alertmanager StatefulSet dynamically by label (`app.kubernetes.io/name=alertmanager`) instead of a hardcoded name.
 - `orphan-scan-pre-deploy` runs a strict `state vs tagged` scan before planning/apply and fails fast on tagged resources found in AWS but missing from Terraform state.
 - Both `orphan-scan-pre-deploy` and `ci-infra-destroy` post-destroy scan append findings to `GITHUB_STEP_SUMMARY`.
 - Script details (modes, usage, flow): `scripts/ci/find-orphans.md`.
@@ -198,7 +199,7 @@ Use the dedicated destroy workflow when you need to tear down an environment.
 - The workflow validates the selected root before destroying.
 - Before destroy, the workflow mutes alert noise:
   - disables CloudWatch alarm actions for CloudRadar status-check alarms
-  - scales Alertmanager statefulset to 0 on dev (best effort, via SSM)
+  - scales Alertmanager statefulset to 0 on dev (best effort, via SSM), resolved dynamically by label (`app.kubernetes.io/name=alertmanager`)
 
 ## Required repo variables
 
