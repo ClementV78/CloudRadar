@@ -48,6 +48,8 @@ const MAX_INTERPOLATION_DISTANCE_KM = 200;
 const STATIC_POSITION_THRESHOLD_KM = 0.05;
 const INGESTER_TOGGLE_POLL_INTERVAL_MS = 1_000;
 const INGESTER_TOGGLE_TIMEOUT_MS = 30_000;
+const INGESTER_STATUS_REFRESH_MS = 30_000;
+const INGESTER_INITIAL_RETRY_DELAYS_MS = [0, 1_500, 4_000];
 const KNOT_TO_KMH = 1.852;
 const EDGE_AUTH_STORAGE_KEY = 'cloudradar.edge.basic_auth';
 
@@ -624,13 +626,13 @@ export default function App(): JSX.Element {
     return { username, password };
   }, []);
 
-  const loadIngesterStatus = useCallback(async (interactive: boolean) => {
+  const loadIngesterStatus = useCallback(async (interactive: boolean): Promise<boolean> => {
     const cachedCredentials = getEdgeCredentials(false);
     const useAuthenticatedCall = interactive || cachedCredentials !== null;
     const credentials = useAuthenticatedCall ? getEdgeCredentials(interactive) : null;
 
     if (useAuthenticatedCall && !credentials) {
-      return;
+      return false;
     }
 
     try {
@@ -641,6 +643,7 @@ export default function App(): JSX.Element {
       setIngesterEnabled(response.replicas > 0);
       setIngesterKnown(true);
       setRefreshError(null);
+      return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unable to load ingester status';
       const lowerMessage = message.toLowerCase();
@@ -650,9 +653,10 @@ export default function App(): JSX.Element {
       }
       setIngesterKnown(false);
       if (!interactive && unauthorized) {
-        return;
+        return false;
       }
       setRefreshError(`ingester status failed: ${message}`);
+      return false;
     } finally {
       setIngesterLoading(false);
     }
@@ -737,8 +741,40 @@ export default function App(): JSX.Element {
   }, [refreshData]);
 
   useEffect(() => {
-    // Do not trigger auth prompt on page load; only refresh status if credentials are already cached.
-    void loadIngesterStatus(false);
+    // First-page-load hardening: retry ingester status a few times without interactive auth.
+    let cancelled = false;
+    void (async () => {
+      for (const delayMs of INGESTER_INITIAL_RETRY_DELAYS_MS) {
+        if (cancelled) {
+          return;
+        }
+        if (delayMs > 0) {
+          await waitMs(delayMs);
+        }
+        if (cancelled) {
+          return;
+        }
+        const ok = await loadIngesterStatus(false);
+        if (ok) {
+          return;
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadIngesterStatus]);
+
+  useEffect(() => {
+    // Keep ingester status converged over time if first load failed or backend state changes externally.
+    const statusTimer = window.setInterval(() => {
+      void loadIngesterStatus(false);
+    }, INGESTER_STATUS_REFRESH_MS);
+
+    return () => {
+      window.clearInterval(statusTimer);
+    };
   }, [loadIngesterStatus]);
 
   useEffect(() => {
