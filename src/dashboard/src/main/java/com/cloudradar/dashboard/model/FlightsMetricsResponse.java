@@ -50,9 +50,19 @@ public record FlightsMetricsResponse(
    * @param epoch bucket start epoch (seconds)
    * @param eventsTotal total processed events in bucket
    * @param eventsMilitary processed military events in bucket
-   * @param militarySharePercent military share in bucket (0-100)
+   * @param aircraftTotal unique aircraft seen in bucket
+   * @param aircraftMilitary unique military aircraft seen in bucket
+   * @param militarySharePercent military aircraft share in bucket (0-100)
+   * @param hasData true when at least one source sub-bucket was present in Redis
    */
-  public record TimeBucket(long epoch, int eventsTotal, int eventsMilitary, double militarySharePercent) {}
+  public record TimeBucket(
+      long epoch,
+      int eventsTotal,
+      int eventsMilitary,
+      int aircraftTotal,
+      int aircraftMilitary,
+      double militarySharePercent,
+      boolean hasData) {}
 
   /**
    * Estimated metrics and explanatory notes.

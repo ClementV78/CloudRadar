@@ -53,6 +53,8 @@ public class FlightQueryService {
   private static final Set<String> SUPPORTED_INCLUDES = Set.of("track", "enrichment");
   private static final long REDIS_SCAN_COUNT = 1000L;
   private static final int MAP_CONTINUITY_BATCH_WINDOW = 3;
+  private static final String AIRCRAFT_HLL_SUFFIX = ":aircraft_hll";
+  private static final String AIRCRAFT_MILITARY_HLL_SUFFIX = ":aircraft_military_hll";
 
   private final StringRedisTemplate redisTemplate;
   private final ObjectMapper objectMapper;
@@ -587,20 +589,23 @@ public class FlightQueryService {
 
     int[] totalByBucket = new int[bucketCount];
     int[] militaryByBucket = new int[bucketCount];
+    int[] aircraftByBucket = new int[bucketCount];
+    int[] aircraftMilitaryByBucket = new int[bucketCount];
+    int[] observedByBucket = new int[bucketCount];
     HashOperations<String, Object, Object> hashOps = redisTemplate.opsForHash();
 
     for (long minuteEpoch = minuteStart; minuteEpoch <= now; minuteEpoch += minuteWidth) {
-      String key = properties.getRedis().getActivityBucketKeyPrefix() + minuteEpoch;
+      String keyPrefix = properties.getRedis().getActivityBucketKeyPrefix() + minuteEpoch;
       redisReads++;
-      Map<Object, Object> raw = hashOps.entries(key);
-      if (raw == null || raw.isEmpty()) {
-        emptyBuckets++;
-        continue;
-      }
+      Map<Object, Object> raw = hashOps.entries(keyPrefix);
 
-      int total = parseBucketCount(raw.get("events_total"));
-      int military = parseBucketCount(raw.get("events_military"));
-      if (total <= 0 && military <= 0) {
+      int total = parseBucketCount(raw == null ? null : raw.get("events_total"));
+      int military = parseBucketCount(raw == null ? null : raw.get("events_military"));
+      int aircraftTotal = toInt(redisTemplate.opsForHyperLogLog().size(keyPrefix + AIRCRAFT_HLL_SUFFIX));
+      int aircraftMilitary = toInt(redisTemplate.opsForHyperLogLog().size(keyPrefix + AIRCRAFT_MILITARY_HLL_SUFFIX));
+
+      if (total <= 0 && military <= 0 && aircraftTotal <= 0 && aircraftMilitary <= 0) {
+        emptyBuckets++;
         continue;
       }
 
@@ -608,6 +613,9 @@ public class FlightQueryService {
       int idx = (int) Math.min(bucketCount - 1L, Math.max(0L, offset / bucketWidth));
       totalByBucket[idx] += total;
       militaryByBucket[idx] += military;
+      aircraftByBucket[idx] += aircraftTotal;
+      aircraftMilitaryByBucket[idx] += aircraftMilitary;
+      observedByBucket[idx] += 1;
     }
 
     List<FlightsMetricsResponse.TimeBucket> series = new ArrayList<>(bucketCount);
@@ -615,11 +623,16 @@ public class FlightQueryService {
       long bucketStart = start + (i * bucketWidth);
       int total = totalByBucket[i];
       int military = militaryByBucket[i];
+      int aircraftTotal = aircraftByBucket[i];
+      int aircraftMilitary = aircraftMilitaryByBucket[i];
       series.add(new FlightsMetricsResponse.TimeBucket(
           bucketStart,
           total,
           military,
-          round2(pct(military, total))));
+          aircraftTotal,
+          aircraftMilitary,
+          round2(pct(aircraftMilitary, aircraftTotal)),
+          observedByBucket[i] > 0));
     }
     activitySeriesRedisReadsCounter.increment(redisReads);
     activitySeriesEmptyBucketsCounter.increment(emptyBuckets);
@@ -636,6 +649,13 @@ public class FlightQueryService {
     } catch (NumberFormatException ex) {
       return 0;
     }
+  }
+
+  private int toInt(Long value) {
+    if (value == null || value <= 0) {
+      return 0;
+    }
+    return Math.toIntExact(value);
   }
 
   private boolean matchesMilitary(FlightSnapshot snapshot, String filter) {

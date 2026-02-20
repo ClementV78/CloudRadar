@@ -5,11 +5,52 @@ interface KpiStripProps {
   metrics: FlightsMetricsResponse | null;
 }
 
+interface ChartPoint {
+  epoch: number;
+  count: number;
+  hasData: boolean;
+}
+
+function fillMissingWithAverage(points: ChartPoint[]): { points: ChartPoint[]; imputedBuckets: number } {
+  const known = points.filter((point) => point.hasData).map((point) => point.count);
+  if (known.length === 0) {
+    return { points, imputedBuckets: 0 };
+  }
+  const average = known.reduce((sum, value) => sum + value, 0) / known.length;
+  let imputedBuckets = 0;
+  const filled = points.map((point) => {
+    if (point.hasData) {
+      return point;
+    }
+    imputedBuckets += 1;
+    return { ...point, count: Math.max(0, Math.round(average)) };
+  });
+  return { points: filled, imputedBuckets };
+}
+
 function formatNumber(value: number, digits = 0): string {
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits
   }).format(value);
+}
+
+function formatCompactNumber(value: number, digits = 0): string {
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    return `${formatNumber(value / 1_000_000, Math.max(1, digits))}M`;
+  }
+  if (abs >= 1_000) {
+    return `${formatNumber(value / 1_000, Math.max(1, digits))}k`;
+  }
+  return formatNumber(value, digits);
+}
+
+function formatAxisTime(epochSeconds: number): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date(epochSeconds * 1000));
 }
 
 function formatWindowLabel(seconds: number): string {
@@ -29,12 +70,25 @@ function safeCount(value: number | null | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
+function axisDigits(min: number, max: number): number {
+  const span = Math.abs(max - min);
+  if (span < 5) {
+    return 1;
+  }
+  if (span < 20) {
+    return 1;
+  }
+  return 0;
+}
+
 function AreaChart({
   points,
-  variant
+  variant,
+  windowLabel
 }: {
   points: Array<{ epoch: number; count: number }>;
   variant: 'cyan' | 'red';
+  windowLabel: string;
 }): JSX.Element {
   if (points.length < 2) {
     return <div className="area-chart-empty">insufficient points</div>;
@@ -44,9 +98,9 @@ function AreaChart({
   const min = Math.min(...points.map((point) => point.count), 0);
   const span = Math.max(max - min, 1);
   const top = 8;
-  const bottom = 86;
-  const left = 2;
-  const right = 98;
+  const bottom = 80;
+  const left = 20;
+  const right = 97;
   const width = right - left;
   const height = bottom - top;
 
@@ -59,6 +113,10 @@ function AreaChart({
     .join(' ');
   const areaCommands = `${lineCommands} L ${right} ${bottom} L ${left} ${bottom} Z`;
   const mid = min + span / 2;
+  const digits = axisDigits(min, max);
+  const firstEpoch = points[0]?.epoch ?? 0;
+  const midEpoch = points[Math.floor((points.length - 1) / 2)]?.epoch ?? firstEpoch;
+  const lastEpoch = points[points.length - 1]?.epoch ?? firstEpoch;
 
   return (
     <svg className={`area-chart area-chart-${variant}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -67,9 +125,12 @@ function AreaChart({
       <line className="area-chart-grid" x1={left} y1={bottom} x2={right} y2={bottom} />
       <path className="area-chart-fill" d={areaCommands} />
       <path className="area-chart-line" d={lineCommands} />
-      <text className="area-chart-ylabel" x={2} y={top + 1}>{formatNumber(max, 0)}</text>
-      <text className="area-chart-ylabel" x={2} y={(top + bottom) / 2 + 1}>{formatNumber(mid, 0)}</text>
-      <text className="area-chart-ylabel" x={2} y={bottom - 1}>{formatNumber(min, 0)}</text>
+      <text className="area-chart-ylabel" textAnchor="end" x={left - 2} y={top + 1}>{formatCompactNumber(max, digits)}</text>
+      <text className="area-chart-ylabel" textAnchor="end" x={left - 2} y={(top + bottom) / 2 + 1}>{formatCompactNumber(mid, digits)}</text>
+      <text className="area-chart-ylabel" textAnchor="end" x={left - 2} y={bottom - 1}>{formatCompactNumber(min, digits)}</text>
+      <text className="area-chart-xlabel" textAnchor="start" x={left + 1} y={95}>{formatAxisTime(firstEpoch)}</text>
+      <text className="area-chart-xlabel" textAnchor="middle" x={(left + right) / 2} y={95}>{windowLabel}</text>
+      <text className="area-chart-xlabel" textAnchor="end" x={right - 1} y={95}>{formatAxisTime(lastEpoch)}</text>
     </svg>
   );
 }
@@ -79,19 +140,21 @@ function TrendBlock({
   subtitle,
   points,
   variant,
-  footer
+  footer,
+  windowLabel
 }: {
   title: string;
   subtitle: string;
   points: Array<{ epoch: number; count: number }>;
   variant: 'cyan' | 'red';
   footer: string;
+  windowLabel: string;
 }): JSX.Element {
   return (
     <div className="kpi-trend-block">
       <div className="kpi-trend-title">{title}</div>
       <div className="kpi-trend-subtitle">{subtitle}</div>
-      <AreaChart points={points} variant={variant} />
+      <AreaChart points={points} variant={variant} windowLabel={windowLabel} />
       <div className="kpi-trend-footer">{footer}</div>
     </div>
   );
@@ -171,11 +234,27 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
   const topTypes = topBreakdown(metrics?.aircraftTypes, 3);
   const topSizes = topBreakdown(metrics?.aircraftSizes, 3);
   const activityPoints = metrics?.activitySeries ?? [];
-  const totalEventSeries = activityPoints.map((point) => ({ epoch: point.epoch, count: safeCount(point.eventsTotal) }));
-  const militaryEventSeries = activityPoints.map((point) => ({ epoch: point.epoch, count: safeCount(point.eventsMilitary) }));
+  const totalAircraftSeriesRaw = activityPoints.map((point) => ({
+    epoch: point.epoch,
+    count: safeCount(point.aircraftTotal ?? point.eventsTotal),
+    hasData: typeof point.hasData === 'boolean'
+      ? point.hasData
+      : safeCount(point.aircraftTotal ?? point.eventsTotal) > 0
+  }));
+  const militaryAircraftSeriesRaw = activityPoints.map((point) => ({
+    epoch: point.epoch,
+    count: safeCount(point.aircraftMilitary ?? point.eventsMilitary),
+    hasData: typeof point.hasData === 'boolean'
+      ? point.hasData
+      : safeCount(point.aircraftMilitary ?? point.eventsMilitary) > 0
+  }));
+  const totalAircraftSeriesFilled = fillMissingWithAverage(totalAircraftSeriesRaw);
+  const militaryAircraftSeriesFilled = fillMissingWithAverage(militaryAircraftSeriesRaw);
+  const totalAircraftSeries = totalAircraftSeriesFilled.points;
+  const militaryAircraftSeries = militaryAircraftSeriesFilled.points;
   const totalEventsWindow = activityPoints.reduce((sum, point) => sum + safeCount(point.eventsTotal), 0);
-  const militaryEventsWindow = activityPoints.reduce((sum, point) => sum + safeCount(point.eventsMilitary), 0);
-  const maxActivity = Math.max(...totalEventSeries.map((point) => point.count), activeAircraft, 1);
+  const militaryEventsWindow = activityPoints.reduce((sum, point) => sum + safeCount(point.aircraftMilitary), 0);
+  const maxActivity = Math.max(...totalAircraftSeries.map((point) => point.count), activeAircraft, 1);
   const windowLabel = formatWindowLabel(metrics?.activityWindowSeconds ?? 0);
 
   return (
@@ -202,11 +281,12 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
                 </div>
               </div>
               <TrendBlock
-                title={`Event throughput (${windowLabel})`}
-                subtitle="processed events per bucket"
-                points={totalEventSeries}
+                title={`Aircraft throughput (${windowLabel})`}
+                subtitle="unique aircraft per bucket"
+                points={totalAircraftSeries}
                 variant="cyan"
-                footer={`${formatNumber(activeAircraft)} aircraft now`}
+                footer={`${formatNumber(activeAircraft)} aircraft now${totalAircraftSeriesFilled.imputedBuckets > 0 ? ` · ${totalAircraftSeriesFilled.imputedBuckets} gap(s) avg-filled` : ''}`}
+                windowLabel={windowLabel}
               />
             </div>
           </div>
@@ -229,14 +309,15 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
                 <div className="kpi-main kpi-danger">{formatNumber(defenseScore, 1)}</div>
                 <div className="kpi-sub">defense activity score</div>
                 <div className="kpi-sub">military share: {compactPercent(militaryShare)}</div>
-                <div className="kpi-sub">{formatNumber(militaryEventsWindow)} military events ({windowLabel})</div>
+                <div className="kpi-sub">{formatNumber(militaryEventsWindow)} military aircraft ({windowLabel})</div>
               </div>
               <TrendBlock
-                title={`Military events (${windowLabel})`}
-                subtitle="military throughput per bucket"
-                points={militaryEventSeries}
+                title={`Military aircraft (${windowLabel})`}
+                subtitle="unique military aircraft per bucket"
+                points={militaryAircraftSeries}
                 variant="red"
-                footer={`${compactPercent(militaryShare)} military share`}
+                footer={`${compactPercent(militaryShare)} military share${militaryAircraftSeriesFilled.imputedBuckets > 0 ? ` · ${militaryAircraftSeriesFilled.imputedBuckets} gap(s) avg-filled` : ''}`}
+                windowLabel={windowLabel}
               />
             </div>
           </div>

@@ -86,9 +86,11 @@ Redis keys:
 - `cloudradar:aircraft:last` (Hash): latest telemetry payload per `icao24`.
 - `cloudradar:aircraft:track:<icao24>` (List): bounded recent trajectory points.
 - `cloudradar:activity:bucket:<epochMinute>` (Hash): processed event counters (`events_total`, `events_military`) used for KPI activity trends.
+- `cloudradar:activity:bucket:<epochMinute>:aircraft_hll` (HLL): unique aircraft per bucket.
+- `cloudradar:activity:bucket:<epochMinute>:aircraft_military_hll` (HLL): unique military aircraft per bucket.
 
 Telemetry payload includes `opensky_fetch_epoch`, used as batch boundary for map refresh.
-KPI activity trends are built from event buckets (processor write path), not from snapshot distribution in `aircraft:last`.
+KPI activity trends are built from bucketed processor writes (events + unique aircraft), not from snapshot distribution in `aircraft:last`.
 
 ## 4. Map Endpoint Internals (`GET /api/flights`)
 
@@ -128,6 +130,9 @@ Track rendering note (frontend): large timestamp gaps should split the polyline 
 1. Reuse snapshot loading logic.
 2. Aggregate active aircraft, density, military share, fleet/type/size mix, and activity series.
 3. Return low-cardinality payload for KPI cards and compact charts.
+
+Metrics activity series includes both throughput dimensions: event counts and unique-aircraft counts per bucket.
+Frontend trend cards display unique-aircraft throughput and can visually fill `hasData=false` gaps with a window average to keep charts readable during transient ingest holes.
 
 ## 7. Push Refresh Model (`GET /api/flights/stream`)
 

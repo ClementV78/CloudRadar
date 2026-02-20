@@ -175,7 +175,10 @@ Example response:
       "epoch": 1760000000,
       "eventsTotal": 120,
       "eventsMilitary": 14,
-      "militarySharePercent": 11.67
+      "aircraftTotal": 78,
+      "aircraftMilitary": 9,
+      "militarySharePercent": 11.54,
+      "hasData": true
     }
   ],
   "estimates": {
@@ -193,7 +196,11 @@ Example response:
 ```
 
 Notes:
-- `activitySeries` is event-based (processed telemetry throughput), not derived from `aircraft:last` snapshot counts.
+- `activitySeries` now exposes both:
+  - event throughput (`eventsTotal`, `eventsMilitary`)
+  - unique aircraft throughput (`aircraftTotal`, `aircraftMilitary`)
+- `militarySharePercent` in each bucket is computed from unique aircraft counts in that bucket.
+- `hasData=false` means the source sub-buckets were absent in Redis (frontend may apply visual gap filling).
 - `activityBucketSeconds` and `activityWindowSeconds` describe the timeline granularity and total coverage.
 
 ## Error Model

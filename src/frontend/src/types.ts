@@ -74,7 +74,10 @@ export interface ActivityPoint {
   epoch: number;
   eventsTotal: number;
   eventsMilitary: number;
+  aircraftTotal: number;
+  aircraftMilitary: number;
   militarySharePercent: number;
+  hasData: boolean;
 }
 
 export interface FlightsMetricsResponse {
