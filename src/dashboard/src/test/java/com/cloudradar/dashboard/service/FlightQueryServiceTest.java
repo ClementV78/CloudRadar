@@ -36,6 +36,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.HyperLogLogOperations;
 import org.springframework.data.redis.core.ListOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
@@ -44,6 +45,7 @@ class FlightQueryServiceTest {
 
   @Mock private StringRedisTemplate redisTemplate;
   @Mock private HashOperations<String, Object, Object> hashOperations;
+  @Mock private HyperLogLogOperations<String, String> hyperLogLogOperations;
   @Mock private ListOperations<String, String> listOperations;
   @Mock private AircraftMetadataRepository aircraftRepository;
 
@@ -67,6 +69,7 @@ class FlightQueryServiceTest {
     objectMapper = new ObjectMapper();
 
     lenient().when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+    lenient().when(redisTemplate.opsForHyperLogLog()).thenReturn(hyperLogLogOperations);
     lenient().when(redisTemplate.opsForList()).thenReturn(listOperations);
   }
 
@@ -386,6 +389,37 @@ class FlightQueryServiceTest {
       }
       return Map.of();
     });
+    when(hyperLogLogOperations.size(anyString())).thenAnswer(invocation -> {
+      String key = invocation.getArgument(0);
+      if (!key.startsWith(prefix)) {
+        return 0L;
+      }
+      int suffixSeparator = key.indexOf(':', prefix.length());
+      long epoch = Long.parseLong(key.substring(prefix.length(), suffixSeparator));
+      if (key.endsWith(":aircraft_hll")) {
+        if (epoch == minuteA1) {
+          return 4L;
+        }
+        if (epoch == minuteA2) {
+          return 2L;
+        }
+        if (epoch == minuteB) {
+          return 3L;
+        }
+      }
+      if (key.endsWith(":aircraft_military_hll")) {
+        if (epoch == minuteA1) {
+          return 1L;
+        }
+        if (epoch == minuteA2) {
+          return 1L;
+        }
+        if (epoch == minuteB) {
+          return 1L;
+        }
+      }
+      return 0L;
+    });
 
     FlightsMetricsResponse response = service.getFlightsMetrics(null, "30m");
 
@@ -393,11 +427,17 @@ class FlightQueryServiceTest {
     assertTrue(response.activitySeries().stream().anyMatch(bucket ->
         bucket.eventsTotal() == 8
             && bucket.eventsMilitary() == 3
-            && bucket.militarySharePercent() == 37.5));
+            && bucket.aircraftTotal() == 6
+            && bucket.aircraftMilitary() == 2
+            && bucket.militarySharePercent() == 33.33
+            && bucket.hasData()));
     assertTrue(response.activitySeries().stream().anyMatch(bucket ->
         bucket.eventsTotal() == 4
             && bucket.eventsMilitary() == 1
-            && bucket.militarySharePercent() == 25.0));
+            && bucket.aircraftTotal() == 3
+            && bucket.aircraftMilitary() == 1
+            && bucket.militarySharePercent() == 33.33
+            && bucket.hasData()));
   }
 
   private Cursor<Map.Entry<Object, Object>> cursorOf(List<Map.Entry<Object, Object>> entries) {

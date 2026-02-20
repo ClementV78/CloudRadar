@@ -85,8 +85,10 @@ flowchart LR
   - fallback to `REFRESH_INTERVAL_MS` when epoch delta is missing
   - interpolation is skipped for unrealistic jumps (too old / too far)
 - KPI activity trends:
-  - charts are driven by event buckets from backend metrics (`eventsTotal`, `eventsMilitary`)
+  - charts use unique aircraft buckets from backend metrics (`aircraftTotal`, `aircraftMilitary`)
+  - raw event counters (`eventsTotal`, `eventsMilitary`) remain available for operational diagnostics
   - bucket metadata (`activityBucketSeconds`, `activityWindowSeconds`) defines chart window/granularity
+  - buckets flagged `hasData=false` are visually gap-filled with the window average in charts
 - Marker static/grayed state:
   - computed from movement between two distinct OpenSky batches only (`latestOpenSkyBatchEpoch` changed)
   - marker is rendered dimmed when movement is below `STATIC_POSITION_THRESHOLD_KM`

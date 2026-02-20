@@ -32,6 +32,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class RedisAggregateProcessor {
   private static final Logger LOGGER = LoggerFactory.getLogger(RedisAggregateProcessor.class);
+  private static final String AIRCRAFT_HLL_SUFFIX = ":aircraft_hll";
+  private static final String AIRCRAFT_MILITARY_HLL_SUFFIX = ":aircraft_military_hll";
 
   private final StringRedisTemplate redisTemplate;
   private final ObjectMapper objectMapper;
@@ -154,26 +156,32 @@ public class RedisAggregateProcessor {
       recordAircraftCountry(metadata);
       recordAircraftEnrichment(metadata);
     }
-    recordActivityBucket(System.currentTimeMillis() / 1000, metadata);
+    recordActivityBucket(System.currentTimeMillis() / 1000, redisIcao, metadata);
     processedCounter.increment();
     lastProcessedEpoch.set(System.currentTimeMillis() / 1000);
   }
 
-  private void recordActivityBucket(long epochSeconds, Optional<AircraftMetadata> metadata) {
+  private void recordActivityBucket(long epochSeconds, String icao24, Optional<AircraftMetadata> metadata) {
     try {
       long bucketSeconds = Math.max(1L, properties.getActivityBucketSeconds());
       long bucketStart = (epochSeconds / bucketSeconds) * bucketSeconds;
-      String key = properties.getRedis().getActivityBucketKeyPrefix() + bucketStart;
-      redisTemplate.opsForHash().increment(key, "events_total", 1L);
+      String bucketKeyPrefix = properties.getRedis().getActivityBucketKeyPrefix() + bucketStart;
+      redisTemplate.opsForHash().increment(bucketKeyPrefix, "events_total", 1L);
+      redisTemplate.opsForHyperLogLog().add(bucketKeyPrefix + AIRCRAFT_HLL_SUFFIX, icao24);
+
       if (metadata.map(AircraftMetadata::militaryHint).orElse(false)) {
-        redisTemplate.opsForHash().increment(key, "events_military", 1L);
+        redisTemplate.opsForHash().increment(bucketKeyPrefix, "events_military", 1L);
+        redisTemplate.opsForHyperLogLog().add(bucketKeyPrefix + AIRCRAFT_MILITARY_HLL_SUFFIX, icao24);
       }
 
       long ttlSeconds = Math.max(
           bucketSeconds,
           properties.getActivityBucketRetentionSeconds() + bucketSeconds
       );
-      redisTemplate.expire(key, Duration.ofSeconds(ttlSeconds));
+      Duration ttl = Duration.ofSeconds(ttlSeconds);
+      redisTemplate.expire(bucketKeyPrefix, ttl);
+      redisTemplate.expire(bucketKeyPrefix + AIRCRAFT_HLL_SUFFIX, ttl);
+      redisTemplate.expire(bucketKeyPrefix + AIRCRAFT_MILITARY_HLL_SUFFIX, ttl);
     } catch (Exception ex) {
       LOGGER.debug("Failed to update activity bucket", ex);
     }
