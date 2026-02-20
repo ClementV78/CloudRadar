@@ -81,7 +81,9 @@ class DashboardControllerTest {
         List.of(new FlightsMetricsResponse.TypeBreakdownItem("commercial", 1, 100.0)),
         List.of(new FlightsMetricsResponse.TypeBreakdownItem("medium", 1, 100.0)),
         List.of(new FlightsMetricsResponse.TypeBreakdownItem("A320", 1, 100.0)),
-        List.of(new FlightsMetricsResponse.TimeBucket(1760000000L, 1)),
+        List.of(new FlightsMetricsResponse.TimeBucket(1760000000L, 1, 0, 0.0)),
+        1800,
+        86400,
         new FlightsMetricsResponse.Estimates(null, null, null, Map.of("takeoffsLandings", "planned_v1_1")),
         0.87,
         "2026-02-13T12:00:00Z");

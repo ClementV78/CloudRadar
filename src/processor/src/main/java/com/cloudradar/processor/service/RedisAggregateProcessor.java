@@ -147,14 +147,36 @@ public class RedisAggregateProcessor {
     }
 
     updateBboxState(event, redisIcao);
+    Optional<AircraftMetadata> metadata = Optional.empty();
     if (aircraftRepo.isPresent()) {
-      Optional<AircraftMetadata> metadata = resolveMetadata(redisIcao);
+      metadata = resolveMetadata(redisIcao);
       recordAircraftCategory(metadata);
       recordAircraftCountry(metadata);
       recordAircraftEnrichment(metadata);
     }
+    recordActivityBucket(System.currentTimeMillis() / 1000, metadata);
     processedCounter.increment();
     lastProcessedEpoch.set(System.currentTimeMillis() / 1000);
+  }
+
+  private void recordActivityBucket(long epochSeconds, Optional<AircraftMetadata> metadata) {
+    try {
+      long bucketSeconds = Math.max(1L, properties.getActivityBucketSeconds());
+      long bucketStart = (epochSeconds / bucketSeconds) * bucketSeconds;
+      String key = properties.getRedis().getActivityBucketKeyPrefix() + bucketStart;
+      redisTemplate.opsForHash().increment(key, "events_total", 1L);
+      if (metadata.map(AircraftMetadata::militaryHint).orElse(false)) {
+        redisTemplate.opsForHash().increment(key, "events_military", 1L);
+      }
+
+      long ttlSeconds = Math.max(
+          bucketSeconds,
+          properties.getActivityBucketRetentionSeconds() + bucketSeconds
+      );
+      redisTemplate.expire(key, Duration.ofSeconds(ttlSeconds));
+    } catch (Exception ex) {
+      LOGGER.debug("Failed to update activity bucket", ex);
+    }
   }
 
   private Optional<AircraftMetadata> resolveMetadata(String icao24) {

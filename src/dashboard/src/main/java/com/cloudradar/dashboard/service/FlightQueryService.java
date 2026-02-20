@@ -266,7 +266,12 @@ public class FlightQueryService {
         this::aircraftTypeLabel,
         8);
 
-    List<FlightsMetricsResponse.TimeBucket> activitySeries = activitySeries(snapshots, window, 12);
+    int bucketCount = Math.max(12, properties.getApi().getMetricsBucketCount());
+    List<FlightsMetricsResponse.TimeBucket> activitySeries = activitySeriesFromEventBuckets(window, bucketCount);
+    int activityBucketSeconds =
+        activitySeries.size() < 2
+            ? (int) Math.max(1L, window.getSeconds() / Math.max(1, bucketCount))
+            : (int) Math.max(1L, activitySeries.get(1).epoch() - activitySeries.get(0).epoch());
 
     FlightsMetricsResponse.Estimates estimates = new FlightsMetricsResponse.Estimates(
         null,
@@ -291,6 +296,8 @@ public class FlightQueryService {
         aircraftSizes,
         aircraftTypes,
         activitySeries,
+        activityBucketSeconds,
+        Math.max(1L, window.getSeconds()),
         estimates,
         openSkyCreditsPerRequest24h,
         ISO.format(Instant.now()));
@@ -550,39 +557,62 @@ public class FlightQueryService {
         .toList();
   }
 
-  private List<FlightsMetricsResponse.TimeBucket> activitySeries(
-      List<FlightSnapshot> snapshots,
+  private List<FlightsMetricsResponse.TimeBucket> activitySeriesFromEventBuckets(
       Duration window,
       int bucketCount) {
-    if (snapshots.isEmpty()) {
-      return Collections.emptyList();
-    }
-
     long now = Instant.now().getEpochSecond();
     long windowSeconds = Math.max(1, window.getSeconds());
     long bucketWidth = Math.max(1, windowSeconds / bucketCount);
     long start = now - windowSeconds;
+    long minuteWidth = 60L;
+    long minuteStart = (start / minuteWidth) * minuteWidth;
 
-    Map<Long, Integer> buckets = new TreeMap<>();
-    for (int i = 0; i < bucketCount; i++) {
-      long bucketStart = start + (i * bucketWidth);
-      buckets.put(bucketStart, 0);
-    }
+    int[] totalByBucket = new int[bucketCount];
+    int[] militaryByBucket = new int[bucketCount];
+    HashOperations<String, Object, Object> hashOps = redisTemplate.opsForHash();
 
-    for (FlightSnapshot snapshot : snapshots) {
-      Long ts = snapshot.event().lastContact();
-      if (ts == null || ts < start || ts > now) {
+    for (long minuteEpoch = minuteStart; minuteEpoch <= now; minuteEpoch += minuteWidth) {
+      String key = properties.getRedis().getActivityBucketKeyPrefix() + minuteEpoch;
+      Map<Object, Object> raw = hashOps.entries(key);
+      if (raw == null || raw.isEmpty()) {
         continue;
       }
-      long offset = (ts - start) / bucketWidth;
-      int idx = (int) Math.min(bucketCount - 1L, Math.max(0L, offset));
-      long bucketStart = start + (idx * bucketWidth);
-      buckets.compute(bucketStart, (k, old) -> (old == null ? 0 : old) + 1);
+
+      int total = parseBucketCount(raw.get("events_total"));
+      int military = parseBucketCount(raw.get("events_military"));
+      if (total <= 0 && military <= 0) {
+        continue;
+      }
+
+      long offset = minuteEpoch - start;
+      int idx = (int) Math.min(bucketCount - 1L, Math.max(0L, offset / bucketWidth));
+      totalByBucket[idx] += total;
+      militaryByBucket[idx] += military;
     }
 
-    return buckets.entrySet().stream()
-        .map(e -> new FlightsMetricsResponse.TimeBucket(e.getKey(), e.getValue()))
-        .toList();
+    List<FlightsMetricsResponse.TimeBucket> series = new ArrayList<>(bucketCount);
+    for (int i = 0; i < bucketCount; i++) {
+      long bucketStart = start + (i * bucketWidth);
+      int total = totalByBucket[i];
+      int military = militaryByBucket[i];
+      series.add(new FlightsMetricsResponse.TimeBucket(
+          bucketStart,
+          total,
+          military,
+          round2(pct(military, total))));
+    }
+    return series;
+  }
+
+  private int parseBucketCount(Object value) {
+    if (value == null) {
+      return 0;
+    }
+    try {
+      return Integer.parseInt(value.toString());
+    } catch (NumberFormatException ex) {
+      return 0;
+    }
   }
 
   private boolean matchesMilitary(FlightSnapshot snapshot, String filter) {

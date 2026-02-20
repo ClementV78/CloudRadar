@@ -84,6 +84,9 @@ flowchart LR
   - animation duration derives from OpenSky batch epoch delta when available
   - fallback to `REFRESH_INTERVAL_MS` when epoch delta is missing
   - interpolation is skipped for unrealistic jumps (too old / too far)
+- KPI activity trends:
+  - charts are driven by event buckets from backend metrics (`eventsTotal`, `eventsMilitary`)
+  - bucket metadata (`activityBucketSeconds`, `activityWindowSeconds`) defines chart window/granularity
 - Marker static/grayed state:
   - computed from movement between two distinct OpenSky batches only (`latestOpenSkyBatchEpoch` changed)
   - marker is rendered dimmed when movement is below `STATIC_POSITION_THRESHOLD_KM`

@@ -85,8 +85,10 @@ Redis keys:
 
 - `cloudradar:aircraft:last` (Hash): latest telemetry payload per `icao24`.
 - `cloudradar:aircraft:track:<icao24>` (List): bounded recent trajectory points.
+- `cloudradar:activity:bucket:<epochMinute>` (Hash): processed event counters (`events_total`, `events_military`) used for KPI activity trends.
 
-Telemetry payload includes `opensky_fetch_epoch`, used as batch boundary.
+Telemetry payload includes `opensky_fetch_epoch`, used as batch boundary for map refresh.
+KPI activity trends are built from event buckets (processor write path), not from snapshot distribution in `aircraft:last`.
 
 ## 4. Map Endpoint Internals (`GET /api/flights`)
 

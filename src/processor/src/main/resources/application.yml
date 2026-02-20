@@ -4,6 +4,8 @@ server:
 processor:
   poll-timeout-seconds: ${PROCESSOR_POLL_TIMEOUT_SECONDS:2}
   track-length: ${PROCESSOR_TRACK_LENGTH:180}
+  activity-bucket-seconds: ${PROCESSOR_ACTIVITY_BUCKET_SECONDS:60}
+  activity-bucket-retention-seconds: ${PROCESSOR_ACTIVITY_BUCKET_RETENTION_SECONDS:172800}
   aircraft-db:
     enabled: ${PROCESSOR_AIRCRAFT_DB_ENABLED:false}
     path: ${PROCESSOR_AIRCRAFT_DB_PATH:}
@@ -13,6 +15,7 @@ processor:
     last-positions-key: ${PROCESSOR_LAST_POSITIONS_KEY:cloudradar:aircraft:last}
     track-key-prefix: ${PROCESSOR_TRACK_KEY_PREFIX:cloudradar:aircraft:track:}
     bbox-set-key: ${PROCESSOR_BBOX_SET_KEY:cloudradar:aircraft:in_bbox}
+    activity-bucket-key-prefix: ${PROCESSOR_ACTIVITY_BUCKET_KEY_PREFIX:cloudradar:activity:bucket:}
   bbox:
     lat-min: ${PROCESSOR_LAT_MIN:46.8296}
     lat-max: ${PROCESSOR_LAT_MAX:50.8836}

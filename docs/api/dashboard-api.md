@@ -168,8 +168,15 @@ Example response:
   "aircraftTypes": [
     { "key": "A320", "count": 34, "percent": 18.18 }
   ],
+  "activityBucketSeconds": 1800,
+  "activityWindowSeconds": 86400,
   "activitySeries": [
-    { "epoch": 1760000000, "count": 15 }
+    {
+      "epoch": 1760000000,
+      "eventsTotal": 120,
+      "eventsMilitary": 14,
+      "militarySharePercent": 11.67
+    }
   ],
   "estimates": {
     "takeoffsWindow": null,
@@ -184,6 +191,10 @@ Example response:
   "timestamp": "2026-02-13T12:00:00Z"
 }
 ```
+
+Notes:
+- `activitySeries` is event-based (processed telemetry throughput), not derived from `aircraft:last` snapshot counts.
+- `activityBucketSeconds` and `activityWindowSeconds` describe the timeline granularity and total coverage.
 
 ## Error Model
 

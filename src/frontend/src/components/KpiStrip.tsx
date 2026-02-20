@@ -12,6 +12,19 @@ function formatNumber(value: number, digits = 0): string {
   }).format(value);
 }
 
+function formatWindowLabel(seconds: number): string {
+  if (seconds <= 0) {
+    return 'window';
+  }
+  if (seconds % 3600 === 0) {
+    return `last ${seconds / 3600}h`;
+  }
+  if (seconds % 60 === 0) {
+    return `last ${seconds / 60}m`;
+  }
+  return `last ${seconds}s`;
+}
+
 function AreaChart({
   points,
   variant
@@ -153,7 +166,13 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
   const topFleet = topBreakdown(metrics?.fleetBreakdown, 3);
   const topTypes = topBreakdown(metrics?.aircraftTypes, 3);
   const topSizes = topBreakdown(metrics?.aircraftSizes, 3);
-  const maxActivity = Math.max(...(metrics?.activitySeries ?? []).map((point) => point.count), activeAircraft, 1);
+  const activityPoints = metrics?.activitySeries ?? [];
+  const totalEventSeries = activityPoints.map((point) => ({ epoch: point.epoch, count: point.eventsTotal }));
+  const militaryEventSeries = activityPoints.map((point) => ({ epoch: point.epoch, count: point.eventsMilitary }));
+  const totalEventsWindow = activityPoints.reduce((sum, point) => sum + point.eventsTotal, 0);
+  const militaryEventsWindow = activityPoints.reduce((sum, point) => sum + point.eventsMilitary, 0);
+  const maxActivity = Math.max(...totalEventSeries.map((point) => point.count), activeAircraft, 1);
+  const windowLabel = formatWindowLabel(metrics?.activityWindowSeconds ?? 0);
 
   return (
     <section className="kpi-strip">
@@ -173,16 +192,17 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
                 <div className="kpi-main">{formatNumber(trafficDensity, 1)}</div>
                 <div className="kpi-sub">density / 10k km2</div>
                 <div className="kpi-sub">peak window: {formatNumber(maxActivity)}</div>
+                <div className="kpi-sub">{formatNumber(totalEventsWindow)} events ({windowLabel})</div>
                 <div className="kpi-sub">
                   OpenSky credits/request (24h): {openSkyCreditsPerRequest24h === null ? 'n/a' : formatNumber(openSkyCreditsPerRequest24h, 2)}
                 </div>
               </div>
               <TrendBlock
-                title="Aircraft count (last 24h)"
-                subtitle="current aircraft in bbox"
-                points={metrics?.activitySeries ?? []}
+                title={`Event throughput (${windowLabel})`}
+                subtitle="processed events per bucket"
+                points={totalEventSeries}
                 variant="cyan"
-                footer={`${formatNumber(activeAircraft)} now`}
+                footer={`${formatNumber(activeAircraft)} aircraft now`}
               />
             </div>
           </div>
@@ -205,13 +225,14 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
                 <div className="kpi-main kpi-danger">{formatNumber(defenseScore, 1)}</div>
                 <div className="kpi-sub">defense activity score</div>
                 <div className="kpi-sub">military share: {compactPercent(militaryShare)}</div>
+                <div className="kpi-sub">{formatNumber(militaryEventsWindow)} military events ({windowLabel})</div>
               </div>
               <TrendBlock
-                title="Defense activity"
-                subtitle="military presence trend"
-                points={metrics?.activitySeries ?? []}
+                title={`Military events (${windowLabel})`}
+                subtitle="military throughput per bucket"
+                points={militaryEventSeries}
                 variant="red"
-                footer={`${compactPercent(militaryShare)} military`}
+                footer={`${compactPercent(militaryShare)} military share`}
               />
             </div>
           </div>

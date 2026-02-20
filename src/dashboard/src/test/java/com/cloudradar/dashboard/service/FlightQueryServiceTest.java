@@ -1,6 +1,7 @@
 package com.cloudradar.dashboard.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -304,6 +305,9 @@ class FlightQueryServiceTest {
             null,
             "Private Owner")));
     when(aircraftRepository.findByIcao24("unk001")).thenReturn(Optional.empty());
+    when(hashOperations.entries(anyString())).thenReturn(Map.of(
+        "events_total", "10",
+        "events_military", "2"));
 
     FlightsMetricsResponse response = service.getFlightsMetrics(null, "24h");
 
@@ -323,6 +327,10 @@ class FlightQueryServiceTest {
     assertNotNull(response.estimates());
     assertNull(response.estimates().takeoffsWindow());
     assertEquals("planned_v1_1", response.estimates().notes().get("takeoffsLandings"));
+    assertFalse(response.activitySeries().isEmpty());
+    assertTrue(response.activitySeries().stream().anyMatch(bucket -> bucket.eventsTotal() > 0));
+    assertEquals(86400L, response.activityWindowSeconds());
+    assertTrue(response.activityBucketSeconds() > 0);
   }
 
   private Cursor<Map.Entry<Object, Object>> cursorOf(List<Map.Entry<Object, Object>> entries) {
