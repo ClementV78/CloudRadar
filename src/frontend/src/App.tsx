@@ -466,6 +466,7 @@ export default function App(): JSX.Element {
   }, []);
 
   const computeStaticByIcao = useCallback((nextFlights: FlightMapItem[]): Record<string, true> => {
+    // Static/grayed markers are based on displacement between two distinct OpenSky snapshots.
     const previousPositions = previousSnapshotPositionsRef.current;
     const nextPositions = new Map<string, { lat: number; lon: number }>();
     const nextStatic: Record<string, true> = {};
@@ -502,17 +503,23 @@ export default function App(): JSX.Element {
       if (bboxChanged) {
         effectiveBboxRef.current = requestedBbox;
         setEffectiveBbox(requestedBbox);
+        // Reset static detection context when the observed area changes.
+        previousSnapshotPositionsRef.current = new Map();
+        setStaticByIcao({});
       }
 
       const flightsResponse = await fetchFlights(requestedBbox, 400);
       const normalizedFlights = normalizeFlights(flightsResponse.items);
-      const staticFlights = computeStaticByIcao(normalizedFlights);
       const batchEpoch = flightsResponse.latestOpenSkyBatchEpoch;
       const previousBatchEpoch = lastBatchEpochRef.current;
       const batchChanged = batchEpoch !== previousBatchEpoch;
 
       setFlights(normalizedFlights);
-      setStaticByIcao(staticFlights);
+      // Recompute static markers only when a new batch arrives.
+      // Re-evaluating on same-batch UI polls would dim most markers even without new telemetry.
+      if (batchChanged) {
+        setStaticByIcao(computeStaticByIcao(normalizedFlights));
+      }
 
       if (!mapFlightsRef.current.length) {
         cancelMarkerAnimation();
@@ -550,7 +557,8 @@ export default function App(): JSX.Element {
           }
         } else if (batchChanged) {
           missingSelectionCyclesRef.current = 0;
-          await loadDetail(selectedIcao24);
+          // Detail refresh is async by design: the map update path must never wait for it.
+          void loadDetail(selectedIcao24);
         } else {
           missingSelectionCyclesRef.current = 0;
         }
@@ -750,10 +758,11 @@ export default function App(): JSX.Element {
   );
 
   const handleSelectFlight = useCallback(
-    async (flight: FlightMapItem) => {
+    (flight: FlightMapItem) => {
       missingSelectionCyclesRef.current = 0;
       setSelectedIcao24(flight.icao24);
-      await loadDetail(flight.icao24);
+      // Keep selection responsive and map refresh independent from detail API latency.
+      void loadDetail(flight.icao24);
     },
     [loadDetail]
   );

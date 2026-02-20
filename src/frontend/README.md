@@ -21,6 +21,20 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
 
 ## Technical Architecture
 
+### Global frontend data path
+
+```mermaid
+flowchart LR
+  OS["OpenSky API"] --> ING["Ingester"]
+  ING --> REDIS[("Redis aggregates")]
+  REDIS --> API["Dashboard API"]
+  API --> FE["Frontend (React + Leaflet)"]
+
+  FE -->|"SSE /api/flights/stream"| API
+  FE -->|"GET /api/flights + /metrics"| API
+  FE -->|"GET /api/flights/{icao24}"| API
+```
+
 ### Runtime model
 
 - Single-page app served as static files by Nginx (`/`, SPA fallback to `index.html`)
@@ -69,6 +83,31 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
   - animation duration derives from OpenSky batch epoch delta when available
   - fallback to `REFRESH_INTERVAL_MS` when epoch delta is missing
   - interpolation is skipped for unrealistic jumps (too old / too far)
+- Marker static/grayed state:
+  - computed from movement between two distinct OpenSky batches only (`latestOpenSkyBatchEpoch` changed)
+  - marker is rendered dimmed when movement is below `STATIC_POSITION_THRESHOLD_KM`
+  - static map is reset when active bbox changes (boost on/off or bbox switch)
+- Selection/detail behavior:
+  - selecting a marker triggers detail fetch asynchronously
+  - detail fetch must never block global map refresh cycles
+
+### Refresh and selection interaction
+
+```mermaid
+sequenceDiagram
+  participant FE as Frontend
+  participant API as Dashboard API
+
+  FE->>API: SSE connected (/api/flights/stream)
+  API-->>FE: batch-update(epoch N)
+  FE->>API: GET /api/flights + /metrics
+  API-->>FE: map snapshot (epoch N)
+  FE->>FE: recompute static markers only if epoch changed
+
+  FE->>API: GET /api/flights/{icao24} (on marker click)
+  Note over FE: Non-blocking detail load\n(global refresh continues)
+  API-->>FE: detail payload + track
+```
 
 ### Mapping and rendering choices
 
