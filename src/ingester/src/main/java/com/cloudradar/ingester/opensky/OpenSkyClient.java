@@ -144,6 +144,14 @@ public class OpenSkyClient {
         results.add(parseState(row));
       }
       return new FetchResult(results, remainingCredits, creditLimit, resetAtEpochSeconds);
+    } catch (OpenSkyTokenService.TokenRefreshException ex) {
+      lastStatusCode.set(0);
+      if (!recorded && httpStartNs > 0) {
+        statesRequestTimer.record(System.nanoTime() - httpStartNs, TimeUnit.NANOSECONDS);
+      }
+      statesRequestExceptionCounter.increment();
+      log.error("Failed to fetch OpenSky states", ex);
+      throw ex;
     } catch (Exception ex) {
       lastStatusCode.set(0);
       if (!recorded && httpStartNs > 0) {

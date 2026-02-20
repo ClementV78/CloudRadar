@@ -132,6 +132,16 @@ Progressive backoff on OpenSky connectivity issues:
 
 After the final backoff, ingestion is disabled until pod restart.
 
+Token refresh has an additional local cooldown guard in `OpenSkyTokenService`:
+```
+15s → 30s → 60s → 120s → 300s → 600s
+```
+
+Details:
+- Cooldown applies only to token refresh attempts after consecutive token failures.
+- Successful token refresh resets the token failure counter and cooldown window.
+- Token refresh failures are propagated to `FlightIngestJob` so ingestion-level backoff is applied consistently.
+
 ### Configuration (Environment Variables)
 
 | Variable | Default | Purpose |
