@@ -12,6 +12,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class OpenSkyTokenService {
   private static final Logger log = LoggerFactory.getLogger(OpenSkyTokenService.class);
+  private static final long[] TOKEN_FAILURE_BACKOFF_SECONDS = {15L, 30L, 60L, 120L, 300L, 600L};
 
   private final OpenSkyEndpointProvider endpointProvider;
   private final OpenSkyProperties properties;
@@ -34,10 +36,16 @@ public class OpenSkyTokenService {
 
   private String accessToken;
   private Instant expiry;
+  private int tokenFailureCount;
+  private Instant nextTokenAttemptAt = Instant.EPOCH;
 
-  private static final class CountedTokenHttpFailure extends RuntimeException {
-    private CountedTokenHttpFailure(String message) {
+  public static class TokenRefreshException extends RuntimeException {
+    private TokenRefreshException(String message) {
       super(message);
+    }
+
+    private TokenRefreshException(String message, Throwable cause) {
+      super(message, cause);
     }
   }
 
@@ -81,6 +89,14 @@ public class OpenSkyTokenService {
       return accessToken;
     }
 
+    Instant now = Instant.now();
+    if (nextTokenAttemptAt != null && now.isBefore(nextTokenAttemptAt)) {
+      long waitSeconds = Math.max(1L, Duration.between(now, nextTokenAttemptAt).toSeconds());
+      String message = "Token refresh cooldown active (" + waitSeconds + "s remaining)";
+      tokenRequestExceptionCounter.increment();
+      throw new TokenRefreshException(message);
+    }
+
     long httpStartNs = -1L;
     boolean recorded = false;
     try {
@@ -117,7 +133,7 @@ public class OpenSkyTokenService {
         } else {
           tokenRequestClientErrorCounter.increment();
         }
-        throw new CountedTokenHttpFailure("Failed to get token from " + tokenUrl + ": " + response.statusCode());
+        throw registerTokenFailure("Failed to get token from " + tokenUrl + ": " + response.statusCode(), null);
       }
       tokenRequestSuccessCounter.increment();
 
@@ -125,23 +141,42 @@ public class OpenSkyTokenService {
       accessToken = json.get("access_token").asText();
       long expiresIn = json.get("expires_in").asLong();
       expiry = Instant.now().plusSeconds(expiresIn);
+      tokenFailureCount = 0;
+      nextTokenAttemptAt = Instant.EPOCH;
 
       log.info("OpenSky token refreshed, expires in {} seconds", expiresIn);
       return accessToken;
 
-    } catch (CountedTokenHttpFailure e) {
+    } catch (TokenRefreshException e) {
       if (!recorded && httpStartNs > 0) {
         tokenRequestTimer.record(System.nanoTime() - httpStartNs, TimeUnit.NANOSECONDS);
       }
       log.error("Failed to get OpenSky token", e);
-      throw new RuntimeException("Token refresh failed: " + e.getMessage(), e);
+      throw e;
     } catch (Exception e) {
       if (!recorded && httpStartNs > 0) {
         tokenRequestTimer.record(System.nanoTime() - httpStartNs, TimeUnit.NANOSECONDS);
       }
       tokenRequestExceptionCounter.increment();
-      log.error("Failed to get OpenSky token", e);
-      throw new RuntimeException("Token refresh failed: " + e.getMessage(), e);
+      TokenRefreshException failure =
+          registerTokenFailure("Token refresh request failed: " + e.getMessage(), e);
+      log.error("Failed to get OpenSky token", failure);
+      throw failure;
     }
+  }
+
+  private TokenRefreshException registerTokenFailure(String message, Throwable cause) {
+    tokenFailureCount++;
+    int index = Math.min(tokenFailureCount - 1, TOKEN_FAILURE_BACKOFF_SECONDS.length - 1);
+    long cooldownSeconds = TOKEN_FAILURE_BACKOFF_SECONDS[index];
+    nextTokenAttemptAt = Instant.now().plusSeconds(cooldownSeconds);
+    log.warn(
+        "OpenSky token refresh failed (attempt {}), cooldown {}s",
+        tokenFailureCount,
+        cooldownSeconds);
+    if (cause == null) {
+      return new TokenRefreshException("Token refresh failed: " + message);
+    }
+    return new TokenRefreshException("Token refresh failed: " + message, cause);
   }
 }

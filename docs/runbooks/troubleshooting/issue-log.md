@@ -2,6 +2,20 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-20
+
+### [app/opensky] Intermittent token `522` through Cloudflare worker caused repeated token refresh attempts
+- **Severity:** High
+- **Impact:** `ingester` could enter repeated failed cycles (`Fetched 0 states, pushed 0 events`) during upstream instability, increasing token refresh pressure and delaying recovery.
+- **Signal:** `OpenSkyTokenService` logs showed repeated `Failed to get token ...: 522` on `https://cloudradar.ekirock.workers.dev/.../token`. Cloudflare worker logs showed intermittent `522` with ~39s wall time. Direct tests from cluster and local workstation were sometimes successful (`200`) and sometimes failing, indicating unstable upstream path rather than a static misconfiguration.
+- **Analysis:** Token refresh failures were converted to empty fetch results at client level, so the ingestion failure/backoff loop was not consistently engaged for token-specific failures. During unstable periods, this could lead to too-frequent retry attempts for token refresh.
+- **Resolution:**
+  1. Add token refresh cooldown in `OpenSkyTokenService` with progressive delays (`15s -> 30s -> 60s -> 120s -> 300s -> 600s`) after consecutive token failures.
+  2. Propagate token refresh failures from `OpenSkyClient` (do not swallow into empty results) so `FlightIngestJob` backoff logic is applied end-to-end.
+  3. Keep existing token cache behavior and reset failure cooldown after successful token refresh.
+- **Guardrail:** Treat token endpoint instability as a first-class failure mode; avoid tight retry loops and ensure token failures activate ingestion backoff.
+- **Refs:** issue #479
+
 ## 2026-02-16
 
 ### [dashboard/frontend] Helicopter misclassified as airplane + missing rescue fleet profile

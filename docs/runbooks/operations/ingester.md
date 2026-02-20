@@ -141,6 +141,18 @@ When consumption crosses thresholds (percent consumed):
 
 When credits reset (remaining increases), per-period counters reset automatically.
 
+### Token refresh resilience
+
+- `OpenSkyTokenService` caches OAuth token until near expiry and avoids refreshing on each cycle.
+- On consecutive token refresh failures, a local cooldown is applied:
+  - `15s -> 30s -> 60s -> 120s -> 300s -> 600s`
+- Token refresh failures are propagated to the ingestion job so the global ingester backoff also applies.
+- A successful token refresh resets the token cooldown state.
+
+Useful metrics for token path diagnostics:
+- `ingester_opensky_token_http_requests_total{outcome="success|client_error|server_error|exception"}`
+- `ingester_opensky_token_http_duration_seconds`
+
 ## Cleanup
 
 ```bash
