@@ -26,20 +26,33 @@ function AreaChart({
   const max = Math.max(...points.map((point) => point.count), 1);
   const min = Math.min(...points.map((point) => point.count), 0);
   const span = Math.max(max - min, 1);
+  const top = 8;
+  const bottom = 86;
+  const left = 2;
+  const right = 98;
+  const width = right - left;
+  const height = bottom - top;
 
   const lineCommands = points
     .map((point, index) => {
-      const x = (index / (points.length - 1)) * 100;
-      const y = 100 - ((point.count - min) / span) * 100;
+      const x = left + (index / (points.length - 1)) * width;
+      const y = bottom - ((point.count - min) / span) * height;
       return `${index === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
     })
     .join(' ');
-  const areaCommands = `${lineCommands} L 100 100 L 0 100 Z`;
+  const areaCommands = `${lineCommands} L ${right} ${bottom} L ${left} ${bottom} Z`;
+  const mid = min + span / 2;
 
   return (
     <svg className={`area-chart area-chart-${variant}`} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <line className="area-chart-grid" x1={left} y1={top} x2={right} y2={top} />
+      <line className="area-chart-grid" x1={left} y1={(top + bottom) / 2} x2={right} y2={(top + bottom) / 2} />
+      <line className="area-chart-grid" x1={left} y1={bottom} x2={right} y2={bottom} />
       <path className="area-chart-fill" d={areaCommands} />
       <path className="area-chart-line" d={lineCommands} />
+      <text className="area-chart-ylabel" x={2} y={top + 1}>{formatNumber(max, 0)}</text>
+      <text className="area-chart-ylabel" x={2} y={(top + bottom) / 2 + 1}>{formatNumber(mid, 0)}</text>
+      <text className="area-chart-ylabel" x={2} y={bottom - 1}>{formatNumber(min, 0)}</text>
     </svg>
   );
 }
@@ -79,13 +92,15 @@ function RingGauge({
   max,
   colorClass,
   centerTop,
-  centerBottom
+  centerBottom,
+  compactLabel = false
 }: {
   value: number;
   max: number;
   colorClass: 'ring-cyan' | 'ring-red' | 'ring-amber';
   centerTop: string;
   centerBottom: string;
+  compactLabel?: boolean;
 }): JSX.Element {
   const safeMax = Math.max(max, 1);
   const ratio = Math.max(0, Math.min(value / safeMax, 1));
@@ -94,24 +109,26 @@ function RingGauge({
   const dashOffset = circumference * (1 - ratio);
 
   return (
-    <div className={`kpi-ring ${colorClass}`}>
-      <svg viewBox="0 0 92 92" aria-hidden="true">
-        <circle className="kpi-ring-bg" cx="46" cy="46" r={radius} />
-        <circle
-          className="kpi-ring-fg"
-          cx="46"
-          cy="46"
-          r={radius}
-          style={{
-            strokeDasharray: circumference,
-            strokeDashoffset: dashOffset
-          }}
-        />
-      </svg>
-      <div className="kpi-ring-center">
-        <strong>{centerTop}</strong>
-        <span>{centerBottom}</span>
+    <div className="kpi-ring-wrap">
+      <div className={`kpi-ring ${colorClass}`}>
+        <svg viewBox="0 0 92 92" aria-hidden="true">
+          <circle className="kpi-ring-bg" cx="46" cy="46" r={radius} />
+          <circle
+            className="kpi-ring-fg"
+            cx="46"
+            cy="46"
+            r={radius}
+            style={{
+              strokeDasharray: circumference,
+              strokeDashoffset: dashOffset
+            }}
+          />
+        </svg>
+        <div className="kpi-ring-center">
+          <strong>{centerTop}</strong>
+        </div>
       </div>
+      <span className={compactLabel ? 'kpi-ring-label compact' : 'kpi-ring-label'}>{centerBottom}</span>
     </div>
   );
 }
@@ -214,6 +231,7 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
                 colorClass="ring-amber"
                 centerTop={compactPercent(topFleet[0].percent)}
                 centerBottom={dominantLabel(topFleet)}
+                compactLabel
               />
               <div className="kpi-sub">dominant profile</div>
             </div>

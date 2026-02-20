@@ -604,7 +604,7 @@ body,
 
 .kpi-card-layout {
   display: grid;
-  grid-template-columns: 112px 1fr;
+  grid-template-columns: 94px 1fr;
   gap: 12px;
   align-items: center;
 }
@@ -616,15 +616,26 @@ body,
 
 .kpi-main-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 45%);
+  grid-template-columns: minmax(0, 34%) minmax(0, 66%);
   gap: 10px;
   align-items: stretch;
+}
+
+.kpi-main-row > div:first-child {
+  min-width: 0;
 }
 
 .kpi-ring {
   position: relative;
   width: 92px;
   height: 92px;
+}
+
+.kpi-ring-wrap {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 4px;
 }
 
 .kpi-ring svg {
@@ -684,19 +695,29 @@ body,
   position: relative;
   z-index: 1;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
+  font-weight: 700;
   line-height: 1;
   color: var(--text);
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.45);
 }
 
-.kpi-ring-center span {
-  position: relative;
-  z-index: 1;
-  margin-top: 2px;
-  font-size: 0.68rem;
+.kpi-ring-label {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.64rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
+  letter-spacing: 0.08em;
+  color: #ccdae9;
+}
+
+.kpi-ring-label.compact {
+  max-width: 84px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kpi-sub {
@@ -706,8 +727,8 @@ body,
 
 .area-chart {
   width: 100%;
-  height: 56px;
-  margin-top: 6px;
+  height: 118px;
+  margin-top: 4px;
 }
 
 .area-chart-fill {
@@ -716,9 +737,22 @@ body,
 
 .area-chart-line {
   fill: none;
-  stroke-width: 2.5;
+  stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.area-chart-grid {
+  stroke: rgba(255, 255, 255, 0.14);
+  stroke-width: 0.9;
+  stroke-dasharray: 2 2;
+}
+
+.area-chart-ylabel {
+  fill: #b8c8da;
+  font-size: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  dominant-baseline: middle;
 }
 
 .area-chart-cyan .area-chart-fill {
@@ -750,7 +784,7 @@ body,
   border-radius: 10px;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
   padding: 8px 10px;
-  min-height: 120px;
+  min-height: 148px;
 }
 
 .kpi-trend-title {
@@ -772,8 +806,8 @@ body,
 }
 
 .kpi-trend-block .area-chart {
-  height: 96px;
-  margin-top: 4px;
+  height: 122px;
+  margin-top: 2px;
 }
 
 .mix-list {
