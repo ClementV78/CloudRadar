@@ -87,7 +87,7 @@ spec:
               mountPath: /refdata
       containers:
         - name: dashboard
-          image: ghcr.io/clementv78/cloudradar/dashboard:0.1.36
+          image: ghcr.io/clementv78/cloudradar/dashboard:0.1.37
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
