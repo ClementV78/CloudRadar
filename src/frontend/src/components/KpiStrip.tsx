@@ -25,6 +25,10 @@ function formatWindowLabel(seconds: number): string {
   return `last ${seconds}s`;
 }
 
+function safeCount(value: number | null | undefined): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
 function AreaChart({
   points,
   variant
@@ -167,10 +171,10 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
   const topTypes = topBreakdown(metrics?.aircraftTypes, 3);
   const topSizes = topBreakdown(metrics?.aircraftSizes, 3);
   const activityPoints = metrics?.activitySeries ?? [];
-  const totalEventSeries = activityPoints.map((point) => ({ epoch: point.epoch, count: point.eventsTotal }));
-  const militaryEventSeries = activityPoints.map((point) => ({ epoch: point.epoch, count: point.eventsMilitary }));
-  const totalEventsWindow = activityPoints.reduce((sum, point) => sum + point.eventsTotal, 0);
-  const militaryEventsWindow = activityPoints.reduce((sum, point) => sum + point.eventsMilitary, 0);
+  const totalEventSeries = activityPoints.map((point) => ({ epoch: point.epoch, count: safeCount(point.eventsTotal) }));
+  const militaryEventSeries = activityPoints.map((point) => ({ epoch: point.epoch, count: safeCount(point.eventsMilitary) }));
+  const totalEventsWindow = activityPoints.reduce((sum, point) => sum + safeCount(point.eventsTotal), 0);
+  const militaryEventsWindow = activityPoints.reduce((sum, point) => sum + safeCount(point.eventsMilitary), 0);
   const maxActivity = Math.max(...totalEventSeries.map((point) => point.count), activeAircraft, 1);
   const windowLabel = formatWindowLabel(metrics?.activityWindowSeconds ?? 0);
 

@@ -21,6 +21,7 @@ dashboard:
     default-order: ${API_ORDER_DEFAULT:desc}
     metrics-window-default: ${API_METRICS_WINDOW_DEFAULT:24h}
     metrics-window-max: ${API_METRICS_WINDOW_MAX:168h}
+    # Minimum effective value is 12 (enforced in FlightQueryService).
     metrics-bucket-count: ${API_METRICS_BUCKET_COUNT:48}
     bbox:
       allowed-lat-min: ${API_BBOX_ALLOWED_LAT_MIN:-90}

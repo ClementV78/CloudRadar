@@ -22,7 +22,9 @@ import com.cloudradar.dashboard.model.FlightListResponse;
 import com.cloudradar.dashboard.model.FlightMapItem;
 import com.cloudradar.dashboard.model.FlightsMetricsResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -331,6 +333,71 @@ class FlightQueryServiceTest {
     assertTrue(response.activitySeries().stream().anyMatch(bucket -> bucket.eventsTotal() > 0));
     assertEquals(86400L, response.activityWindowSeconds());
     assertTrue(response.activityBucketSeconds() > 0);
+  }
+
+  @Test
+  void getFlightsMetrics_aggregatesMinuteBucketsIntoDisplayBuckets() {
+    FlightQueryService service =
+        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty(), Optional.empty());
+    properties.getApi().setMetricsBucketCount(12);
+
+    Cursor<Map.Entry<Object, Object>> cursor = cursorOf(List.of());
+    when(hashOperations.scan(anyString(), any())).thenReturn(cursor);
+
+    long now = Instant.now().getEpochSecond();
+    long windowSeconds = Duration.ofMinutes(30).getSeconds();
+    int bucketCount = 12;
+    long bucketWidth = windowSeconds / bucketCount;
+    long start = now - windowSeconds;
+    long bucketStartA = start + (2L * bucketWidth);
+    long bucketStartB = start + (7L * bucketWidth);
+
+    List<Long> bucketAMinutes = new ArrayList<>();
+    for (long minute = ((bucketStartA + 59) / 60) * 60; minute < bucketStartA + bucketWidth; minute += 60) {
+      if (minute >= start && minute <= now) {
+        bucketAMinutes.add(minute);
+      }
+    }
+    assertTrue(bucketAMinutes.size() >= 2);
+    long minuteA1 = bucketAMinutes.get(0);
+    long minuteA2 = bucketAMinutes.get(1);
+
+    long computedMinuteB = ((bucketStartB + 59) / 60) * 60;
+    if (computedMinuteB > now) {
+      computedMinuteB -= 60;
+    }
+    final long minuteB = computedMinuteB;
+
+    String prefix = properties.getRedis().getActivityBucketKeyPrefix();
+    when(hashOperations.entries(anyString())).thenAnswer(invocation -> {
+      String key = invocation.getArgument(0);
+      if (!key.startsWith(prefix)) {
+        return Map.of();
+      }
+      long epoch = Long.parseLong(key.substring(prefix.length()));
+      if (epoch == minuteA1) {
+        return Map.of("events_total", "5", "events_military", "2");
+      }
+      if (epoch == minuteA2) {
+        return Map.of("events_total", "3", "events_military", "1");
+      }
+      if (epoch == minuteB) {
+        return Map.of("events_total", "4", "events_military", "1");
+      }
+      return Map.of();
+    });
+
+    FlightsMetricsResponse response = service.getFlightsMetrics(null, "30m");
+
+    assertEquals(12, response.activitySeries().size());
+    assertTrue(response.activitySeries().stream().anyMatch(bucket ->
+        bucket.eventsTotal() == 8
+            && bucket.eventsMilitary() == 3
+            && bucket.militarySharePercent() == 37.5));
+    assertTrue(response.activitySeries().stream().anyMatch(bucket ->
+        bucket.eventsTotal() == 4
+            && bucket.eventsMilitary() == 1
+            && bucket.militarySharePercent() == 25.0));
   }
 
   private Cursor<Map.Entry<Object, Object>> cursorOf(List<Map.Entry<Object, Object>> entries) {

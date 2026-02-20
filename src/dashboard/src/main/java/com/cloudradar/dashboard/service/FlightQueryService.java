@@ -13,6 +13,9 @@ import com.cloudradar.dashboard.model.FlightTrackPoint;
 import com.cloudradar.dashboard.model.FlightsMetricsResponse;
 import com.cloudradar.dashboard.model.PositionEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -56,6 +59,9 @@ public class FlightQueryService {
   private final DashboardProperties properties;
   private final Optional<AircraftMetadataRepository> aircraftRepo;
   private final Optional<PrometheusMetricsService> prometheusMetricsService;
+  private final Timer activitySeriesReadTimer;
+  private final Counter activitySeriesRedisReadsCounter;
+  private final Counter activitySeriesEmptyBucketsCounter;
 
   /**
    * Creates the query service.
@@ -77,6 +83,15 @@ public class FlightQueryService {
     this.properties = properties;
     this.aircraftRepo = aircraftRepo;
     this.prometheusMetricsService = prometheusMetricsService;
+    this.activitySeriesReadTimer = Timer.builder("dashboard.activity.series.read.duration")
+        .description("Time spent aggregating activity bucket series from Redis")
+        .register(Metrics.globalRegistry);
+    this.activitySeriesRedisReadsCounter = Counter.builder("dashboard.activity.series.redis.reads.total")
+        .description("Number of Redis hash reads during activity series aggregation")
+        .register(Metrics.globalRegistry);
+    this.activitySeriesEmptyBucketsCounter = Counter.builder("dashboard.activity.series.empty.buckets.total")
+        .description("Number of empty activity buckets seen during aggregation")
+        .register(Metrics.globalRegistry);
   }
 
   /**
@@ -560,6 +575,9 @@ public class FlightQueryService {
   private List<FlightsMetricsResponse.TimeBucket> activitySeriesFromEventBuckets(
       Duration window,
       int bucketCount) {
+    Timer.Sample readSample = Timer.start(Metrics.globalRegistry);
+    int redisReads = 0;
+    int emptyBuckets = 0;
     long now = Instant.now().getEpochSecond();
     long windowSeconds = Math.max(1, window.getSeconds());
     long bucketWidth = Math.max(1, windowSeconds / bucketCount);
@@ -573,8 +591,10 @@ public class FlightQueryService {
 
     for (long minuteEpoch = minuteStart; minuteEpoch <= now; minuteEpoch += minuteWidth) {
       String key = properties.getRedis().getActivityBucketKeyPrefix() + minuteEpoch;
+      redisReads++;
       Map<Object, Object> raw = hashOps.entries(key);
       if (raw == null || raw.isEmpty()) {
+        emptyBuckets++;
         continue;
       }
 
@@ -601,6 +621,9 @@ public class FlightQueryService {
           military,
           round2(pct(military, total))));
     }
+    activitySeriesRedisReadsCounter.increment(redisReads);
+    activitySeriesEmptyBucketsCounter.increment(emptyBuckets);
+    readSample.stop(activitySeriesReadTimer);
     return series;
   }
 
