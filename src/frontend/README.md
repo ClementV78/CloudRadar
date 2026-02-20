@@ -50,6 +50,7 @@ flowchart LR
    - `GET /api/flights/{icao24}?include=track,enrichment`
 4. Detail panel and track polyline are updated from this detail payload.
 5. On each new batch, map markers animate from previous known position to next one over the measured batch interval.
+6. On ingester toggle, frontend sends `POST /admin/ingester/scale` then polls `GET /admin/ingester/scale` until target state convergence.
 
 ### Main UI modules
 
@@ -90,6 +91,9 @@ flowchart LR
 - Selection/detail behavior:
   - selecting a marker triggers detail fetch asynchronously
   - detail fetch must never block global map refresh cycles
+- Ingester toggle behavior:
+  - toggle uses optimistic UI (`ON/OFF`) and shows `applying ...` while reconciliation is in progress
+  - frontend polls ingester scale state for up to 30s to confirm target convergence
 
 ### Refresh and selection interaction
 

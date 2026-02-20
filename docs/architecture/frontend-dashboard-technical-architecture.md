@@ -157,6 +157,7 @@ If no batch changes, the SSE connection stays alive (heartbeat) without forcing 
 Frontend keeps a low-frequency polling fallback if SSE disconnects.
 On each batch update, marker positions are interpolated from `N-1` to `N` over the measured batch interval to avoid teleport effects.
 Detail requests (`GET /api/flights/{icao24}`) are handled asynchronously and must not block the global refresh loop.
+Ingester toggles use a write-then-read reconciliation pattern: `POST /admin/ingester/scale` followed by short `GET /admin/ingester/scale` polling until target replicas converge.
 
 ## 8. Frontend Rendering Invariants (Map UX)
 
@@ -164,6 +165,7 @@ Detail requests (`GET /api/flights/{icao24}`) are handled asynchronously and mus
 - `staticByIcao` compares aircraft movement between consecutive batches using `STATIC_POSITION_THRESHOLD_KM`.
 - Static state context is reset when the active bbox changes.
 - Selected flight details are refreshed on batch change, but detail fetch remains non-blocking.
+- Ingester toggle state is optimistic in UI and reconciled against observed scale state before leaving loading mode.
 
 ## 9. Validation and Safety
 

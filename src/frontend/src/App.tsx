@@ -46,6 +46,8 @@ const MAX_INTERPOLATION_DURATION_MS = 20_000;
 const MAX_INTERPOLATION_LAST_SEEN_GAP_SECONDS = 180;
 const MAX_INTERPOLATION_DISTANCE_KM = 200;
 const STATIC_POSITION_THRESHOLD_KM = 0.05;
+const INGESTER_TOGGLE_POLL_INTERVAL_MS = 1_000;
+const INGESTER_TOGGLE_TIMEOUT_MS = 30_000;
 const KNOT_TO_KMH = 1.852;
 const EDGE_AUTH_STORAGE_KEY = 'cloudradar.edge.basic_auth';
 
@@ -71,6 +73,12 @@ function formatSpeedKmh(speedKt: number | null): string {
     return 'n/a';
   }
   return `${(speedKt * KNOT_TO_KMH).toFixed(1)} km/h`;
+}
+
+function waitMs(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }
 
 function latestLastSeen(flights: FlightMapItem[]): number | null {
@@ -395,6 +403,7 @@ export default function App(): JSX.Element {
   const [ingesterEnabled, setIngesterEnabled] = useState(false);
   const [ingesterKnown, setIngesterKnown] = useState(false);
   const [ingesterLoading, setIngesterLoading] = useState(false);
+  const [ingesterPendingTarget, setIngesterPendingTarget] = useState<0 | 1 | null>(null);
   const lastBatchEpochRef = useRef<number | null>(null);
   const hasMetricsRef = useRef<boolean>(false);
   const missingSelectionCyclesRef = useRef<number>(0);
@@ -655,20 +664,43 @@ export default function App(): JSX.Element {
       return;
     }
 
+    const targetReplicas: 0 | 1 = enabled ? 1 : 0;
     try {
       setIngesterLoading(true);
-      const response = await scaleIngester(enabled ? 1 : 0, credentials.username, credentials.password);
-      setIngesterEnabled(response.replicas > 0);
+      setIngesterPendingTarget(targetReplicas);
+      // Optimistic UI: reflect user intent immediately, then reconcile with observed replicas.
+      setIngesterEnabled(targetReplicas > 0);
       setIngesterKnown(true);
       setRefreshError(null);
+
+      const response = await scaleIngester(targetReplicas, credentials.username, credentials.password);
+      let observedReplicas = response.replicas;
+      setIngesterEnabled(observedReplicas > 0);
+
+      const deadline = Date.now() + INGESTER_TOGGLE_TIMEOUT_MS;
+      while ((observedReplicas > 0 ? 1 : 0) !== targetReplicas && Date.now() < deadline) {
+        await waitMs(INGESTER_TOGGLE_POLL_INTERVAL_MS);
+        const status = await fetchIngesterScale(credentials.username, credentials.password);
+        observedReplicas = status.replicas;
+        setIngesterEnabled(observedReplicas > 0);
+      }
+
+      if ((observedReplicas > 0 ? 1 : 0) !== targetReplicas) {
+        throw new Error(
+          `scale not converged after ${Math.round(INGESTER_TOGGLE_TIMEOUT_MS / 1000)}s `
+          + `(target=${targetReplicas}, observed=${observedReplicas})`
+        );
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unable to scale ingester';
       setRefreshError(`ingester toggle failed: ${message}`);
       window.sessionStorage.removeItem(EDGE_AUTH_STORAGE_KEY);
+      void loadIngesterStatus(false);
     } finally {
+      setIngesterPendingTarget(null);
       setIngesterLoading(false);
     }
-  }, [getEdgeCredentials]);
+  }, [getEdgeCredentials, loadIngesterStatus]);
 
   useEffect(() => {
     const clockTimer = window.setInterval(() => {
@@ -796,6 +828,7 @@ export default function App(): JSX.Element {
         ingesterEnabled={ingesterEnabled}
         ingesterKnown={ingesterKnown}
         ingesterLoading={ingesterLoading}
+        ingesterPendingTarget={ingesterPendingTarget}
         onToggleIngester={(enabled) => void handleToggleIngester(enabled)}
       />
 
