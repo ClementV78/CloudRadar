@@ -18,6 +18,7 @@ interface HeaderProps {
   ingesterEnabled: boolean;
   ingesterKnown: boolean;
   ingesterLoading: boolean;
+  ingesterPendingTarget: 0 | 1 | null;
   onToggleIngester: (enabled: boolean) => void;
 }
 
@@ -65,6 +66,7 @@ export function Header({
   ingesterEnabled,
   ingesterKnown,
   ingesterLoading,
+  ingesterPendingTarget,
   onToggleIngester
 }: HeaderProps): JSX.Element {
   const boostDisabled = boostLoading || boostActive || boostCooldownSeconds > 0;
@@ -98,7 +100,13 @@ export function Header({
             />
             <span className="ingester-slider" />
             <span className={ingesterKnown ? 'status-value' : 'status-badge status-unknown'}>
-              {ingesterLoading ? 'updating...' : ingesterKnown ? (ingesterEnabled ? 'ON' : 'OFF') : 'UNKNOWN'}
+              {ingesterLoading && ingesterPendingTarget !== null
+                ? `applying ${ingesterPendingTarget === 1 ? 'ON' : 'OFF'}...`
+                : ingesterLoading
+                  ? 'updating...'
+                  : ingesterKnown
+                    ? (ingesterEnabled ? 'ON' : 'OFF')
+                    : 'UNKNOWN'}
             </span>
           </label>
         </div>

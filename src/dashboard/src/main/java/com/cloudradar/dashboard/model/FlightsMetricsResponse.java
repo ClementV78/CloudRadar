@@ -14,6 +14,8 @@ import java.util.Map;
  * @param aircraftSizes size segmentation breakdown
  * @param aircraftTypes top aircraft type/category labels
  * @param activitySeries activity timeline buckets
+ * @param activityBucketSeconds bucket width used for activity series
+ * @param activityWindowSeconds activity series total window in seconds
  * @param estimates estimated/placeholder indicators and notes
  * @param openSkyCreditsPerRequest24h OpenSky average credits per request over the last 24h
  * @param timestamp response generation timestamp
@@ -27,6 +29,8 @@ public record FlightsMetricsResponse(
     List<TypeBreakdownItem> aircraftSizes,
     List<TypeBreakdownItem> aircraftTypes,
     List<TimeBucket> activitySeries,
+    int activityBucketSeconds,
+    long activityWindowSeconds,
     Estimates estimates,
     Double openSkyCreditsPerRequest24h,
     String timestamp) {
@@ -44,9 +48,11 @@ public record FlightsMetricsResponse(
    * Time-bucket point for chart rendering.
    *
    * @param epoch bucket start epoch (seconds)
-   * @param count bucket value
+   * @param eventsTotal total processed events in bucket
+   * @param eventsMilitary processed military events in bucket
+   * @param militarySharePercent military share in bucket (0-100)
    */
-  public record TimeBucket(long epoch, int count) {}
+  public record TimeBucket(long epoch, int eventsTotal, int eventsMilitary, double militarySharePercent) {}
 
   /**
    * Estimated metrics and explanatory notes.

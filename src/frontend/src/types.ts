@@ -72,7 +72,9 @@ export interface TypeBreakdownItem {
 
 export interface ActivityPoint {
   epoch: number;
-  count: number;
+  eventsTotal: number;
+  eventsMilitary: number;
+  militarySharePercent: number;
 }
 
 export interface FlightsMetricsResponse {
@@ -84,6 +86,8 @@ export interface FlightsMetricsResponse {
   aircraftSizes: TypeBreakdownItem[];
   aircraftTypes: TypeBreakdownItem[];
   activitySeries: ActivityPoint[];
+  activityBucketSeconds: number;
+  activityWindowSeconds: number;
   openSkyCreditsPerRequest24h: number | null;
   timestamp: string;
 }

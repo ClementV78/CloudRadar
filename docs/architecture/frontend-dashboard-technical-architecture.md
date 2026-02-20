@@ -5,6 +5,36 @@ Technical internals for the CloudRadar dashboard path:
 - Frontend app (`src/frontend`) rendering map, markers, tracks, KPIs.
 - Dashboard API (`src/dashboard`) serving read-model endpoints from Redis + optional SQLite enrichment.
 
+## 0. End-to-End Global View
+
+```mermaid
+flowchart LR
+  OS["OpenSky API"] --> ING["Ingester (Spring Boot)"]
+  ING --> Q[("Redis queue")]
+  Q --> PROC["Processor (Spring Boot)"]
+  PROC --> AGG[("Redis aggregates\naircraft:last + track:*")]
+
+  subgraph DASH["Dashboard read path"]
+    CTRL["DashboardController"]
+    QUERY["FlightQueryService"]
+    STREAM["FlightUpdateStreamService"]
+  end
+
+  AGG --> QUERY
+  AGG --> STREAM
+  QUERY --> CTRL
+
+  subgraph FE["Frontend browser"]
+    UI["React + Leaflet map"]
+  end
+
+  UI -->|"GET /api/flights, /metrics, /{icao24}"| CTRL
+  UI -->|"SSE /api/flights/stream"| STREAM
+```
+
+This diagram shows the end-to-end view: ingestion feeds Redis through `ingester -> processor`, then the dashboard exposes an HTTP/SSE read path consumed by the frontend.
+The browser never reads Redis directly; all reads go through dashboard service endpoints.
+
 ## 1. Runtime Topology
 
 ```mermaid
@@ -35,6 +65,9 @@ flowchart LR
   STREAM --> REDIS
 ```
 
+This flow describes the dashboard runtime topology: `DashboardController` centralizes REST routes, `FlightQueryService` reads the Redis snapshot, and `FlightUpdateStreamService` monitors batch changes for SSE.
+SQLite enrichment stays optional and does not impact the minimal map/refresh path.
+
 ## 2. Main Components
 
 - `DashboardController`
@@ -52,8 +85,10 @@ Redis keys:
 
 - `cloudradar:aircraft:last` (Hash): latest telemetry payload per `icao24`.
 - `cloudradar:aircraft:track:<icao24>` (List): bounded recent trajectory points.
+- `cloudradar:activity:bucket:<epochMinute>` (Hash): processed event counters (`events_total`, `events_military`) used for KPI activity trends.
 
-Telemetry payload includes `opensky_fetch_epoch`, used as batch boundary.
+Telemetry payload includes `opensky_fetch_epoch`, used as batch boundary for map refresh.
+KPI activity trends are built from event buckets (processor write path), not from snapshot distribution in `aircraft:last`.
 
 ## 4. Map Endpoint Internals (`GET /api/flights`)
 
@@ -69,6 +104,9 @@ flowchart LR
   F --> G["Filter sort limit"]
   G --> H["Return DTO payload"]
 ```
+
+The map flow builds a frontend-friendly snapshot: ICAO normalization, continuity across recent batches, then enrichment/filtering before response.
+The goal is to reduce flicker while keeping responses lightweight and deterministic.
 
 Why latest + short fallback window:
 
@@ -115,17 +153,30 @@ sequenceDiagram
   end
 ```
 
+This diagram shows the batch-driven refresh loop: a `batch-update` event triggers a map/metrics pull on the frontend side.
+If no batch changes, the SSE connection stays alive (heartbeat) without forcing a heavy refresh cycle.
+
 Frontend keeps a low-frequency polling fallback if SSE disconnects.
 On each batch update, marker positions are interpolated from `N-1` to `N` over the measured batch interval to avoid teleport effects.
+Detail requests (`GET /api/flights/{icao24}`) are handled asynchronously and must not block the global refresh loop.
+Ingester toggles use a write-then-read reconciliation pattern: `POST /admin/ingester/scale` followed by short `GET /admin/ingester/scale` polling until target replicas converge.
 
-## 8. Validation and Safety
+## 8. Frontend Rendering Invariants (Map UX)
+
+- Static/grayed markers are computed only when `latestOpenSkyBatchEpoch` changes.
+- `staticByIcao` compares aircraft movement between consecutive batches using `STATIC_POSITION_THRESHOLD_KM`.
+- Static state context is reset when the active bbox changes.
+- Selected flight details are refreshed on batch change, but detail fetch remains non-blocking.
+- Ingester toggle state is optimistic in UI and reconciled against observed scale state before leaving loading mode.
+
+## 9. Validation and Safety
 
 - strict query parsing (`BadRequestException`) for malformed params,
 - `NotFoundException` for unknown `icao24`,
 - in-memory rate limiting on `/api/**`,
 - read-only API surface (`GET` only).
 
-## 9. Marker Typing Semantics (Backend-Driven)
+## 10. Marker Typing Semantics (Backend-Driven)
 
 Map marker visuals are derived from backend typing fields in `FlightMapItem`:
 - `airframeType` (`airplane|helicopter|unknown`)
@@ -147,14 +198,15 @@ Helicopter detection includes common rotorcraft signatures:
 
 This backend-driven model keeps legend, map markers, detail panel, and KPI fleet breakdown consistent.
 
-## 10. Performance Notes
+## 11. Performance Notes
 
 - Redis hash scan is O(n) on active aircraft count.
 - SQLite lookups are local and cached to reduce repeated I/O.
 - DTO payloads are intentionally compact for frequent refresh cycles.
 - SSE avoids blind high-frequency polling.
+- Non-blocking detail requests prevent selection interactions from degrading map refresh cadence.
 
-## 11. Known Limits
+## 12. Known Limits
 
 - SSE stream is process-local (single instance friendly; multi-instance needs sticky sessions or pub/sub coordination for strict ordering).
 - Snapshot consistency depends on processor update timeliness.
@@ -162,7 +214,7 @@ This backend-driven model keeps legend, map markers, detail panel, and KPI fleet
 - Smooth marker animation uses a short client-side buffering strategy, so displayed motion can lag by about one batch interval.
 - Rescue detection is heuristic-based; false positives/negatives are possible without a curated allowlist.
 
-## 12. Related References
+## 13. Related References
 
 - API contract: `docs/api/dashboard-api.md`
 - Service README: `src/dashboard/README.md`

@@ -15,6 +15,8 @@ public class ProcessorProperties {
   private final AircraftDb aircraftDb = new AircraftDb();
   private int trackLength = 180;
   private long pollTimeoutSeconds = 2;
+  private long activityBucketSeconds = 60;
+  private long activityBucketRetentionSeconds = 172800;
 
   public Redis getRedis() {
     return redis;
@@ -44,12 +46,29 @@ public class ProcessorProperties {
     this.pollTimeoutSeconds = pollTimeoutSeconds;
   }
 
+  public long getActivityBucketSeconds() {
+    return activityBucketSeconds;
+  }
+
+  public void setActivityBucketSeconds(long activityBucketSeconds) {
+    this.activityBucketSeconds = activityBucketSeconds;
+  }
+
+  public long getActivityBucketRetentionSeconds() {
+    return activityBucketRetentionSeconds;
+  }
+
+  public void setActivityBucketRetentionSeconds(long activityBucketRetentionSeconds) {
+    this.activityBucketRetentionSeconds = activityBucketRetentionSeconds;
+  }
+
   /** Redis key names used by the processor read/write path. */
   public static class Redis {
     private String inputKey = "cloudradar:ingest:queue";
     private String lastPositionsKey = "cloudradar:aircraft:last";
     private String trackKeyPrefix = "cloudradar:aircraft:track:";
     private String bboxSetKey = "cloudradar:aircraft:in_bbox";
+    private String activityBucketKeyPrefix = "cloudradar:activity:bucket:";
 
     public String getInputKey() {
       return inputKey;
@@ -81,6 +100,14 @@ public class ProcessorProperties {
 
     public void setBboxSetKey(String bboxSetKey) {
       this.bboxSetKey = bboxSetKey;
+    }
+
+    public String getActivityBucketKeyPrefix() {
+      return activityBucketKeyPrefix;
+    }
+
+    public void setActivityBucketKeyPrefix(String activityBucketKeyPrefix) {
+      this.activityBucketKeyPrefix = activityBucketKeyPrefix;
     }
   }
 

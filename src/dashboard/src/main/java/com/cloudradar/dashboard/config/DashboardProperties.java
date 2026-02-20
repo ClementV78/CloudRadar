@@ -43,6 +43,7 @@ public class DashboardProperties {
   public static class Redis {
     private String lastPositionsKey = "cloudradar:aircraft:last";
     private String trackKeyPrefix = "cloudradar:aircraft:track:";
+    private String activityBucketKeyPrefix = "cloudradar:activity:bucket:";
 
     public String getLastPositionsKey() {
       return lastPositionsKey;
@@ -59,6 +60,14 @@ public class DashboardProperties {
     public void setTrackKeyPrefix(String trackKeyPrefix) {
       this.trackKeyPrefix = trackKeyPrefix;
     }
+
+    public String getActivityBucketKeyPrefix() {
+      return activityBucketKeyPrefix;
+    }
+
+    public void setActivityBucketKeyPrefix(String activityBucketKeyPrefix) {
+      this.activityBucketKeyPrefix = activityBucketKeyPrefix;
+    }
   }
 
   /** API-level behavior configuration (limits, sort defaults, bbox, CORS, rate limits). */
@@ -69,6 +78,7 @@ public class DashboardProperties {
     private String defaultOrder = "desc";
     private Duration metricsWindowDefault = Duration.ofHours(24);
     private Duration metricsWindowMax = Duration.ofDays(7);
+    private int metricsBucketCount = 48;
     private final Bbox bbox = new Bbox();
     private final Cors cors = new Cors();
     private final RateLimit rateLimit = new RateLimit();
@@ -119,6 +129,14 @@ public class DashboardProperties {
 
     public void setMetricsWindowMax(Duration metricsWindowMax) {
       this.metricsWindowMax = metricsWindowMax;
+    }
+
+    public int getMetricsBucketCount() {
+      return metricsBucketCount;
+    }
+
+    public void setMetricsBucketCount(int metricsBucketCount) {
+      this.metricsBucketCount = metricsBucketCount;
     }
 
     public Bbox getBbox() {
