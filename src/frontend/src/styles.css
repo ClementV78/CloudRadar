@@ -737,28 +737,30 @@ body,
 
 .area-chart-line {
   fill: none;
-  stroke-width: 2.2;
+  stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .area-chart-grid {
   stroke: rgba(255, 255, 255, 0.14);
   stroke-width: 0.9;
   stroke-dasharray: 2 2;
+  vector-effect: non-scaling-stroke;
 }
 
 .area-chart-ylabel {
   fill: #b8c8da;
-  font-size: 6px;
-  font-weight: 600;
+  font-size: 5.2px;
+  font-weight: 500;
   font-family: 'JetBrains Mono', monospace;
   dominant-baseline: middle;
 }
 
 .area-chart-xlabel {
   fill: #9eb3c8;
-  font-size: 5.8px;
+  font-size: 5px;
   font-family: 'JetBrains Mono', monospace;
   dominant-baseline: central;
 }
@@ -820,20 +822,12 @@ body,
 
 @media (min-width: 1800px) {
   .kpi-trend-block {
-    min-height: 184px;
+    min-height: 176px;
     padding: 10px 12px;
   }
 
   .kpi-trend-block .area-chart {
-    height: 148px;
-  }
-
-  .area-chart-ylabel {
-    font-size: 6.4px;
-  }
-
-  .area-chart-xlabel {
-    font-size: 6px;
+    height: 138px;
   }
 }
 
