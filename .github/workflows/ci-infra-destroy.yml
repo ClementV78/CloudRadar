@@ -102,9 +102,9 @@ jobs:
         if: ${{ inputs.environment == 'dev' }}
         run: |
           set -euo pipefail
-          K3S_SERVER_INSTANCE_ID="$(terraform -chdir="${TF_DIR}" output -raw k3s_server_instance_id)"
-          if [[ -z "${K3S_SERVER_INSTANCE_ID}" ]]; then
-            echo "::notice title=alertmanager::k3s_server_instance_id missing; skipping Alertmanager mute."
+          K3S_SERVER_INSTANCE_ID="$(terraform -chdir="${TF_DIR}" output -raw k3s_server_instance_id 2>/dev/null || true)"
+          if [[ ! "${K3S_SERVER_INSTANCE_ID}" =~ ^(i-[a-zA-Z0-9]{8}|i-[a-zA-Z0-9]{17}|mi-[a-zA-Z0-9]{17})$ ]]; then
+            echo "::notice title=alertmanager::k3s_server_instance_id missing/invalid; skipping Alertmanager mute."
             exit 0
           fi
 
@@ -149,10 +149,10 @@ jobs:
           fi
 
           echo "Loading k3s_server_instance_id from Terraform outputs..."
-          K3S_SERVER_INSTANCE_ID="$(terraform -chdir="${TF_DIR}" output -raw k3s_server_instance_id)"
-          if [[ -z "${K3S_SERVER_INSTANCE_ID}" ]]; then
-            echo "ERROR: k3s_server_instance_id is empty" >&2
-            exit 1
+          K3S_SERVER_INSTANCE_ID="$(terraform -chdir="${TF_DIR}" output -raw k3s_server_instance_id 2>/dev/null || true)"
+          if [[ ! "${K3S_SERVER_INSTANCE_ID}" =~ ^(i-[a-zA-Z0-9]{8}|i-[a-zA-Z0-9]{17}|mi-[a-zA-Z0-9]{17})$ ]]; then
+            echo "::notice title=Redis backup::k3s_server_instance_id missing/invalid; skipping Redis backup/rotation."
+            exit 0
           fi
 
           echo "Waiting for SSM instance readiness..."
