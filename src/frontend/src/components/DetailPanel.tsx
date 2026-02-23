@@ -66,6 +66,8 @@ function photoStatusMessage(status: string | null | undefined): string {
 
 export function DetailPanel({ detail, fleetType, open, loading, error, onClose }: DetailPanelProps): JSX.Element {
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
+  const [largeFailed, setLargeFailed] = useState(false);
 
   const handleClose = (event: MouseEvent<HTMLButtonElement> | TouchEvent<HTMLButtonElement>): void => {
     event.preventDefault();
@@ -75,12 +77,27 @@ export function DetailPanel({ detail, fleetType, open, loading, error, onClose }
   };
 
   const photo = detail?.photo ?? null;
-  const hasThumbnail = Boolean(photo?.status === 'available' && photo.thumbnailSrc);
-  const canOpenLarge = Boolean(photo?.status === 'available' && photo.thumbnailLargeSrc);
+  const hasThumbnail = Boolean(photo?.status === 'available' && photo.thumbnailSrc && !thumbnailFailed);
+  const canOpenLarge = Boolean(photo?.status === 'available' && photo.thumbnailLargeSrc && !largeFailed);
 
   useEffect(() => {
     setLightboxOpen(false);
+    setThumbnailFailed(false);
+    setLargeFailed(false);
   }, [detail?.icao24, canOpenLarge]);
+
+  useEffect(() => {
+    if (!lightboxOpen) {
+      return undefined;
+    }
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') {
+        setLightboxOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [lightboxOpen]);
 
   return (
     <aside className={`detail-panel glass-panel ${open ? 'is-open' : ''}`}>
@@ -163,6 +180,7 @@ export function DetailPanel({ detail, fleetType, open, loading, error, onClose }
                     alt={`Aircraft ${detail.icao24}`}
                     className="detail-photo-thumb"
                     loading="lazy"
+                    onError={() => setThumbnailFailed(true)}
                   />
                 </button>
                 <div className="detail-photo-meta">
@@ -191,6 +209,7 @@ export function DetailPanel({ detail, fleetType, open, loading, error, onClose }
                   alt={`Aircraft ${detail.icao24} large`}
                   className="detail-photo-large"
                   loading="lazy"
+                  onError={() => setLargeFailed(true)}
                 />
                 {photo.sourceLink && (
                   <a

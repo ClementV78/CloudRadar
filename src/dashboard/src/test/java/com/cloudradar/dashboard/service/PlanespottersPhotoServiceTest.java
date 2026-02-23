@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -116,6 +117,80 @@ class PlanespottersPhotoServiceTest {
     assertEquals("available", photo.status());
     assertEquals("https://cdn.planespotters.net/a.jpg", photo.thumbnailSrc());
     verify(valueOperations).set(eq(cacheKey), any(String.class), eq(604800L), eq(java.util.concurrent.TimeUnit.SECONDS));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void resolvePhoto_returnsRateLimitedOnUpstream429() throws Exception {
+    String cacheKey = "cloudradar:photo:v1:icao24:abc123";
+    when(valueOperations.get(cacheKey)).thenReturn(null);
+    when(valueOperations.increment(any(String.class))).thenReturn(1L);
+    when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn((HttpResponse<String>) httpResponse);
+    when(httpResponse.statusCode()).thenReturn(429);
+
+    PlanespottersPhotoService service = new PlanespottersPhotoService(redisTemplate, objectMapper, properties, httpClient);
+    FlightPhoto photo = service.resolvePhoto("abc123", null);
+
+    assertNotNull(photo);
+    assertEquals("rate_limited", photo.status());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void resolvePhoto_returnsErrorOnMalformedJson() throws Exception {
+    String cacheKey = "cloudradar:photo:v1:icao24:abc123";
+    when(valueOperations.get(cacheKey)).thenReturn(null);
+    when(valueOperations.increment(any(String.class))).thenReturn(1L);
+    when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn((HttpResponse<String>) httpResponse);
+    when(httpResponse.statusCode()).thenReturn(200);
+    when(httpResponse.body()).thenReturn("{not-json");
+
+    PlanespottersPhotoService service = new PlanespottersPhotoService(redisTemplate, objectMapper, properties, httpClient);
+    FlightPhoto photo = service.resolvePhoto("abc123", null);
+
+    assertNotNull(photo);
+    assertEquals("error", photo.status());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void resolvePhoto_usesRegistrationFallbackWhenHexNotFound() throws Exception {
+    String cacheKey = "cloudradar:photo:v1:icao24:abc123";
+    when(valueOperations.get(cacheKey)).thenReturn(null);
+    when(valueOperations.increment(any(String.class))).thenReturn(1L, 1L);
+    when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn((HttpResponse<String>) httpResponse, (HttpResponse<String>) httpResponse);
+    when(httpResponse.statusCode()).thenReturn(200, 200);
+    when(httpResponse.body()).thenReturn(
+        "{\"photos\":[]}",
+        """
+        {
+          "photos": [
+            {
+              "thumbnail": {
+                "src": "https://cdn.planespotters.net/fallback-small.jpg",
+                "size": {"width": 200, "height": 133}
+              },
+              "thumbnail_large": {
+                "src": "https://cdn.planespotters.net/fallback-large.jpg",
+                "size": {"width": 420, "height": 280}
+              },
+              "link": "https://www.planespotters.net/photo/999",
+              "photographer": "Fallback"
+            }
+          ]
+        }
+        """);
+
+    PlanespottersPhotoService service = new PlanespottersPhotoService(redisTemplate, objectMapper, properties, httpClient);
+    FlightPhoto photo = service.resolvePhoto("abc123", "f-gkxa");
+
+    assertNotNull(photo);
+    assertEquals("available", photo.status());
+    assertEquals("https://cdn.planespotters.net/fallback-small.jpg", photo.thumbnailSrc());
+    verify(httpClient, times(2)).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
   }
 
   @Test
