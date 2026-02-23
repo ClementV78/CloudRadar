@@ -24,6 +24,7 @@ import java.util.List;
  * @param militaryHint military hint metadata
  * @param yearBuilt optional aircraft year built
  * @param ownerOperator optional operator metadata
+ * @param photo optional aircraft photo metadata
  * @param recentTrack optional recent track points
  * @param timestamp response generation timestamp
  */
@@ -47,5 +48,6 @@ public record FlightDetailResponse(
     Boolean militaryHint,
     Integer yearBuilt,
     String ownerOperator,
+    FlightPhoto photo,
     List<FlightTrackPoint> recentTrack,
     String timestamp) {}

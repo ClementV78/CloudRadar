@@ -40,6 +40,18 @@ export interface FlightTrackPoint {
   onGround: boolean | null;
 }
 
+export interface FlightPhoto {
+  status: 'available' | 'not_found' | 'rate_limited' | 'error';
+  thumbnailSrc: string | null;
+  thumbnailWidth: number | null;
+  thumbnailHeight: number | null;
+  thumbnailLargeSrc: string | null;
+  thumbnailLargeWidth: number | null;
+  thumbnailLargeHeight: number | null;
+  photographer: string | null;
+  sourceLink: string | null;
+}
+
 export interface FlightDetailResponse {
   icao24: string;
   callsign: string | null;
@@ -60,6 +72,7 @@ export interface FlightDetailResponse {
   militaryHint: boolean | null;
   yearBuilt: number | null;
   ownerOperator: string | null;
+  photo: FlightPhoto | null;
   recentTrack: FlightTrackPoint[];
   timestamp: string;
 }

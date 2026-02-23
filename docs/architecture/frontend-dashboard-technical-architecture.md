@@ -48,10 +48,13 @@ flowchart LR
     QUERY["FlightQueryService"]
     STREAM["FlightUpdateStreamService"]
     META["SqliteAircraftMetadataRepository"]
+    PHOTO["PlanespottersPhotoService"]
   end
 
   REDIS[("Redis\ncloudradar:aircraft:last\ncloudradar:aircraft:track:*")]
+  REDIS_PHOTO[("Redis\ncloudradar:photo:v1:*")]
   SQLITE[("Local SQLite\n/refdata/aircraft.db")]
+  PS["Planespotters API"]
 
   UI -->|"GET /api/flights"| CTRL
   UI -->|"GET /api/flights/:icao24"| CTRL
@@ -62,11 +65,15 @@ flowchart LR
   QUERY --> REDIS
   QUERY --> META
   META --> SQLITE
+  QUERY --> PHOTO
+  PHOTO --> REDIS_PHOTO
+  PHOTO --> PS
   STREAM --> REDIS
 ```
 
 This flow describes the dashboard runtime topology: `DashboardController` centralizes REST routes, `FlightQueryService` reads the Redis snapshot, and `FlightUpdateStreamService` monitors batch changes for SSE.
 SQLite enrichment stays optional and does not impact the minimal map/refresh path.
+Photo lookup is also optional and resilient: dashboard reads photo metadata from Redis cache first, then calls Planespotters only on cache miss.
 
 ## 2. Main Components
 
@@ -88,6 +95,8 @@ Redis keys:
 - `cloudradar:activity:bucket:<epochMinute>` (Hash): processed event counters (`events_total`, `events_military`) used for KPI activity trends.
 - `cloudradar:activity:bucket:<epochMinute>:aircraft_hll` (HLL): unique aircraft per bucket.
 - `cloudradar:activity:bucket:<epochMinute>:aircraft_military_hll` (HLL): unique military aircraft per bucket.
+- `cloudradar:photo:v1:icao24:<icao24>` (String/JSON): cached Planespotters photo metadata for detail panel.
+- `cloudradar:photo:v1:ratelimit:sec:<epochSecond>` (String/increment): distributed global limiter counter (2 rps default).
 
 Telemetry payload includes `opensky_fetch_epoch`, used as batch boundary for map refresh.
 KPI activity trends are built from bucketed processor writes (events + unique aircraft), not from snapshot distribution in `aircraft:last`.
@@ -121,9 +130,13 @@ Why latest + short fallback window:
 1. Read current aircraft payload from `cloudradar:aircraft:last`.
 2. Optionally load track list from `cloudradar:aircraft:track:<icao24>`.
 3. Optionally enrich with SQLite metadata.
-4. Return merged DTO.
+4. Resolve photo metadata through `PlanespottersPhotoService`:
+   - cache hit: return cached metadata immediately,
+   - cache miss: call Planespotters by hex, fallback by registration, cache result.
+5. Return merged DTO.
 
 Track rendering note (frontend): large timestamp gaps should split the polyline into multiple segments to avoid fake straight lines across unrelated itineraries.
+Frontend displays thumbnail directly in detail panel and opens large image only on explicit click.
 
 ## 6. Metrics Endpoint Internals (`GET /api/flights/metrics`)
 

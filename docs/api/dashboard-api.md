@@ -111,6 +111,17 @@ Example response:
   "militaryHint": false,
   "yearBuilt": 2011,
   "ownerOperator": "Air France",
+  "photo": {
+    "status": "available",
+    "thumbnailSrc": "https://cdn.planespotters.net/33130/example_t.jpg",
+    "thumbnailWidth": 200,
+    "thumbnailHeight": 133,
+    "thumbnailLargeSrc": "https://cdn.planespotters.net/33130/example_280.jpg",
+    "thumbnailLargeWidth": 420,
+    "thumbnailLargeHeight": 280,
+    "photographer": "Thomas Noack",
+    "sourceLink": "https://www.planespotters.net/photo/000001/example"
+  },
   "recentTrack": [
     {
       "lat": 48.80,
@@ -125,6 +136,16 @@ Example response:
   "timestamp": "2026-02-13T12:00:00Z"
 }
 ```
+
+Photo semantics:
+- `photo.status` values:
+  - `available`: thumbnail metadata present
+  - `not_found`: no matching photo found upstream
+  - `rate_limited`: global 2 rps limiter reached (dashboard-wide, Redis-backed)
+  - `error`: upstream/network/parse failure
+- When `status != available`, photo URL fields can be `null`.
+- Dashboard returns both `thumbnailSrc` and `thumbnailLargeSrc`; frontend only loads the large image when user opens preview.
+- Photo metadata is cached in Redis (`cloudradar:photo:v1:*`) and therefore included in existing Redis backup/restore workflows.
 
 Not found example (`404`):
 ```json

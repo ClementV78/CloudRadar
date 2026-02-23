@@ -20,6 +20,7 @@ import com.cloudradar.dashboard.config.DashboardProperties;
 import com.cloudradar.dashboard.model.FlightDetailResponse;
 import com.cloudradar.dashboard.model.FlightListResponse;
 import com.cloudradar.dashboard.model.FlightMapItem;
+import com.cloudradar.dashboard.model.FlightPhoto;
 import com.cloudradar.dashboard.model.FlightsMetricsResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
@@ -48,6 +49,7 @@ class FlightQueryServiceTest {
   @Mock private HyperLogLogOperations<String, String> hyperLogLogOperations;
   @Mock private ListOperations<String, String> listOperations;
   @Mock private AircraftMetadataRepository aircraftRepository;
+  @Mock private PlanespottersPhotoService planespottersPhotoService;
 
   private DashboardProperties properties;
   private ObjectMapper objectMapper;
@@ -76,7 +78,7 @@ class FlightQueryServiceTest {
   @Test
   void listFlights_usesRedisScanAndReturnsSortedLimitedItems() {
     FlightQueryService service =
-        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty(), Optional.empty());
+        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty(), Optional.empty(), Optional.empty());
 
     List<Map.Entry<Object, Object>> entries = List.of(
         Map.entry("abc001", eventJson("abc001", 1700000001L, 120.0, 1000.0, false)),
@@ -103,7 +105,7 @@ class FlightQueryServiceTest {
   @Test
   void listFlights_keepsOnlyLatestEventPerNormalizedIcao24() {
     FlightQueryService service =
-        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty(), Optional.empty());
+        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty(), Optional.empty(), Optional.empty());
 
     List<Map.Entry<Object, Object>> entries = List.of(
         Map.entry("abc123", eventJson("abc123", 1700000001L, 120.0, 1000.0, false)),
@@ -127,7 +129,7 @@ class FlightQueryServiceTest {
   @Test
   void listFlights_keepsLatestAndTwoPreviousOpenSkyBatches() {
     FlightQueryService service =
-        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty(), Optional.empty());
+        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty(), Optional.empty(), Optional.empty());
 
     List<Map.Entry<Object, Object>> entries = List.of(
         Map.entry("abc001", eventJson("abc001", 1700000001L, 120.0, 1000.0, false, 101L)),
@@ -163,7 +165,13 @@ class FlightQueryServiceTest {
   @Test
   void listFlights_enrichesMapItemsOnReadWhenAircraftDbIsAvailable() {
     FlightQueryService service =
-        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.of(aircraftRepository), Optional.empty());
+        new FlightQueryService(
+            redisTemplate,
+            objectMapper,
+            properties,
+            Optional.of(aircraftRepository),
+            Optional.empty(),
+            Optional.empty());
 
     List<Map.Entry<Object, Object>> entries = List.of(
         Map.entry("abc123", eventJson("abc123", 1700000003L, 180.0, 2000.0, false))
@@ -201,7 +209,13 @@ class FlightQueryServiceTest {
   @Test
   void listFlights_classifiesRescueHelicopterFromMetadataAndCallsign() {
     FlightQueryService service =
-        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.of(aircraftRepository), Optional.empty());
+        new FlightQueryService(
+            redisTemplate,
+            objectMapper,
+            properties,
+            Optional.of(aircraftRepository),
+            Optional.empty(),
+            Optional.empty());
 
     List<Map.Entry<Object, Object>> entries = List.of(
         Map.entry("39ac17", eventJson("39ac17", 1700000003L, 133.0, 495.3, false, null, "SAMUIDF"))
@@ -236,7 +250,13 @@ class FlightQueryServiceTest {
   @Test
   void getFlightDetail_returnsTrackAndMetadataWhenRequested() {
     FlightQueryService service =
-        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.of(aircraftRepository), Optional.empty());
+        new FlightQueryService(
+            redisTemplate,
+            objectMapper,
+            properties,
+            Optional.of(aircraftRepository),
+            Optional.empty(),
+            Optional.of(planespottersPhotoService));
 
     when(hashOperations.get("cloudradar:aircraft:last", "abc123"))
         .thenReturn(eventJson("abc123", 1700000000L, 210.0, 3200.0, false));
@@ -256,6 +276,16 @@ class FlightQueryServiceTest {
             false,
             2011,
             "Air France")));
+    when(planespottersPhotoService.resolvePhoto("abc123", "F-GKXA"))
+        .thenReturn(FlightPhoto.available(
+            "https://cdn.planespotters.net/test-small.jpg",
+            200,
+            133,
+            "https://cdn.planespotters.net/test-large.jpg",
+            420,
+            280,
+            "John Doe",
+            "https://www.planespotters.net/photo/1"));
 
     FlightDetailResponse response = service.getFlightDetail("abc123", "track");
 
@@ -263,6 +293,9 @@ class FlightQueryServiceTest {
     assertEquals("F-GKXA", response.registration());
     assertEquals("Airbus", response.manufacturer());
     assertEquals("A320", response.typecode());
+    assertNotNull(response.photo());
+    assertEquals("available", response.photo().status());
+    assertEquals("https://cdn.planespotters.net/test-small.jpg", response.photo().thumbnailSrc());
     assertNotNull(response.recentTrack());
     assertEquals(1, response.recentTrack().size());
   }
@@ -270,7 +303,13 @@ class FlightQueryServiceTest {
   @Test
   void getFlightsMetrics_aggregatesExpectedKpis() {
     FlightQueryService service =
-        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.of(aircraftRepository), Optional.empty());
+        new FlightQueryService(
+            redisTemplate,
+            objectMapper,
+            properties,
+            Optional.of(aircraftRepository),
+            Optional.empty(),
+            Optional.empty());
 
     long now = Instant.now().getEpochSecond();
     List<Map.Entry<Object, Object>> entries = List.of(
@@ -341,7 +380,7 @@ class FlightQueryServiceTest {
   @Test
   void getFlightsMetrics_aggregatesMinuteBucketsIntoDisplayBuckets() {
     FlightQueryService service =
-        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty(), Optional.empty());
+        new FlightQueryService(redisTemplate, objectMapper, properties, Optional.empty(), Optional.empty(), Optional.empty());
     properties.getApi().setMetricsBucketCount(12);
 
     Cursor<Map.Entry<Object, Object>> cursor = cursorOf(List.of());

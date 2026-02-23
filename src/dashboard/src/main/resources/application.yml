@@ -54,6 +54,16 @@ dashboard:
     enabled: ${DASHBOARD_PROMETHEUS_ENABLED:true}
     base-url: ${DASHBOARD_PROMETHEUS_BASE_URL:http://prometheus-prometheus-kube-prometheus-prometheus.monitoring.svc:9090}
     query-timeout-ms: ${DASHBOARD_PROMETHEUS_QUERY_TIMEOUT_MS:1500}
+  planespotters:
+    enabled: ${PLANESPOTTERS_ENABLED:true}
+    base-url: ${PLANESPOTTERS_BASE_URL:https://api.planespotters.net/pub/photos}
+    timeout-ms: ${PLANESPOTTERS_TIMEOUT_MS:1500}
+    global-rps: ${PLANESPOTTERS_GLOBAL_RPS:2}
+    redis-key-prefix: ${PLANESPOTTERS_REDIS_KEY_PREFIX:cloudradar:photo:v1:}
+    cache-ttl-seconds: ${PLANESPOTTERS_CACHE_TTL_SECONDS:604800}
+    negative-cache-ttl-seconds: ${PLANESPOTTERS_NEGATIVE_CACHE_TTL_SECONDS:21600}
+    error-cache-ttl-seconds: ${PLANESPOTTERS_ERROR_CACHE_TTL_SECONDS:120}
+    rate-limited-cache-ttl-seconds: ${PLANESPOTTERS_RATE_LIMITED_CACHE_TTL_SECONDS:5}
 
 management:
   endpoints:

@@ -9,6 +9,7 @@ import com.cloudradar.dashboard.model.Bbox;
 import com.cloudradar.dashboard.model.FlightDetailResponse;
 import com.cloudradar.dashboard.model.FlightListResponse;
 import com.cloudradar.dashboard.model.FlightMapItem;
+import com.cloudradar.dashboard.model.FlightPhoto;
 import com.cloudradar.dashboard.model.FlightTrackPoint;
 import com.cloudradar.dashboard.model.FlightsMetricsResponse;
 import com.cloudradar.dashboard.model.PositionEvent;
@@ -61,6 +62,7 @@ public class FlightQueryService {
   private final DashboardProperties properties;
   private final Optional<AircraftMetadataRepository> aircraftRepo;
   private final Optional<PrometheusMetricsService> prometheusMetricsService;
+  private final Optional<PlanespottersPhotoService> planespottersPhotoService;
   private final Timer activitySeriesReadTimer;
   private final Counter activitySeriesRedisReadsCounter;
   private final Counter activitySeriesEmptyBucketsCounter;
@@ -73,18 +75,21 @@ public class FlightQueryService {
    * @param properties typed dashboard configuration
    * @param aircraftRepo optional aircraft metadata repository
    * @param prometheusMetricsService optional Prometheus query helper
+   * @param planespottersPhotoService optional Planespotters integration service
    */
   public FlightQueryService(
       StringRedisTemplate redisTemplate,
       ObjectMapper objectMapper,
       DashboardProperties properties,
       Optional<AircraftMetadataRepository> aircraftRepo,
-      Optional<PrometheusMetricsService> prometheusMetricsService) {
+      Optional<PrometheusMetricsService> prometheusMetricsService,
+      Optional<PlanespottersPhotoService> planespottersPhotoService) {
     this.redisTemplate = redisTemplate;
     this.objectMapper = objectMapper;
     this.properties = properties;
     this.aircraftRepo = aircraftRepo;
     this.prometheusMetricsService = prometheusMetricsService;
+    this.planespottersPhotoService = planespottersPhotoService;
     this.activitySeriesReadTimer = Timer.builder("dashboard.activity.series.read.duration")
         .description("Time spent aggregating activity bucket series from Redis")
         .register(Metrics.globalRegistry);
@@ -216,6 +221,9 @@ public class FlightQueryService {
 
     Optional<AircraftMetadata> metadata = resolveMetadata(icao24);
     List<FlightTrackPoint> track = include.contains("track") ? loadTrack(icao24) : Collections.emptyList();
+    FlightPhoto photo = planespottersPhotoService
+        .map(service -> service.resolvePhoto(icao24, metadata.map(AircraftMetadata::registration).orElse(null)))
+        .orElse(null);
 
     return new FlightDetailResponse(
         icao24,
@@ -237,6 +245,7 @@ public class FlightQueryService {
         metadata.map(AircraftMetadata::militaryHint).orElse(null),
         metadata.map(AircraftMetadata::yearBuilt).orElse(null),
         metadata.map(AircraftMetadata::ownerOperator).orElse(null),
+        photo,
         track,
         ISO.format(Instant.now()));
   }

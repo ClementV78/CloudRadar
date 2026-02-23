@@ -18,6 +18,7 @@ public class DashboardProperties {
   private final AircraftDb aircraftDb = new AircraftDb();
   private final Boost boost = new Boost();
   private final Prometheus prometheus = new Prometheus();
+  private final Planespotters planespotters = new Planespotters();
 
   public Redis getRedis() {
     return redis;
@@ -37,6 +38,10 @@ public class DashboardProperties {
 
   public Prometheus getPrometheus() {
     return prometheus;
+  }
+
+  public Planespotters getPlanespotters() {
+    return planespotters;
   }
 
   /** Redis key configuration used by dashboard read paths. */
@@ -398,6 +403,91 @@ public class DashboardProperties {
 
     public void setQueryTimeoutMs(int queryTimeoutMs) {
       this.queryTimeoutMs = queryTimeoutMs;
+    }
+  }
+
+  /** Planespotters external photo API integration configuration. */
+  public static class Planespotters {
+    private boolean enabled = true;
+    private String baseUrl = "https://api.planespotters.net/pub/photos";
+    private int timeoutMs = 1500;
+    private int globalRps = 2;
+    private String redisKeyPrefix = "cloudradar:photo:v1:";
+    private long cacheTtlSeconds = 604800;
+    private long negativeCacheTtlSeconds = 21600;
+    private long errorCacheTtlSeconds = 120;
+    private long rateLimitedCacheTtlSeconds = 5;
+
+    public boolean isEnabled() {
+      return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+      this.enabled = enabled;
+    }
+
+    public String getBaseUrl() {
+      return baseUrl;
+    }
+
+    public void setBaseUrl(String baseUrl) {
+      this.baseUrl = baseUrl;
+    }
+
+    public int getTimeoutMs() {
+      return timeoutMs;
+    }
+
+    public void setTimeoutMs(int timeoutMs) {
+      this.timeoutMs = timeoutMs;
+    }
+
+    public int getGlobalRps() {
+      return globalRps;
+    }
+
+    public void setGlobalRps(int globalRps) {
+      this.globalRps = globalRps;
+    }
+
+    public String getRedisKeyPrefix() {
+      return redisKeyPrefix;
+    }
+
+    public void setRedisKeyPrefix(String redisKeyPrefix) {
+      this.redisKeyPrefix = redisKeyPrefix;
+    }
+
+    public long getCacheTtlSeconds() {
+      return cacheTtlSeconds;
+    }
+
+    public void setCacheTtlSeconds(long cacheTtlSeconds) {
+      this.cacheTtlSeconds = cacheTtlSeconds;
+    }
+
+    public long getNegativeCacheTtlSeconds() {
+      return negativeCacheTtlSeconds;
+    }
+
+    public void setNegativeCacheTtlSeconds(long negativeCacheTtlSeconds) {
+      this.negativeCacheTtlSeconds = negativeCacheTtlSeconds;
+    }
+
+    public long getErrorCacheTtlSeconds() {
+      return errorCacheTtlSeconds;
+    }
+
+    public void setErrorCacheTtlSeconds(long errorCacheTtlSeconds) {
+      this.errorCacheTtlSeconds = errorCacheTtlSeconds;
+    }
+
+    public long getRateLimitedCacheTtlSeconds() {
+      return rateLimitedCacheTtlSeconds;
+    }
+
+    public void setRateLimitedCacheTtlSeconds(long rateLimitedCacheTtlSeconds) {
+      this.rateLimitedCacheTtlSeconds = rateLimitedCacheTtlSeconds;
     }
   }
 }

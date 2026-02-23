@@ -148,6 +148,8 @@ flowchart TB
 - The Redis restore phase is represented by a dedicated job named `REDIS-RESTORE` in the graph.
   - If `redis_backup_restore=false`, the job emits an explicit skip reason in logs and summary.
   - If restore is requested, the job still protects data by skipping restore when Redis data is not fresh.
+  - Restore scope is Redis volume-wide (`/data`), including auxiliary cache namespaces such as
+    `cloudradar:photo:v1:*` (aircraft photo metadata cache).
 - `alertmanager-reenable` runs after `eso-secrets-ready` (not in `tf-apply`) to avoid early SSM/instance readiness races.
   - It is best-effort and emits `warning` signals instead of failing the pipeline.
   - It resolves the Alertmanager StatefulSet dynamically by label (`app.kubernetes.io/name=alertmanager`) instead of a hardcoded name.
@@ -194,6 +196,8 @@ Use the dedicated destroy workflow when you need to tear down an environment.
 
 - Select `environment` (`dev` or `prod`).
 - `redis_backup_restore`: when `true` (default, dev only), backs up Redis to S3 and rotates backups (keeps last 3) before Terraform destroy.
+  - Backup scope is Redis volume-wide (`/data`), so all Redis keyspaces are persisted together
+    (including `cloudradar:photo:v1:*`).
 - Set `confirm_destroy=DESTROY` to allow destruction.
 - Uses the same S3/DynamoDB backend and the OIDC role.
 - The workflow validates the selected root before destroying.

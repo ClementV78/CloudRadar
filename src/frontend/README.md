@@ -33,6 +33,7 @@ flowchart LR
   FE -->|"SSE /api/flights/stream"| API
   FE -->|"GET /api/flights + /metrics"| API
   FE -->|"GET /api/flights/{icao24}"| API
+  API -->|"photo metadata cache"| REDIS
 ```
 
 ### Runtime model
@@ -49,8 +50,10 @@ flowchart LR
 3. On marker click, frontend fetches:
    - `GET /api/flights/{icao24}?include=track,enrichment`
 4. Detail panel and track polyline are updated from this detail payload.
-5. On each new batch, map markers animate from previous known position to next one over the measured batch interval.
-6. On ingester toggle, frontend sends `POST /admin/ingester/scale` then polls `GET /admin/ingester/scale` until target state convergence.
+5. If `detail.photo.status=available`, frontend renders thumbnail.
+6. Large preview image is fetched only when user clicks the thumbnail.
+7. On each new batch, map markers animate from previous known position to next one over the measured batch interval.
+8. On ingester toggle, frontend sends `POST /admin/ingester/scale` then polls `GET /admin/ingester/scale` until target state convergence.
 
 ### Main UI modules
 
@@ -59,7 +62,7 @@ flowchart LR
 - `src/components/Header.tsx`
   - API/OpenSky status badges, UTC clock, theme switch
 - `src/components/DetailPanel.tsx`
-  - structured aircraft detail view using `military hint` wording
+  - structured aircraft detail view + thumbnail + large-image modal preview
 - `src/components/KpiStrip.tsx`
   - KPI cards and lightweight sparkline rendering
 - `src/api.ts`
@@ -96,6 +99,7 @@ flowchart LR
 - Selection/detail behavior:
   - selecting a marker triggers detail fetch asynchronously
   - detail fetch must never block global map refresh cycles
+  - thumbnail large image is loaded lazily (on explicit click) to avoid unnecessary bandwidth
 - Ingester toggle behavior:
   - toggle uses optimistic UI (`ON/OFF`) and shows `applying ...` while reconciliation is in progress
   - frontend polls ingester scale state for up to 30s to confirm target convergence
