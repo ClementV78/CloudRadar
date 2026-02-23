@@ -16,6 +16,35 @@ flowchart LR
   Health["/healthz"] --- Scheduler
 ```
 
+### OpenSky Proxy Sequence (Ingester -> Worker -> OpenSky)
+
+```mermaid
+sequenceDiagram
+  participant J as FlightIngestJob
+  participant C as OpenSkyClient
+  participant T as OpenSkyTokenService
+  participant W as Cloudflare Worker
+  participant O as OpenSky API
+  participant R as RedisPublisher
+
+  J->>C: fetchStates()
+  C->>T: getToken()
+  T->>W: POST /auth/.../token
+  W->>O: POST /auth/.../token
+  O-->>W: 200 access_token (or 4xx/5xx/522)
+  W-->>T: token response
+  T-->>C: bearer token
+  C->>W: GET /api/states/all?bbox=...
+  W->>O: GET /api/states/all?bbox=...
+  O-->>W: states payload (or 429/5xx)
+  W-->>C: states payload
+  C-->>J: FetchResult(states, credits...)
+  J->>R: pushEvents(cloudradar:ingest:queue)
+```
+
+This sequence shows the runtime path when OpenSky URLs are configured through the Cloudflare Worker gateway (`OPENSKY_TOKEN_URL`, `OPENSKY_BASE_URL`).
+If OpenSky or the proxy path fails, the ingester tracks failures and applies progressive backoff before disabling ingestion.
+
 ## Code organization
 
 - `com.cloudradar.ingester.IngesterApplication`  
