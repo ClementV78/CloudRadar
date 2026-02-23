@@ -62,3 +62,5 @@ scripts/redis-restore.sh --force --s3-uri s3://cloudradar-dev-<account-id>-sqlit
 
 Notes:
 - Restore wipes Redis `/data` before copying files. `--force` is required to acknowledge this data loss risk.
+- Redis backup/restore is volume-level (`/data`) and includes all key namespaces, including photo metadata cache
+  (`cloudradar:photo:v1:*`) used by dashboard detail thumbnails.

@@ -119,6 +119,7 @@ class DashboardControllerTest {
         false,
         2011,
         "Air France",
+        null,
         List.of(new FlightTrackPoint(48.80, 2.20, 88.0, 10700.0, 218.0, 1759999970L, false)),
         "2026-02-13T12:00:00Z");
 

@@ -238,6 +238,8 @@ src/processor/
 | Hash | `cloudradar:aircraft:last` | Latest position of each aircraft | None (manual cleanup) |
 | List | `cloudradar:aircraft:track:icao24` | Position history (180 entries) | None (LTRIM 0 179) |
 | Set | `cloudradar:aircraft:in_bbox` | ICAO24s currently in bbox | None (manual cleanup) |
+| String (JSON) | `cloudradar:photo:v1:icao24:<icao24>` | Cached aircraft photo metadata for detail panel | Yes (TTL, default 7d) |
+| String (counter) | `cloudradar:photo:v1:ratelimit:sec:<epochSecond>` | Distributed Planespotters limiter counter (global 2 rps default) | Yes (2s) |
 
 ### Configuration (Environment Variables)
 
