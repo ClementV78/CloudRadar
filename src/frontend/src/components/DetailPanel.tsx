@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { MouseEvent, TouchEvent } from 'react';
 import type { FlightDetailResponse } from '../types';
 
@@ -77,6 +77,10 @@ export function DetailPanel({ detail, fleetType, open, loading, error, onClose }
   const photo = detail?.photo ?? null;
   const hasThumbnail = Boolean(photo?.status === 'available' && photo.thumbnailSrc);
   const canOpenLarge = Boolean(photo?.status === 'available' && photo.thumbnailLargeSrc);
+
+  useEffect(() => {
+    setLightboxOpen(false);
+  }, [detail?.icao24, canOpenLarge]);
 
   return (
     <aside className={`detail-panel glass-panel ${open ? 'is-open' : ''}`}>
