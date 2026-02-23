@@ -20,6 +20,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -47,6 +48,7 @@ public class PlanespottersPhotoService {
   private final Counter upstreamErrorCounter;
   private final Counter upstreamRateLimitedCounter;
 
+  @Autowired
   public PlanespottersPhotoService(
       StringRedisTemplate redisTemplate,
       ObjectMapper objectMapper,
