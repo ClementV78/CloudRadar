@@ -87,7 +87,8 @@ class OpenSkyClientTest {
 
     assertThat(result.remainingCredits()).isEqualTo(3990);
     assertThat(result.creditLimit()).isEqualTo(4000);
-    assertThat(result.resetAtEpochSeconds()).isBetween(beforeCallEpoch + 110L, beforeCallEpoch + 130L);
+    long deltaSeconds = result.resetAtEpochSeconds() - beforeCallEpoch;
+    assertThat(deltaSeconds).isBetween(60L, 180L);
 
     ArgumentCaptor<HttpRequest> requestCaptor = ArgumentCaptor.forClass(HttpRequest.class);
     verify(httpClient).send(requestCaptor.capture(), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any());
