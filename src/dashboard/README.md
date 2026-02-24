@@ -126,8 +126,12 @@ mvn spring-boot:run
 Run tests:
 
 ```bash
-mvn test
+mvn -B test
 ```
+
+Current Java test baseline includes:
+- `DashboardApplicationTests.contextLoads()` for startup wiring regression detection.
+- Existing API/service tests (`DashboardControllerTest`, `FlightQueryServiceTest`, `FlightUpdateStreamServiceTest`, `PlanespottersPhotoServiceTest`, `QueryParserTest`).
 
 ## Related Docs
 
