@@ -2,6 +2,12 @@ name: SonarCloud Quality Gate
 
 on:
   workflow_dispatch:
+    inputs:
+      full_java_scan:
+        description: 'Force full Java analysis (disable unchanged-file optimization)'
+        required: false
+        default: false
+        type: boolean
   pull_request:
     branches:
       - main
@@ -79,6 +85,16 @@ jobs:
             exit 1
           fi
 
+      - name: Select Java analysis mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.full_java_scan }}" = "true" ]; then
+            echo "SONAR_JAVA_SKIP_UNCHANGED=false" >> "$GITHUB_ENV"
+            echo "Full Java analysis enabled (includes unchanged files)."
+          else
+            echo "SONAR_JAVA_SKIP_UNCHANGED=true" >> "$GITHUB_ENV"
+            echo "Optimized Java analysis enabled (skip unchanged files)."
+          fi
+
       - name: SonarCloud scan and quality gate
         uses: SonarSource/sonarqube-scan-action@fd88b7d7ccbaefd23d8f36f73b59db7a3d246602 # v6.0.0
         env:
@@ -88,3 +104,4 @@ jobs:
           args: >
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=300
+            -Dsonar.java.skipUnchanged=${{ env.SONAR_JAVA_SKIP_UNCHANGED }}

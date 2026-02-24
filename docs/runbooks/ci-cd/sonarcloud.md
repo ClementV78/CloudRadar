@@ -12,6 +12,9 @@ This runbook explains how CloudRadar uses SonarCloud for PR quality-gate checks 
     - `src/dashboard/target/site/jacoco/jacoco.xml`
     - `src/ingester/target/site/jacoco/jacoco.xml`
     - `src/processor/target/site/jacoco/jacoco.xml`
+- Java analyzer mode:
+  - Default: optimized (`sonar.java.skipUnchanged=true`) to keep CI fast.
+  - Manual first/full baseline: run `workflow_dispatch` with `full_java_scan=true`.
 
 ## Workflow diagram
 
@@ -38,6 +41,11 @@ flowchart LR
 - `workflow_dispatch` (manual validation)
 - `pull_request` to `main`
 - `push` to `main`
+
+`workflow_dispatch` input:
+- `full_java_scan` (boolean, default `false`)
+  - `true`: force full Java analysis (including unchanged Java files)
+  - `false`: optimized mode (skip unchanged Java files)
 
 Path filters:
 - `src/**`
@@ -92,7 +100,8 @@ Expected:
 
 1. Open GitHub Actions
 2. Select `SonarCloud Quality Gate`
-3. Click `Run workflow`
+3. Set `full_java_scan=true` for the first full Java baseline (or leave `false` for normal runs)
+4. Click `Run workflow`
 
 Expected results:
 - `Run Java tests with JaCoCo XML reports` succeeds
@@ -126,6 +135,15 @@ Fix:
 - verify Sonar properties:
   - `sonar.coverage.jacoco.xmlReportPaths=...`
   - `sonar.java.binaries=...`
+
+### PR shows `0 source files analyzed` for Java
+
+Cause:
+- Java unchanged-file optimization is enabled, so Java files outside PR diff can be skipped.
+
+Fix:
+- run `workflow_dispatch` with `full_java_scan=true` to force full Java analysis
+- re-run the `SonarCloud Quality Gate` workflow
 
 ### Quality gate remains red
 
