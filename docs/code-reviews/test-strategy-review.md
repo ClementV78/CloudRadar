@@ -8,25 +8,28 @@
 
 ## Status Update (2026-02-24)
 
-Progress implemented in issue #491:
+Progress implemented in issues #491, #506, and #509:
 - Added `contextLoads()` smoke tests for `ingester`, `processor`, and `dashboard`.
 - Added critical mapping/parsing unit tests:
   - `ingester`: `OpenSkyClientTest` (OpenSky row mapping + rate-limit headers parsing)
   - `processor`: `PositionEventTest` (JSON contract parsing/serialization)
 - Added `spring-boot-starter-test` in `ingester` and `processor` test scopes.
 - Updated Java service READMEs with local test command and coverage notes.
+- Added visible CI quality gates (`java-tests`, `frontend-tests`, `dockerfile-lint`, `dependency-security-scan`) before image build.
+- Added workflow-level summary reports in both `build-and-push` and `ci-k8s`.
+- Removed CI annotation noise from unsupported Trivy action input and known Hadolint warning-only findings.
 
 Note: most sections below keep the original proposal review snapshot from 2026-02-23 for traceability.
 
 ## 1. Current Baseline (2026-02-24)
 
-Current repository status after issues #490 and #491:
+Current repository status after issues #490, #491, #506, and #509:
 
 | Service | Language | Source files | Tests | Type | Test framework |
 |---|---|---|---|---|---|
-| **dashboard** | Java/Spring Boot 3.3.5 | 29 | 6 test classes / 33 tests | `@WebMvcTest` + unit tests + `@SpringBootTest contextLoads()` | `spring-boot-starter-test` |
-| **ingester** | Java/Spring Boot 3.3.5 | 13 | 2 test classes / 2 tests | `@SpringBootTest contextLoads()` + mapping/parsing unit test | `spring-boot-starter-test` |
-| **processor** | Java/Spring Boot 3.3.5 | 8 | 2 test classes / 3 tests | `@SpringBootTest contextLoads()` + JSON contract unit tests | `spring-boot-starter-test` |
+| **dashboard** | Java/Spring Boot 3.5.11 | 29 | 6 test classes / 33 tests | `@WebMvcTest` + unit tests + `@SpringBootTest contextLoads()` | `spring-boot-starter-test` |
+| **ingester** | Java/Spring Boot 3.5.11 | 13 | 2 test classes / 2 tests | `@SpringBootTest contextLoads()` + mapping/parsing unit test | `spring-boot-starter-test` |
+| **processor** | Java/Spring Boot 3.5.11 | 8 | 2 test classes / 3 tests | `@SpringBootTest contextLoads()` + JSON contract unit tests | `spring-boot-starter-test` |
 | **frontend** | React/TS | ~20 | 1 test file baseline | Vitest unit baseline | Vitest |
 | **admin-scale** | Python 3.11 | 1 | 0 | — | — |
 | **health** | Python 3.11 | ~2 | 0 | — | — |
@@ -982,6 +985,8 @@ This is achievable in **~20h incremental work**, spread over 3-4 short iteration
 - [x] `mvn test` (or `mvn verify -DskipITs`) executed in `build-and-push.yml`
 - [x] Hadolint added to `build-and-push.yml`
 - [x] kubeconform added to `ci-k8s.yml`
+- [x] Workflow-level CI summary reports added (`build-and-push`, `ci-k8s`)
+- [x] Trivy fs action input normalized (`vuln-type`) to avoid unsupported-input warnings
 - [ ] `.github/dependabot.yml` configured (maven + npm + github-actions)
 
 **Phase 1 — Context smoke + static analysis:**

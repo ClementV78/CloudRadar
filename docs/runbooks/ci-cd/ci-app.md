@@ -27,6 +27,10 @@ flowchart TD
   B2 --> TAG{"Push target"}
   TAG -->|"main"| TMAIN["tags: main/latest/sha"]
   TAG -->|"tag v*"| TTAG["tags: semver/sha"]
+
+  B1 --> S["CI summary report"]
+  TTAG --> S
+  TMAIN --> S
 ```
 
 ## When it runs
@@ -45,12 +49,14 @@ The workflow now exposes test and quality checks as **dedicated jobs** (visible 
 | `java-tests` | `ingester`, `processor`, `dashboard` (matrix) | `mvn -B test` |
 | `frontend-tests` | `frontend` | `npm ci && npm test -- --run` |
 | `dockerfile-lint` | all service Dockerfiles (matrix) | `hadolint` |
-| `dependency-security-scan` | dependencies under `src/` | `trivy fs` (`HIGH,CRITICAL`, `pkg-types=library`, `scanners=vuln`) |
+| `dependency-security-scan` | dependencies under `src/` | `trivy fs` (`HIGH,CRITICAL`, `vuln-type=library`, `scanners=vuln`) |
+| `ci-summary-report` | workflow-level | publish gate/build results to `GITHUB_STEP_SUMMARY` |
 
 Behavior:
 - Any failing gate blocks the `build-and-push` matrix (`needs` dependency).
 - Docker build/push is skipped until all gates are green.
 - On pull requests, image push remains disabled for all services (`push=false`).
+- A final summary job always runs and publishes gate/build status in `GITHUB_STEP_SUMMARY`.
 
 ### Expected duration (PR)
 
@@ -88,6 +94,11 @@ kubeconform -strict -summary \
 
 Expected success signal:
 - `Summary: ... Invalid: 0, Errors: 0`
+
+`ci-k8s` also publishes a final `ci-k8s-summary-report` job in `GITHUB_STEP_SUMMARY` to recap:
+- app version/tag sync check
+- GHCR lowercase check
+- kubeconform manifest validation
 
 ### Path filters
 
@@ -156,6 +167,7 @@ Execution order:
 
 1. Run visible quality/test jobs in parallel: `java-tests`, `frontend-tests`, `dockerfile-lint`, `dependency-security-scan`.
 2. If all are green, start `build-and-push` matrix for the 6 services.
+3. Always publish `ci-summary-report` with consolidated gate + build results.
 
 ### Services built
 
