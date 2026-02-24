@@ -104,18 +104,18 @@ flowchart LR
 flowchart TB
   subgraph TF["1 · Terraform"]
     direction LR
-    env["env\nselect"] --> validate["tf\nvalidate"] --> orphan["orphan\nscan"] --> plan["tf plan"] --> apply["tf apply"] --> outputs["tf\noutputs"]
+    env["env select"] --> validate["tf validate"] --> orphan["orphan scan"] --> plan["tf plan"] --> apply["tf apply"] --> outputs["tf outputs"]
   end
 
   subgraph GITOPS["2 · GitOps Bootstrap"]
     direction LR
-    k3s["k3s\nready"] --> crds["prom\nCRDs"] --> argo-i["argocd\ninstall"] --> argo-p["argocd\nplatform"] --> eso-r["eso\nready"] --> argo-a["argocd\napps"] --> eso-s["eso\nsecrets"]
+    k3s["k3s ready"] --> crds["prom CRDs"] --> argo-i["argocd install"] --> argo-p["argocd platform"] --> eso-r["eso ready"] --> argo-a["argocd apps"] --> eso-s["eso secrets"]
   end
 
   subgraph POST["3 · Post-Bootstrap"]
     direction LR
-    redis["redis\nrestore"] --> smoke["smoke\ntests"]
-    alert["alertmgr\nreenable"]
+    redis["redis restore"] --> smoke["smoke tests"]
+    alert["alertmgr reenable"]
   end
 
   TF --> GITOPS --> POST
