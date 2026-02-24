@@ -113,6 +113,10 @@ spec:
               value: "200"
             - name: API_LIMIT_MAX
               value: "1000"
+            - name: PLANESPOTTERS_TIMEOUT_MS
+              value: "3500"
+            - name: PLANESPOTTERS_ERROR_CACHE_TTL_SECONDS
+              value: "20"
             - name: API_CORS_ALLOW_ORIGINS
               value: "https://cloudradar.local"
             - name: API_AIRCRAFT_DB_ENABLED
