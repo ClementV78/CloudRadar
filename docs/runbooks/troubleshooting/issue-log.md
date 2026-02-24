@@ -2,6 +2,21 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-24
+
+### [dashboard/sse] Expected client disconnects (`Broken pipe`) were logged as server errors
+- **Severity:** Medium
+- **Impact:** Normal SSE client disconnects (tab close/reload, proxy idle timeout) generated noisy stack traces, making real dashboard stream failures harder to spot.
+- **Signal:** Repeated `java.io.IOException: Broken pipe` observed in `/api/flights/stream` write path (`FlightUpdateStreamService.sendEvent`).
+- **Analysis:** The stream service treated all emitter send exceptions as server-side failures and called `completeWithError(...)`, which surfaced expected client disconnect scenarios as errors.
+- **Resolution:**
+  1. Classify expected client disconnect signatures (`broken pipe`, connection reset/abort, socket/stream closed, servlet client abort variants).
+  2. For expected disconnects: remove emitter, call `complete()`, and log at `debug`.
+  3. Keep `completeWithError(...)` and `warn` logging for non-expected stream failures.
+  4. Add dedicated SSE tests covering connect -> event -> forced disconnect and non-expected failure paths.
+- **Guardrail:** Treat client-initiated SSE disconnections as normal lifecycle events; reserve warn/error paths for actual server-side stream faults.
+- **Refs:** issue #494
+
 ## 2026-02-20
 
 ### [app/opensky] Intermittent token `522` through Cloudflare worker caused repeated token refresh attempts

@@ -5,6 +5,7 @@ import com.cloudradar.dashboard.model.PositionEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -67,7 +68,7 @@ public class FlightUpdateStreamService {
   public SseEmitter openStream() {
     startIfNeeded();
 
-    SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
+    SseEmitter emitter = createEmitter();
     emitters.add(emitter);
 
     emitter.onCompletion(() -> emitters.remove(emitter));
@@ -81,6 +82,10 @@ public class FlightUpdateStreamService {
     }
 
     return emitter;
+  }
+
+  SseEmitter createEmitter() {
+    return new SseEmitter(STREAM_TIMEOUT_MS);
   }
 
   private synchronized void startIfNeeded() {
@@ -120,11 +125,69 @@ public class FlightUpdateStreamService {
       emitter.send(SseEmitter.event().name(eventName).data(payload));
     } catch (Exception ex) {
       emitters.remove(emitter);
-      try {
-        emitter.completeWithError(ex);
-      } catch (Exception ignore) {
-        // Emitter is already broken/closed; nothing else to do.
+      if (isExpectedClientDisconnect(ex)) {
+        log.debug("SSE client disconnected during {} delivery: {}", eventName, rootCauseSummary(ex));
+        completeSilently(emitter);
+        return;
       }
+      log.warn("SSE event delivery failed for event={}", eventName, ex);
+      completeWithErrorSilently(emitter, ex);
+    }
+  }
+
+  static boolean isExpectedClientDisconnect(Throwable error) {
+    Throwable current = error;
+    while (current != null) {
+      String className = current.getClass().getName();
+      if (className.endsWith("ClientAbortException") || className.endsWith("EofException")) {
+        return true;
+      }
+      if (hasDisconnectMessage(current.getMessage())) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    return false;
+  }
+
+  private static boolean hasDisconnectMessage(String message) {
+    if (message == null || message.isBlank()) {
+      return false;
+    }
+    String normalized = message.toLowerCase(Locale.ROOT);
+    return normalized.contains("broken pipe")
+        || normalized.contains("connection reset")
+        || normalized.contains("socket closed")
+        || normalized.contains("stream closed")
+        || normalized.contains("connection abort")
+        || normalized.contains("forcibly closed by the remote host");
+  }
+
+  private static String rootCauseSummary(Throwable error) {
+    Throwable current = error;
+    while (current.getCause() != null && current.getCause() != current) {
+      current = current.getCause();
+    }
+    String message = current.getMessage();
+    if (message == null || message.isBlank()) {
+      return current.getClass().getSimpleName();
+    }
+    return current.getClass().getSimpleName() + ": " + message;
+  }
+
+  private static void completeSilently(SseEmitter emitter) {
+    try {
+      emitter.complete();
+    } catch (Exception ignore) {
+      // Emitter is already closed/broken; nothing else to do.
+    }
+  }
+
+  private static void completeWithErrorSilently(SseEmitter emitter, Exception error) {
+    try {
+      emitter.completeWithError(error);
+    } catch (Exception ignore) {
+      // Emitter is already closed/broken; nothing else to do.
     }
   }
 
@@ -171,4 +234,3 @@ public class FlightUpdateStreamService {
     }
   }
 }
-
