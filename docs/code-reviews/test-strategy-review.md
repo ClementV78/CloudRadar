@@ -16,25 +16,27 @@ Progress implemented in issue #491:
 - Added `spring-boot-starter-test` in `ingester` and `processor` test scopes.
 - Updated Java service READMEs with local test command and coverage notes.
 
-Note: the sections below remain the original proposal review snapshot from 2026-02-23.
+Note: most sections below keep the original proposal review snapshot from 2026-02-23 for traceability.
 
-## 1. Current Baseline (2026-02-23 snapshot)
+## 1. Current Baseline (2026-02-24)
 
-Before reviewing the proposal, we need to assess the starting point:
+Current repository status after issues #490 and #491:
 
 | Service | Language | Source files | Tests | Type | Test framework |
 |---|---|---|---|---|---|
-| **dashboard** | Java/Spring Boot 3.3.5 | 29 | 4 (1024 LOC) | 1 `@WebMvcTest` slice + 3 Mockito unit tests | `spring-boot-starter-test` |
-| **ingester** | Java/Spring Boot 3.3.5 | 13 | **0** | — | **no test dependency** |
-| **processor** | Java/Spring Boot 3.3.5 | 8 | **0** | — | **no test dependency** |
-| **admin-scale** | Python 3.11 | 1 | **0** | — | — |
-| **health** | Python 3.11 | ~2 | **0** | — | — |
-| **frontend** | React/TS | ~20 | **0** | — | Vitest not configured |
+| **dashboard** | Java/Spring Boot 3.3.5 | 29 | 6 test classes / 33 tests | `@WebMvcTest` + unit tests + `@SpringBootTest contextLoads()` | `spring-boot-starter-test` |
+| **ingester** | Java/Spring Boot 3.3.5 | 13 | 2 test classes / 2 tests | `@SpringBootTest contextLoads()` + mapping/parsing unit test | `spring-boot-starter-test` |
+| **processor** | Java/Spring Boot 3.3.5 | 8 | 2 test classes / 3 tests | `@SpringBootTest contextLoads()` + JSON contract unit tests | `spring-boot-starter-test` |
+| **frontend** | React/TS | ~20 | 1 test file baseline | Vitest unit baseline | Vitest |
+| **admin-scale** | Python 3.11 | 1 | 0 | — | — |
+| **health** | Python 3.11 | ~2 | 0 | — | — |
 
 **Current CI tests:**
-- `build-and-push.yml`: Docker matrix build (6 services) -> **no `mvn test`**
+- `build-and-push.yml`: matrix build (6 services) with blocking test gates:
+  - Java (`ingester`, `processor`, `dashboard`): `mvn -B test`
+  - Frontend (`frontend`): `npm ci && npm test -- --run`
 - `ci-infra.yml`: post-deploy smoke tests (edge paths `/healthz`, `/grafana/`, `/prometheus/`) + ArgoCD sync check
-- **Current ratio: 100% dashboard / 0% elsewhere**
+- Current test baseline now covers all Java services plus a minimal frontend test.
 
 ```mermaid
 block-beta
@@ -42,15 +44,14 @@ block-beta
   header["Test coverage by service"]:7
   space:7
   A["dashboard"] B["ingester"] C["processor"] D["frontend"] E["health"] F["admin-scale"] G["CI smoke"]
-  A1["4 tests
-1024 LOC"] B1["0 test"] C1["0 test"] D1["0 test"] E1["0 test"] F1["0 test"] G1["/healthz
+  A1["33 tests"] B1["2 tests"] C1["3 tests"] D1["1 test file baseline"] E1["0 test"] F1["0 test"] G1["/healthz
 /grafana
 /prometheus"]
 
   style A1 fill:#4caf50,color:#fff
-  style B1 fill:#f44336,color:#fff
-  style C1 fill:#f44336,color:#fff
-  style D1 fill:#f44336,color:#fff
+  style B1 fill:#4caf50,color:#fff
+  style C1 fill:#4caf50,color:#fff
+  style D1 fill:#4caf50,color:#fff
   style E1 fill:#f44336,color:#fff
   style F1 fill:#f44336,color:#fff
   style G1 fill:#ff9800,color:#fff
@@ -58,7 +59,11 @@ block-beta
 
 ### Key Diagnosis
 
-The issue is not "lack of integration tests". It is "lack of tests at all" on 5 out of 6 services. The Codex proposal has a good structure, but **skips a critical step**: foundations must come first.
+Remaining gap is no longer the Java baseline. The next priority is now Python service coverage (`health`, `admin-scale`) and targeted integration depth (data-path and contract tests).
+
+### Historical Snapshot (2026-02-23)
+
+The next sections still contain the original 2026-02-23 review/proposal narrative for traceability.
 
 ---
 
