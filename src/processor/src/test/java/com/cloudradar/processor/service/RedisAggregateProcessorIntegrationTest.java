@@ -14,8 +14,9 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.function.BooleanSupplier;
+import java.util.concurrent.locks.LockSupport;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -164,14 +165,14 @@ class RedisAggregateProcessorIntegrationTest {
     }
   }
 
-  private static void waitUntil(BooleanSupplier condition, Duration timeout, String failureMessage)
-      throws InterruptedException {
+  private static void waitUntil(BooleanSupplier condition, Duration timeout, String failureMessage) {
     long deadline = System.nanoTime() + timeout.toNanos();
+    long pollIntervalNanos = Duration.ofMillis(100).toNanos();
     while (System.nanoTime() < deadline) {
       if (condition.getAsBoolean()) {
         return;
       }
-      Thread.sleep(100);
+      LockSupport.parkNanos(pollIntervalNanos);
     }
     fail(failureMessage);
   }
