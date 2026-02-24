@@ -35,6 +35,25 @@ npm run build
 
 Build output is generated under `src/frontend/dist/`.
 
+## Local tests and coverage
+
+```bash
+cd src/frontend
+npm ci
+npm test -- --run
+npm run test:coverage
+```
+
+Coverage output:
+- terminal summary from Vitest
+- lcov file: `src/frontend/coverage/lcov.info`
+
+Implemented UI smoke coverage:
+- `src/frontend/src/App.test.tsx`
+  - app render smoke
+  - map smoke with empty flights list
+  - map smoke with one flight marker
+
 ## Container image
 
 - Dockerfile: `src/frontend/Dockerfile`
@@ -97,3 +116,11 @@ Log interpretation:
   - zones/alerting pipeline: issue `#128`
   - alerts endpoint: issue `#424`
 - Frontend currently surfaces this as "pending" in UI metadata.
+
+## SonarCloud quality gate
+
+- Workflow: `.github/workflows/sonarcloud.yml`
+- Triggered on `workflow_dispatch`, `pull_request -> main`, and `push -> main` for app changes
+- Uses frontend `lcov` coverage report (`src/frontend/coverage/lcov.info`)
+- Fails the check when SonarCloud quality gate is red
+- Full setup guide: `docs/runbooks/ci-cd/sonarcloud.md`

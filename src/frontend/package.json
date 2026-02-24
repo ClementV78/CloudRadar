@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "vitest"
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "leaflet": "1.9.4",
@@ -16,10 +17,14 @@
     "react-leaflet": "4.2.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/leaflet": "1.9.14",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "4.3.4",
+    "@vitest/coverage-v8": "^1.6.1",
+    "jsdom": "^28.1.0",
     "typescript": "5.6.3",
     "vite": "5.4.11",
     "vitest": "1.6.1"
