@@ -20,6 +20,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -30,8 +32,10 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class PlanespottersPhotoService {
+  private static final Logger log = LoggerFactory.getLogger(PlanespottersPhotoService.class);
   private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
   private static final Set<String> TRUSTED_HOSTS = Set.of(
+      "t.plnspttrs.net",
       "cdn.planespotters.net",
       "www.planespotters.net",
       "planespotters.net");
@@ -87,6 +91,7 @@ public class PlanespottersPhotoService {
    */
   public FlightPhoto resolvePhoto(String icao24, String registration) {
     if (!properties.isEnabled()) {
+      log.debug("Planespotters disabled, skipping photo lookup for icao24={}", icao24);
       return null;
     }
 
@@ -94,9 +99,11 @@ public class PlanespottersPhotoService {
     FlightPhoto cached = readCached(cacheKey);
     if (cached != null) {
       cacheHitCounter.increment();
+      log.debug("Planespotters cache hit key={} status={}", cacheKey, cached.status());
       return cached;
     }
     cacheMissCounter.increment();
+    log.debug("Planespotters cache miss key={}", cacheKey);
 
     FlightPhoto resolved = fetchPhotoWithFallback(icao24, registration);
     cache(cacheKey, resolved);
@@ -120,10 +127,12 @@ public class PlanespottersPhotoService {
   private FlightPhoto fetchFromEndpoint(String path) {
     if (!acquireGlobalToken()) {
       limiterRejectCounter.increment();
+      log.warn("Planespotters lookup rejected by global limiter (path={}, limitRps={})", path, properties.getGlobalRps());
       return FlightPhoto.rateLimited();
     }
 
     String url = properties.getBaseUrl().replaceAll("/+$", "") + "/" + path;
+    log.debug("Planespotters upstream request GET {}", url);
     HttpRequest request = HttpRequest.newBuilder()
         .GET()
         .uri(URI.create(url))
@@ -134,16 +143,20 @@ public class PlanespottersPhotoService {
     try {
       HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
       int status = response.statusCode();
+      log.debug("Planespotters upstream response status={} path={}", status, path);
       if (status == 429) {
         upstreamRateLimitedCounter.increment();
+        log.warn("Planespotters upstream rate-limited request (path={})", path);
         return FlightPhoto.rateLimited();
       }
       if (status == 404) {
         upstreamNotFoundCounter.increment();
+        log.debug("Planespotters upstream not found (path={})", path);
         return FlightPhoto.notFound();
       }
       if (status < 200 || status >= 300) {
         upstreamErrorCounter.increment();
+        log.warn("Planespotters upstream error status={} (path={})", status, path);
         return FlightPhoto.error();
       }
       return parsePhotoResponse(response.body());
@@ -152,6 +165,7 @@ public class PlanespottersPhotoService {
         Thread.currentThread().interrupt();
       }
       upstreamErrorCounter.increment();
+      log.warn("Planespotters upstream request failed (path={})", path, ex);
       return FlightPhoto.error();
     }
   }
@@ -160,12 +174,14 @@ public class PlanespottersPhotoService {
     JsonNode root = objectMapper.readTree(body);
     if (root.path("error").isTextual()) {
       upstreamErrorCounter.increment();
+      log.warn("Planespotters payload returned error field");
       return FlightPhoto.error();
     }
 
     JsonNode photos = root.path("photos");
     if (!photos.isArray() || photos.isEmpty()) {
       upstreamNotFoundCounter.increment();
+      log.debug("Planespotters payload returned no photos");
       return FlightPhoto.notFound();
     }
 
@@ -176,6 +192,7 @@ public class PlanespottersPhotoService {
 
     if (thumbSrc == null || thumbLargeSrc == null || sourceLink == null) {
       upstreamErrorCounter.increment();
+      log.warn("Planespotters payload rejected due to missing/untrusted thumbnail or source URL");
       return FlightPhoto.error();
     }
 
@@ -199,6 +216,7 @@ public class PlanespottersPhotoService {
     try {
       return objectMapper.readValue(payload, FlightPhoto.class);
     } catch (IOException ex) {
+      log.warn("Failed to deserialize Planespotters cache payload (key={})", cacheKey, ex);
       return null;
     }
   }
@@ -216,8 +234,10 @@ public class PlanespottersPhotoService {
     try {
       String payload = objectMapper.writeValueAsString(photo);
       redisTemplate.opsForValue().set(cacheKey, payload, ttl, TimeUnit.SECONDS);
+      log.debug("Planespotters cache write key={} status={} ttl={}s", cacheKey, photo.status(), ttl);
     } catch (IOException ignored) {
       // Non-blocking: photo integration must never fail core detail payload.
+      log.warn("Failed to serialize Planespotters cache payload (key={})", cacheKey, ignored);
     }
   }
 

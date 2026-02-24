@@ -121,6 +121,42 @@ class PlanespottersPhotoServiceTest {
 
   @Test
   @SuppressWarnings("unchecked")
+  void resolvePhoto_acceptsTrustedShortCdnHost() throws Exception {
+    String cacheKey = "cloudradar:photo:v1:icao24:abc123";
+    when(valueOperations.get(cacheKey)).thenReturn(null);
+    when(valueOperations.increment(any(String.class))).thenReturn(1L);
+    when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenReturn((HttpResponse<String>) httpResponse);
+    when(httpResponse.statusCode()).thenReturn(200);
+    when(httpResponse.body()).thenReturn("""
+        {
+          "photos": [
+            {
+              "thumbnail": {
+                "src": "https://t.plnspttrs.net/a.jpg",
+                "size": {"width": 200, "height": 133}
+              },
+              "thumbnail_large": {
+                "src": "https://t.plnspttrs.net/a_280.jpg",
+                "size": {"width": 420, "height": 280}
+              },
+              "link": "https://www.planespotters.net/photo/123",
+              "photographer": "John"
+            }
+          ]
+        }
+        """);
+
+    PlanespottersPhotoService service = new PlanespottersPhotoService(redisTemplate, objectMapper, properties, httpClient);
+    FlightPhoto photo = service.resolvePhoto("abc123", null);
+
+    assertNotNull(photo);
+    assertEquals("available", photo.status());
+    assertEquals("https://t.plnspttrs.net/a.jpg", photo.thumbnailSrc());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   void resolvePhoto_returnsRateLimitedOnUpstream429() throws Exception {
     String cacheKey = "cloudradar:photo:v1:icao24:abc123";
     when(valueOperations.get(cacheKey)).thenReturn(null);
