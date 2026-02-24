@@ -4,10 +4,36 @@ This runbook explains the `build-and-push` GitHub Actions workflow, which automa
 
 ## When it runs
 
-- On **pull requests** to `main` that touch files in `src/`, workflow file, or Dockerfile: builds all services but **does not push** to GHCR (dry-run validation).
+- On **pull requests** to `main` that touch files in `src/`, workflow file, or Dockerfile: runs service tests as blocking gates, then builds all services but **does not push** to GHCR (dry-run validation).
 - On **push to main** with changes in `src/`, workflow file, or Dockerfile: builds and pushes images with tags.
 - On **push to tags** (e.g., `v1.0.0`): builds and pushes images with semantic versioning tags (all services, regardless of path filters).
 - Skipped: changes to docs, infra, k8s manifests, or other non-app files.
+
+## PR quality gates (blocking)
+
+Before Docker build/push logic, the workflow executes these test commands:
+
+| Service type | Services | Command |
+| --- | --- | --- |
+| Java | `ingester`, `processor`, `dashboard` | `mvn -B test` |
+| Frontend | `frontend` | `npm ci && npm test -- --run` |
+
+Behavior:
+- A failing test fails the matrix job immediately.
+- Docker build/push steps are not executed for the failing service.
+- On pull requests, image push remains disabled for all services.
+
+### Expected duration (PR, per service)
+
+These values are approximate and depend on cache warmup:
+
+| Service | Test gate duration (approx) |
+| --- | --- |
+| `ingester` | 30-90s |
+| `processor` | 30-90s |
+| `dashboard` | 60-150s |
+| `frontend` | 20-60s |
+| `health`, `admin-scale` | no test gate in this workflow |
 
 ### Path filters
 
@@ -185,38 +211,58 @@ After images are pushed:
    docker pull ghcr.io/clementv78/cloudradar/ingester:latest
    ```
 
-## Workflow diagram (Mermaid)
+## Pipeline diagrams (Mermaid)
+
+### 1) Global event flow
 
 ```mermaid
-flowchart TB
-  subgraph PR["pull_request (main)"]
-    co1["checkout"]
-    bx1["setup buildx"]
-    skip1["skip login"]
-    meta1["extract metadata"]
-    build1["build only<br/>(no push)"]
-    co1 --> bx1 --> skip1 --> meta1 --> build1
-  end
+flowchart TD
+  T["GitHub event"] --> E{"Event type"}
 
-  subgraph Push["push to main"]
-    co2["checkout"]
-    bx2["setup buildx"]
-    login2["login to GHCR"]
-    meta2["extract metadata<br/>(latest + branch tags)"]
-    push2["build + push"]
-    co2 --> bx2 --> login2 --> meta2 --> push2
-  end
+  E -->|"pull_request -> main"| PR["Matrix jobs (6 services)"]
+  E -->|"push -> main OR push tag v*"| PUSH["Matrix jobs (6 services)"]
 
-  subgraph Tag["push to tag (v*)"]
-    co3["checkout"]
-    bx3["setup buildx"]
-    login3["login to GHCR"]
-    meta3["extract metadata<br/>(semver tags)"]
-    push3["build + push"]
-    co3 --> bx3 --> login3 --> meta3 --> push3
-  end
+  PR --> G1["Run test gates<br/>(Java: mvn -B test<br/>Frontend: npm ci + npm test -- --run)"]
+  PUSH --> G2["Run test gates<br/>(Java: mvn -B test<br/>Frontend: npm ci + npm test -- --run)"]
 
-  PR -->|per service| Push -->|per service| Tag
+  G1 --> F1{"Tests pass?"}
+  G2 --> F2{"Tests pass?"}
+
+  F1 -->|"No"| X1["Job fails<br/>No build/push"]
+  F2 -->|"No"| X2["Job fails<br/>No build/push"]
+
+  F1 -->|"Yes"| B1["Docker build only<br/>(push=false on PR)"]
+  F2 -->|"Yes"| B2["Docker build + push"]
+  B2 --> TAG{"Push ref"}
+  TAG -->|"main"| TMAIN["Publish tags:<br/>main + latest + sha"]
+  TAG -->|"tag v*"| TTAG["Publish tags:<br/>semver + sha"]
+```
+
+### 2) Per-service matrix job flow
+
+```mermaid
+flowchart LR
+  S["Start matrix job for one service"] --> C["Checkout code"]
+  C --> K{"Service"}
+
+  K -->|"ingester / processor / dashboard"| JT["Setup Java 17 + mvn -B test"]
+
+  K -->|"frontend"| NT["Setup Node.js 20 + npm ci + npm test -- --run"]
+
+  K -->|"health / admin-scale"| SK["No test gate in this workflow"]
+
+  JT --> R{"Gate passed?"}
+  NT --> R
+  SK --> R
+
+  R -->|"No"| F["Fail job before Docker build/push"]
+  R -->|"Yes"| BX["Setup Docker Buildx"]
+  BX --> L{"PR event?"}
+  L -->|"Yes"| M1["Extract metadata"]
+  M1 --> D1["Build image only<br/>(push=false)"]
+  L -->|"No"| LG["Login to GHCR"]
+  LG --> M2["Extract metadata"]
+  M2 --> D2["Build and push image"]
 ```
 
 ## Cache behavior
