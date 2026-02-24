@@ -1,7 +1,7 @@
 # Test Strategy MVP — CloudRadar
 
 > Version MVP : **minimum 1 action** par type de test, focus ROI maximal.  
-> Objectif : couverture visible par type, crédible pour un recruteur DevOps / Cloud Architect.  
+> Objectif : couverture visible par type et scope crédible pour un MVP.  
 > Effort total estimé : **~10h30**  
 > Référence complète : [test-strategy-review.md](test-strategy-review.md)
 
