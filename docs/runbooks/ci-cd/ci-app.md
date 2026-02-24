@@ -8,25 +8,25 @@ This runbook explains the `build-and-push` GitHub Actions workflow, which automa
 flowchart TD
   T["GitHub event"] --> E{"Event type"}
 
-  E -->|"pull_request -> main<br/>push -> main<br/>push tag v*"| G["Run visible gates"]
+  E -->|"pull_request -> main<br/>push -> main<br/>push tag v*"| G["Visible gates"]
 
-  G --> J1["java-tests (matrix)<br/>mvn -B test"]
-  G --> J2["frontend-tests<br/>npm ci + npm test -- --run"]
-  G --> J3["dockerfile-lint (matrix)<br/>hadolint"]
-  G --> J4["dependency-security-scan<br/>trivy fs HIGH/CRITICAL"]
+  G --> J1["java-tests"]
+  G --> J2["frontend-tests"]
+  G --> J3["dockerfile-lint"]
+  G --> J4["trivy fs scan"]
 
-  J1 --> F{"All gates pass?"}
+  J1 --> F{"Gates pass?"}
   J2 --> F
   J3 --> F
   J4 --> F
 
-  F -->|"No"| X["Workflow fails<br/>No Docker build/push"]
-  F -->|"Yes"| B{"Event after gates"}
-  B -->|"pull_request -> main"| B1["Build-and-push matrix<br/>Build only on PR (push=false)"]
-  B -->|"push -> main OR push tag v*"| B2["Build-and-push matrix<br/>Build + push"]
-  B2 --> TAG{"Push ref"}
-  TAG -->|"main"| TMAIN["Publish tags:<br/>main + latest + sha"]
-  TAG -->|"tag v*"| TTAG["Publish tags:<br/>semver + sha"]
+  F -->|"No"| X["Fail<br/>No build/push"]
+  F -->|"Yes"| B{"Post-gates event"}
+  B -->|"pull_request -> main"| B1["build-and-push<br/>PR: build only"]
+  B -->|"push -> main OR push tag v*"| B2["build-and-push<br/>push: build + push"]
+  B2 --> TAG{"Push target"}
+  TAG -->|"main"| TMAIN["tags: main/latest/sha"]
+  TAG -->|"tag v*"| TTAG["tags: semver/sha"]
 ```
 
 ## When it runs
@@ -275,15 +275,15 @@ After images are pushed:
 
 ```mermaid
 flowchart LR
-  P["Prerequisites green:<br/>java-tests + frontend-tests + hadolint + trivy"] --> S["Start matrix job for one service"]
+  P["Gates green"] --> S["Start matrix job"]
   S --> C["Checkout code"]
   C --> BX["Setup Docker Buildx"]
   BX --> L{"PR event?"}
   L -->|"Yes"| M1["Extract metadata"]
-  M1 --> D1["Build image only<br/>(push=false)"]
+  M1 --> D1["Build only<br/>push=false"]
   L -->|"No"| LG["Login to GHCR"]
   LG --> M2["Extract metadata"]
-  M2 --> D2["Build and push image"]
+  M2 --> D2["Build + push"]
 ```
 
 ## Cache behavior
