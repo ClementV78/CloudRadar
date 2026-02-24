@@ -36,6 +36,13 @@ Purpose: understand how multi-service Docker images are built and pushed to GHCR
 - Services: ingester, processor, frontend, dashboard, health, admin-scale
 - Triggers: PR (build only), push to main (build + push), tags (semver push)
 
+## 2.3) Nightly performance baseline (recommended)
+
+Purpose: run a lightweight scheduled API performance baseline outside the PR critical path.
+
+- Runbook: `docs/runbooks/ci-cd/k6-nightly-baseline.md`
+- Workflow: `.github/workflows/k6-nightly-baseline.yml`
+
 ## 3) Terraform live roots (per environment)
 
 Purpose: initialize and validate the Terraform roots for each environment.

@@ -21,6 +21,11 @@ Progress in issue #492 (open, in progress on this branch):
 - Added Redis Testcontainers integration tests for `ingester`, `processor`, and `dashboard`.
 - Added shared Redis key contract doc (`docs/events-schemas/redis-keys.md`).
 
+Progress in issue #493 (open, in progress on this branch):
+- Added post-deploy smoke JSON contract assertion for `/api/flights*` in `ci-infra.yml`.
+- Added dedicated nightly k6 workflow (`k6-nightly-baseline.yml`) with summary + artifacts.
+- Added runbooks for smoke interpretation and k6 baseline execution.
+
 Note: section 2 keeps a historical proposal-review snapshot for traceability; sections 1 and 5-8 are maintained as the current status view.
 
 ## 1. Current Baseline (2026-02-24)
@@ -407,7 +412,7 @@ Codex strategy + improvements in sections 2-4 cover the **application testing py
 | **Context smoke** | `@SpringBootTest` | ✅ Implemented (#491) | `src/*/src/test/` | — |
 | **Integration** (data-path) | Redis Testcontainers | 🟡 In progress (#492) | `src/*/src/test/` | ~6h |
 | **HTTP contract** | MockWebServer / JSON payload | ❌ Missing | — | ~3h |
-| **E2E smoke** (infra) | Edge path checks | ✅ Partial | `ci-infra.yml` | ~30 min to extend |
+| **E2E smoke** (infra) | Edge path checks + `/api/flights` JSON contract | ✅ Partial (implemented on #493 branch) | `ci-infra.yml` | — |
 | **Static analysis — IaC** | tfsec (Terraform) | ✅ | `ci-infra.yml` | — |
 | **Static analysis — Java** | Checkstyle / SpotBugs | ❌ Missing | — | ~1h |
 | **Static analysis — Frontend** | ESLint + Prettier | ❌ Missing | — | ~30 min |
@@ -416,7 +421,7 @@ Codex strategy + improvements in sections 2-4 cover the **application testing py
 | **Dependency vulnerability scan** | Dependabot / Trivy fs | 🟡 Partial (`Trivy fs` done, Dependabot missing) | `build-and-push.yml` | ~15 min remaining |
 | **Container image scan** | Trivy image | ❌ Missing | — | ~15 min |
 | **Secret scanning** | GitGuardian (GitHub App) | ✅ | GitHub App | — |
-| **Performance baseline** | k6 / Artillery | ❌ Missing | — | ~2h |
+| **Performance baseline** | k6 / Artillery | 🟡 Implemented on #493 branch (nightly workflow) | `.github/workflows/k6-nightly-baseline.yml` | — |
 | **Config drift detection** | ArgoCD sync status | ✅ | `ci-infra.yml` | — |
 | **Rollback validation** | Post-rollback health check | ❌ Missing | — | ~1h |
 
@@ -971,7 +976,7 @@ Full matrix:
 | Gap | Impact |
 |---|---|
 | **Phase 0 not fully complete** (Dependabot still missing) | Supply-chain update automation remains manual |
-| **No app-level smoke in CI** (`/api/flights`) | Infra can be green while data-path is broken |
+| **App-level smoke rollout pending merge** (`/api/flights` JSON assertion) | Data-path guard is added on #493 branch but not merged yet |
 | **Level 3 scope too broad** | Full-chain integration becomes fragile pseudo-E2E |
 | **Frontend coverage still minimal** | UI confidence remains low beyond render smoke |
 | **No explicit implementation order** | Risk of doing expensive tests before quick wins |
@@ -1004,7 +1009,7 @@ This is achievable in **~20h incremental work**, spread over 3-4 short iteration
 - [ ] Checkstyle + SpotBugs added to Java poms
 - [ ] ESLint + Prettier configured in frontend
 - [x] Trivy fs dependency scan added to `build-and-push.yml`
-- [ ] one application-level smoke check added in CI (`/api/flights` -> 200 + JSON)
+- [x] one application-level smoke check added in CI (`/api/flights` -> 200 + JSON contract) on branch #493
 
 **Phase 2 — Integration:**
 - [x] Redis Testcontainers tests added across all three Java services on branch `test/492-redis-testcontainers-contracts` (issue #492 still open)
@@ -1016,5 +1021,5 @@ This is achievable in **~20h incremental work**, spread over 3-4 short iteration
 - [ ] one frontend Vitest test added (at least one component renders without crash)
 
 **Phase 4 — Excellence (optional, strong interview impact):**
-- [ ] k6 baseline script with thresholds (p95 < 500ms)
+- [x] k6 baseline script/workflow with thresholds added on branch #493
 - [ ] rollback validation added to CI smoke workflow
