@@ -43,6 +43,13 @@ Purpose: run a lightweight scheduled API performance baseline outside the PR cri
 - Runbook: `docs/runbooks/ci-cd/k6-nightly-baseline.md`
 - Workflow: `.github/workflows/k6-nightly-baseline.yml`
 
+## 2.4) SonarCloud quality gate (recommended)
+
+Purpose: run repository quality analysis and enforce the SonarCloud quality gate on PR/main.
+
+- Runbook: `docs/runbooks/ci-cd/sonarcloud.md`
+- Workflow: `.github/workflows/sonarcloud.yml`
+
 ## 3) Terraform live roots (per environment)
 
 Purpose: initialize and validate the Terraform roots for each environment.

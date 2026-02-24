@@ -26,6 +26,11 @@ Progress in issue #493 (open, in progress on this branch):
 - Added dedicated nightly k6 workflow (`k6-nightly-baseline.yml`) with summary + artifacts.
 - Added runbooks for smoke interpretation and k6 baseline execution.
 
+Progress in issue #507 (open, in progress on this branch):
+- Added frontend UI smoke tests (`App` render + map smoke empty/non-empty).
+- Added SonarCloud workflow + project config (`sonar-project.properties`) with lcov ingestion.
+- Added docs for frontend test coverage and SonarCloud quality-gate interpretation.
+
 Note: section 2 keeps a historical proposal-review snapshot for traceability; sections 1 and 5-8 are maintained as the current status view.
 
 ## 1. Current Baseline (2026-02-24)
@@ -37,7 +42,7 @@ Current repository status after #490/#491/#506, with #492 currently in progress:
 | **dashboard** | Java/Spring Boot 3.5.11 | 29 | 7 test classes / 37 tests | `@WebMvcTest` + unit tests + `@SpringBootTest` + Redis Testcontainers integration (branch WIP) | `spring-boot-starter-test` |
 | **ingester** | Java/Spring Boot 3.5.11 | 13 | 3 test classes / 3 tests | `@SpringBootTest` + mapping/parsing unit + Redis Testcontainers integration (branch WIP) | `spring-boot-starter-test` |
 | **processor** | Java/Spring Boot 3.5.11 | 8 | 3 test classes / 4 tests | `@SpringBootTest` + JSON contract unit + Redis Testcontainers integration (branch WIP) | `spring-boot-starter-test` |
-| **frontend** | React/TS | ~13 | 1 test file baseline | Vitest unit baseline | Vitest |
+| **frontend** | React/TS | ~13 | 2 test files (`constants`, `App` map smoke) | Vitest unit/UI smoke baseline | Vitest + Testing Library |
 | **admin-scale** | Python 3.11 | 1 | 0 | — | — |
 | **health** | Python 3.11 | ~2 | 0 | — | — |
 
@@ -49,6 +54,7 @@ Current repository status after #490/#491/#506, with #492 currently in progress:
   - Dependency CVE scan (`trivy fs`) for `src/`
 - `ci-k8s.yml`: app/k8s guardrails including `kubeconform` strict validation with CRD schemas
 - `ci-infra.yml`: post-deploy smoke tests (edge paths `/healthz`, `/grafana/`, `/prometheus/`) + ArgoCD sync check
+- `sonarcloud.yml`: quality-gate analysis on PR/main with frontend lcov coverage ingestion
 - Current baseline now covers Java services + frontend smoke, with data-path integration in progress on this branch (#492).
 
 ```mermaid
@@ -416,6 +422,7 @@ Codex strategy + improvements in sections 2-4 cover the **application testing py
 | **Static analysis — IaC** | tfsec (Terraform) | ✅ | `ci-infra.yml` | — |
 | **Static analysis — Java** | Checkstyle / SpotBugs | ❌ Missing | — | ~1h |
 | **Static analysis — Frontend** | ESLint + Prettier | ❌ Missing | — | ~30 min |
+| **Quality gate / trends** | SonarCloud | 🟡 Implemented on #507 branch (frontend scope) | `.github/workflows/sonarcloud.yml` | — |
 | **Static analysis — Dockerfile** | Hadolint | ✅ Implemented (#506) | `build-and-push.yml` | — |
 | **K8s manifest validation** | kubeconform | ✅ Implemented (#506) | `ci-k8s.yml` | — |
 | **Dependency vulnerability scan** | Dependabot / Trivy fs | 🟡 Partial (`Trivy fs` done, Dependabot missing) | `build-and-push.yml` | ~15 min remaining |
@@ -1018,7 +1025,8 @@ This is achievable in **~20h incremental work**, spread over 3-4 short iteration
 
 **Phase 3 — Contract + frontend:**
 - [ ] HTTP contract test added (MockWebServer or payload JSON) in at least one service
-- [ ] one frontend Vitest test added (at least one component renders without crash)
+- [x] frontend Vitest UI smoke tests added (`App` + map empty/non-empty) on branch #507
+- [x] SonarCloud workflow and project config added (frontend lcov ingestion + quality gate) on branch #507
 
 **Phase 4 — Excellence (optional, strong interview impact):**
 - [x] k6 baseline script/workflow with thresholds added on branch #493

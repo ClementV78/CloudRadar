@@ -8,6 +8,8 @@
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat&logo=github-actions&logoColor=white)
 ![GitOps](https://img.shields.io/badge/GitOps-ArgoCD-FE6A16?style=flat&logo=argo&logoColor=white)
 ![FinOps](https://img.shields.io/badge/Cost%20Aware-Low%20Budget-2E7D32?style=flat)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=ClementV78_CloudRadar&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ClementV78_CloudRadar)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ClementV78_CloudRadar&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ClementV78_CloudRadar)
 
 **Key DevOps practices:** IaC (Terraform), GitOps (ArgoCD), CI/CD (GitHub Actions), FinOps (cost-aware infra), Security (OIDC + SSM).
 
