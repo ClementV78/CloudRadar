@@ -112,7 +112,7 @@ jobs:
           scanners: vuln
           scan-type: fs
           scan-ref: src
-          pkg-types: library
+          vuln-type: library
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
@@ -196,3 +196,42 @@ jobs:
           echo "Repository: ${{ env.REPO_LOWER }}"
           echo "Tags:"
           echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n' | sed 's/^/  - /'
+
+  ci-summary-report:
+    name: CI summary report
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - java-tests
+      - frontend-tests
+      - dockerfile-lint
+      - dependency-security-scan
+      - build-and-push
+    steps:
+      - name: Publish run summary
+        run: |
+          {
+            echo "## CI Quality Summary"
+            echo ""
+            echo "- Workflow: \`${GITHUB_WORKFLOW}\`"
+            echo "- Event: \`${GITHUB_EVENT_NAME}\`"
+            echo "- Ref: \`${GITHUB_REF}\`"
+            echo ""
+            echo "| Gate | Result |"
+            echo "| --- | --- |"
+            echo "| Java tests | ${{ needs['java-tests'].result }} |"
+            echo "| Frontend tests | ${{ needs['frontend-tests'].result }} |"
+            echo "| Hadolint (Dockerfiles) | ${{ needs['dockerfile-lint'].result }} |"
+            echo "| Trivy fs dependency scan | ${{ needs['dependency-security-scan'].result }} |"
+            echo "| Build-and-push matrix | ${{ needs['build-and-push'].result }} |"
+            echo ""
+
+            if [ "${{ needs['java-tests'].result }}" != "success" ] || \
+               [ "${{ needs['frontend-tests'].result }}" != "success" ] || \
+               [ "${{ needs['dockerfile-lint'].result }}" != "success" ] || \
+               [ "${{ needs['dependency-security-scan'].result }}" != "success" ]; then
+              echo "❌ One or more quality gates failed. Check the job logs and annotations."
+            else
+              echo "✅ All quality gates passed."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
