@@ -14,12 +14,14 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.function.BooleanSupplier;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.DataType;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -132,16 +134,25 @@ class RedisAggregateProcessorIntegrationTest {
       waitUntil(
           () -> {
             Set<String> keys = redisTemplate.keys(properties.getRedis().getActivityBucketKeyPrefix() + "*");
-            return keys != null && !keys.isEmpty();
+            if (keys == null || keys.isEmpty()) {
+              return false;
+            }
+            return keys.stream()
+                .map(redisTemplate::type)
+                .anyMatch(DataType.HASH::equals);
           },
           Duration.ofSeconds(8),
           "processor did not write activity bucket contract");
 
       Set<String> bucketKeys = redisTemplate.keys(properties.getRedis().getActivityBucketKeyPrefix() + "*");
       assertNotNull(bucketKeys);
-      assertFalse(bucketKeys.isEmpty());
+      Set<String> bucketHashKeys =
+          bucketKeys.stream()
+              .filter(key -> DataType.HASH.equals(redisTemplate.type(key)))
+              .collect(Collectors.toSet());
+      assertFalse(bucketHashKeys.isEmpty());
 
-      String bucketKey = bucketKeys.iterator().next();
+      String bucketKey = bucketHashKeys.iterator().next();
       Object eventsTotal = redisTemplate.opsForHash().get(bucketKey, "events_total");
       assertEquals("1", String.valueOf(eventsTotal));
 
