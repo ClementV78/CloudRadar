@@ -6,7 +6,19 @@
 
 ---
 
-## 1. Current Baseline
+## Status Update (2026-02-24)
+
+Progress implemented in issue #491:
+- Added `contextLoads()` smoke tests for `ingester`, `processor`, and `dashboard`.
+- Added critical mapping/parsing unit tests:
+  - `ingester`: `OpenSkyClientTest` (OpenSky row mapping + rate-limit headers parsing)
+  - `processor`: `PositionEventTest` (JSON contract parsing/serialization)
+- Added `spring-boot-starter-test` in `ingester` and `processor` test scopes.
+- Updated Java service READMEs with local test command and coverage notes.
+
+Note: the sections below remain the original proposal review snapshot from 2026-02-23.
+
+## 1. Current Baseline (2026-02-23 snapshot)
 
 Before reviewing the proposal, we need to assess the starting point:
 

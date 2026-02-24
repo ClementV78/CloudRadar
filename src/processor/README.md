@@ -63,6 +63,16 @@ export REDIS_PORT=6379
 mvn -q spring-boot:run
 ```
 
+## Local tests
+
+```bash
+mvn -B test
+```
+
+Current Java test baseline:
+- `ProcessorApplicationTests.contextLoads()` validates Spring wiring/startup.
+- `PositionEventTest` validates JSON parsing/serialization contract used by ingester -> processor payloads.
+
 ## Optional env overrides
 - `PROCESSOR_POLL_TIMEOUT_SECONDS` (default: 2)
 - `PROCESSOR_TRACK_LENGTH` (default: 180)

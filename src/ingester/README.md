@@ -113,6 +113,16 @@ export REDIS_PORT=6379
 mvn -q spring-boot:run
 ```
 
+## Local tests
+
+```bash
+mvn -B test
+```
+
+Current Java test baseline:
+- `IngesterApplicationTests.contextLoads()` validates Spring wiring/startup.
+- `OpenSkyClientTest` validates OpenSky JSON row mapping (`states[]`) and rate-limit header parsing.
+
 ## Optional env overrides
 - `INGESTER_REFRESH_MS` (default: 10000)
 - `INGESTER_REDIS_KEY` (default: `cloudradar:ingest:queue`)
