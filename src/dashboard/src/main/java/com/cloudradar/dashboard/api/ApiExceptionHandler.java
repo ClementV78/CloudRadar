@@ -1,10 +1,14 @@
 package com.cloudradar.dashboard.api;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.util.Map;
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
@@ -77,15 +81,42 @@ public class ApiExceptionHandler {
   }
 
   /**
+   * Async SSE disconnects can arrive after response errors; return no body to avoid converter issues.
+   *
+   * @param ex Spring async request exception
+   * @return empty response
+   */
+  @ExceptionHandler(AsyncRequestNotUsableException.class)
+  public ResponseEntity<Void> handleAsyncRequestNotUsable(AsyncRequestNotUsableException ex) {
+    return ResponseEntity.noContent().build();
+  }
+
+  /**
    * Maps unexpected failures to HTTP 500.
    *
    * @param ex unhandled server-side exception
    * @return standardized error payload
    */
   @ExceptionHandler(Exception.class)
-  public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+  public ResponseEntity<?> handleGeneric(Exception ex, HttpServletRequest request) {
+    if (isSseRequest(request)) {
+      // Keep SSE error responses body-less: JSON writers are not selected for text/event-stream.
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
         .body(error("internal_error", "internal server error"));
+  }
+
+  private boolean isSseRequest(HttpServletRequest request) {
+    if (request == null) {
+      return false;
+    }
+    String uri = request.getRequestURI();
+    if (uri != null && uri.endsWith("/stream")) {
+      return true;
+    }
+    String accept = request.getHeader(HttpHeaders.ACCEPT);
+    return accept != null && accept.contains(MediaType.TEXT_EVENT_STREAM_VALUE);
   }
 
   private Map<String, Object> error(String code, String message) {

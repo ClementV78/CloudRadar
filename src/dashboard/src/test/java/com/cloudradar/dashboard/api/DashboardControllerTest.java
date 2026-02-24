@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -154,6 +156,26 @@ class DashboardControllerTest {
 
     mockMvc.perform(get("/api/flights/stream"))
         .andExpect(status().isOk());
+  }
+
+  @Test
+  void stream_whenServiceThrows_returns500WithoutJsonBody() throws Exception {
+    when(flightUpdateStreamService.openStream()).thenThrow(new RuntimeException("sse boom"));
+
+    mockMvc.perform(get("/api/flights/stream").accept(MediaType.TEXT_EVENT_STREAM))
+        .andExpect(status().isInternalServerError())
+        .andExpect(content().string(""));
+  }
+
+  @Test
+  void listFlights_whenUnhandledException_returnsJsonInternalError() throws Exception {
+    when(flightQueryService.listFlights(
+        eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), eq(null), eq(null)))
+            .thenThrow(new RuntimeException("boom"));
+
+    mockMvc.perform(get("/api/flights"))
+        .andExpect(status().isInternalServerError())
+        .andExpect(jsonPath("$.error").value("internal_error"));
   }
 
   @Test
