@@ -2,6 +2,7 @@ package com.cloudradar.dashboard.service;
 
 import com.cloudradar.dashboard.config.DashboardProperties;
 import com.cloudradar.dashboard.model.FlightPhoto;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Counter;
@@ -165,7 +166,12 @@ public class PlanespottersPhotoService {
         Thread.currentThread().interrupt();
       }
       upstreamErrorCounter.increment();
-      log.warn("Planespotters upstream request failed (path={})", path, ex);
+      if (ex instanceof JsonProcessingException) {
+        log.warn("Planespotters upstream response parse failed (path={})", path);
+        log.debug("Planespotters parse error details (path={})", path, ex);
+      } else {
+        log.warn("Planespotters upstream request failed (path={})", path, ex);
+      }
       return FlightPhoto.error();
     }
   }

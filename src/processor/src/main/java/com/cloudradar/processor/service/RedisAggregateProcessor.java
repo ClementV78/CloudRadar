@@ -118,10 +118,26 @@ public class RedisAggregateProcessor {
         processPayload(payload);
         refreshQueueDepth();
       } catch (Exception ex) {
+        if (isInterruptedShutdown(ex)) {
+          Thread.currentThread().interrupt();
+          LOGGER.debug("Processor loop interrupted during shutdown");
+          break;
+        }
         errorCounter.increment();
         LOGGER.warn("Processor loop error", ex);
       }
     }
+  }
+
+  private static boolean isInterruptedShutdown(Throwable ex) {
+    Throwable current = ex;
+    while (current != null) {
+      if (current instanceof InterruptedException) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    return false;
   }
 
   private void processPayload(String payload) {
