@@ -16,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +31,11 @@ import org.springframework.stereotype.Component;
  * </ul>
  */
 @Component
+@ConditionalOnProperty(
+    prefix = "processor.loop",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 public class RedisAggregateProcessor {
   private static final Logger LOGGER = LoggerFactory.getLogger(RedisAggregateProcessor.class);
   private static final String AIRCRAFT_HLL_SUFFIX = ":aircraft_hll";
