@@ -22,7 +22,7 @@ spec:
         runAsUser: 10001
       containers:
         - name: ingester
-          image: ghcr.io/clementv78/cloudradar/ingester:0.1.46
+          image: ghcr.io/clementv78/cloudradar/ingester:0.1.47
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080

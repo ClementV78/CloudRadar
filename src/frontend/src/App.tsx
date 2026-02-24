@@ -413,6 +413,10 @@ export default function App(): JSX.Element {
   const previousSnapshotPositionsRef = useRef<Map<string, { lat: number; lon: number }>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
   const effectiveBboxRef = useRef<Bbox>(IDF_BBOX);
+  const refreshInFlightRef = useRef<Promise<void> | null>(null);
+  const refreshQueuedRef = useRef(false);
+  const refreshDataRef = useRef<() => Promise<void>>(async () => {});
+  const isMountedRef = useRef(true);
 
   const detailOpen = Boolean(selectedIcao24);
 
@@ -464,15 +468,26 @@ export default function App(): JSX.Element {
 
   const loadDetail = useCallback(async (icao24: string) => {
     try {
+      if (!isMountedRef.current) {
+        return;
+      }
       setDetailLoading(true);
       setDetailError(null);
       const detail = await fetchFlightDetail(icao24);
+      if (!isMountedRef.current) {
+        return;
+      }
       setSelectedDetail(detail);
     } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
       const message = error instanceof Error ? error.message : 'unable to load detail';
       setDetailError(message);
     } finally {
-      setDetailLoading(false);
+      if (isMountedRef.current) {
+        setDetailLoading(false);
+      }
     }
   }, []);
 
@@ -505,9 +520,12 @@ export default function App(): JSX.Element {
     return nextStatic;
   }, []);
 
-  const refreshData = useCallback(async () => {
+  const performRefreshCycle = useCallback(async () => {
     try {
       const boost = await fetchBboxBoostStatus();
+      if (!isMountedRef.current) {
+        return;
+      }
       setBoostStatus(boost);
       const requestedBbox = boost.active ? boost.bbox : IDF_BBOX;
       const bboxChanged = !sameBbox(effectiveBboxRef.current, requestedBbox);
@@ -520,6 +538,9 @@ export default function App(): JSX.Element {
       }
 
       const flightsResponse = await fetchFlights(requestedBbox, 400);
+      if (!isMountedRef.current) {
+        return;
+      }
       const normalizedFlights = normalizeFlights(flightsResponse.items);
       const batchEpoch = flightsResponse.latestOpenSkyBatchEpoch;
       const previousBatchEpoch = lastBatchEpochRef.current;
@@ -548,6 +569,9 @@ export default function App(): JSX.Element {
 
       if (!hasMetricsRef.current || batchChanged || bboxChanged) {
         const metricsResponse = await fetchMetrics(requestedBbox);
+        if (!isMountedRef.current) {
+          return;
+        }
         setMetrics(metricsResponse);
         hasMetricsRef.current = true;
       }
@@ -575,12 +599,53 @@ export default function App(): JSX.Element {
         }
       }
     } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
       const message = error instanceof Error ? error.message : 'refresh failed';
       setRefreshError(message);
       setApiStatus((previous) => (previous === 'online' ? 'degraded' : 'offline'));
       setOpenSkyStatus('unknown');
     }
   }, [animateMarkers, cancelMarkerAnimation, computeStaticByIcao, loadDetail, selectedIcao24]);
+
+  const drainQueuedRefreshes = useCallback(async () => {
+    // Coalesce timer + SSE bursts; each iteration awaits I/O, so the event loop keeps progressing.
+    do {
+      refreshQueuedRef.current = false;
+      await performRefreshCycle();
+    } while (refreshQueuedRef.current && isMountedRef.current);
+  }, [performRefreshCycle]);
+
+  const refreshData = useCallback(async () => {
+    if (refreshInFlightRef.current) {
+      // Coalesce refresh bursts (timer + SSE): execute one extra cycle after the in-flight one.
+      refreshQueuedRef.current = true;
+      return refreshInFlightRef.current;
+    }
+
+    const inFlight = Promise.resolve()
+      .then(drainQueuedRefreshes)
+      .finally(() => {
+        refreshInFlightRef.current = null;
+      });
+
+    refreshInFlightRef.current = inFlight;
+    return inFlight;
+  }, [drainQueuedRefreshes]);
+
+  useEffect(() => {
+    refreshDataRef.current = refreshData;
+  }, [refreshData]);
+
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+      refreshQueuedRef.current = false;
+      refreshInFlightRef.current = null;
+    },
+    []
+  );
 
   const handleTriggerBoost = useCallback(async () => {
     try {
@@ -715,14 +780,14 @@ export default function App(): JSX.Element {
   }, []);
 
   useEffect(() => {
-    void refreshData();
+    void refreshDataRef.current();
     const unsubscribeStream = subscribeFlightUpdates(
       (event) => {
         if (
           event.latestOpenSkyBatchEpoch === null
           || event.latestOpenSkyBatchEpoch !== lastBatchEpochRef.current
         ) {
-          void refreshData();
+          void refreshDataRef.current();
         }
       },
       () => {
@@ -731,14 +796,14 @@ export default function App(): JSX.Element {
     );
 
     const refreshTimer = window.setInterval(() => {
-      void refreshData();
+      void refreshDataRef.current();
     }, REFRESH_INTERVAL_MS);
 
     return () => {
       unsubscribeStream();
       window.clearInterval(refreshTimer);
     };
-  }, [refreshData]);
+  }, []);
 
   useEffect(() => {
     // First-page-load hardening: retry ingester status a few times without interactive auth.

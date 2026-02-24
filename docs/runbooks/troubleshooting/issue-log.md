@@ -4,6 +4,18 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-24
 
+### [frontend/map] Intermittent marker freeze due to overlapping refresh cycles
+- **Severity:** Medium
+- **Impact:** Map markers could appear stale/frozen until a manual interaction (ex: selecting an aircraft), even while API calls were still happening.
+- **Signal:** UI kept polling `/api/flights` (`200` responses), but marker positions occasionally stayed on an older snapshot until a user-triggered refresh.
+- **Analysis:** Frontend refreshes were triggered by both timer and SSE events without in-flight serialization. Overlapping async cycles could race, allowing an older response to overwrite a newer snapshot.
+- **Resolution:**
+  1. Serialize map refresh execution in frontend (`App.tsx`) with one in-flight cycle at a time.
+  2. Coalesce concurrent triggers by queuing one extra cycle when refresh is requested during an active cycle.
+  3. Keep timer + SSE strategy unchanged while removing stale-write races.
+- **Guardrail:** For UI data loops fed by both polling and push events, always coalesce concurrent refresh triggers to avoid out-of-order state writes.
+- **Refs:** issue #504
+
 ### [dashboard/sse] Expected client disconnects (`Broken pipe`) were logged as server errors
 - **Severity:** Medium
 - **Impact:** Normal SSE client disconnects (tab close/reload, proxy idle timeout) generated noisy stack traces, making real dashboard stream failures harder to spot.
