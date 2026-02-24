@@ -1,0 +1,116 @@
+name: k6-nightly-baseline
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      target_base_url:
+        description: "Public base URL to test (example: https://example.com)"
+        required: false
+        type: string
+      vus:
+        description: "Virtual users"
+        required: false
+        default: "10"
+        type: string
+      duration:
+        description: "Test duration (k6 format, e.g. 30s)"
+        required: false
+        default: "30s"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    name: k6 baseline
+    runs-on: ubuntu-latest
+    env:
+      DEFAULT_TARGET_BASE_URL: ${{ vars.K6_TARGET_BASE_URL }}
+      K6_BASIC_AUTH_USER: ${{ vars.K6_BASIC_AUTH_USER }}
+      K6_BASIC_AUTH_PASSWORD: ${{ secrets.K6_BASIC_AUTH_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Resolve target and parameters
+        id: cfg
+        run: |
+          set -euo pipefail
+
+          target="${{ inputs.target_base_url }}"
+          if [[ -z "${target}" ]]; then
+            target="${DEFAULT_TARGET_BASE_URL:-}"
+          fi
+
+          if [[ -z "${target}" ]]; then
+            echo "K6 target base URL is missing." >&2
+            echo "Set workflow input 'target_base_url' or repository variable 'K6_TARGET_BASE_URL'." >&2
+            exit 1
+          fi
+
+          vus="${{ inputs.vus }}"
+          duration="${{ inputs.duration }}"
+          if [[ -z "${vus}" ]]; then
+            vus="10"
+          fi
+          if [[ -z "${duration}" ]]; then
+            duration="30s"
+          fi
+
+          echo "target=${target}" >> "$GITHUB_OUTPUT"
+          echo "vus=${vus}" >> "$GITHUB_OUTPUT"
+          echo "duration=${duration}" >> "$GITHUB_OUTPUT"
+
+      - name: Run k6 baseline
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+
+          k6 run \
+            --summary-export artifacts/k6-summary-export.json \
+            -e TARGET_BASE_URL="${{ steps.cfg.outputs.target }}" \
+            -e K6_VUS="${{ steps.cfg.outputs.vus }}" \
+            -e K6_DURATION="${{ steps.cfg.outputs.duration }}" \
+            -e K6_BASIC_AUTH_USER="${K6_BASIC_AUTH_USER:-}" \
+            -e K6_BASIC_AUTH_PASSWORD="${K6_BASIC_AUTH_PASSWORD:-}" \
+            tests/perf/k6-baseline.js \
+            | tee artifacts/k6-run.log
+
+      - name: Publish k6 summary
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f artifacts/k6-summary-export.json ]]; then
+            echo "k6 summary export not found." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          checks_rate="$(jq -r '.metrics.checks.values.rate // "n/a"' artifacts/k6-summary-export.json)"
+          failed_rate="$(jq -r '.metrics.http_req_failed.values.rate // "n/a"' artifacts/k6-summary-export.json)"
+          p95="$(jq -r '.metrics.http_req_duration.values["p(95)"] // "n/a"' artifacts/k6-summary-export.json)"
+
+          {
+            echo "## Nightly k6 baseline"
+            echo ""
+            echo "- Target: \`${{ steps.cfg.outputs.target }}\`"
+            echo "- VUs: \`${{ steps.cfg.outputs.vus }}\`"
+            echo "- Duration: \`${{ steps.cfg.outputs.duration }}\`"
+            echo "- checks rate: \`${checks_rate}\`"
+            echo "- http_req_failed rate: \`${failed_rate}\`"
+            echo "- p95 latency (ms): \`${p95}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload k6 artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-baseline-${{ github.run_id }}
+          path: artifacts/*
+          if-no-files-found: warn

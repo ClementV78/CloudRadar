@@ -81,7 +81,7 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
    - Visible as a dedicated job in the Actions graph.
    - Logs explicit decision and reason (`RUN` / `SKIPPED`) in both logs and Step Summary.
    - Skips restore safely when disabled by input, when no backup is found, or when Redis `/data` is not empty.
-16. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and curl `/healthz`.
+16. `smoke-tests` (dev + smoke): wait for ArgoCD sync, healthz rollout, and edge API checks (`/healthz`, `/grafana/`, `/prometheus/`, `/api/flights` JSON contract).
    - Logs explicit decision and reason (`RUN` / `SKIPPED`) in both logs and Step Summary.
    - Uses signal-focused annotations (decision/outcome) instead of internal `command_id` noise.
 
@@ -89,43 +89,36 @@ All manual-dispatch jobs now emit a short Step Summary block (status + key signa
 
 ## Workflow diagram (Mermaid)
 
+### Pull Request pipeline
+
+```mermaid
+flowchart LR
+  fmt --> val-mod["validate modules"]
+  fmt --> val-plan["validate plan"]
+  fmt --> tfsec
+```
+
+### Dispatch pipeline (workflow_dispatch)
+
 ```mermaid
 flowchart TB
-  subgraph PR["pull_request"]
-    fmt[fmt]
-    validate-modules[validate-modules]
-    validate-plan[validate-plan]
-    tfsec[tfsec]
-    fmt --> validate-modules
-    fmt --> validate-plan
-    fmt --> tfsec
+  subgraph TF["1 · Terraform"]
+    direction LR
+    env["env\nselect"] --> validate["tf\nvalidate"] --> orphan["orphan\nscan"] --> plan["tf plan"] --> apply["tf apply"] --> outputs["tf\noutputs"]
   end
 
-  subgraph Dispatch["workflow_dispatch"]
-    env-select[env-select]
-    tf-validate[tf-validate]
-    orphan-scan-pre-deploy[orphan-scan-pre-deploy]
-    tf-plan[tf-plan]
-    tf-apply[tf-apply]
-    tf-outputs[tf-outputs]
-    k3s-ready-check[k3s-ready-check]
-    prometheus-crds[prometheus-crds]
-    argocd-install[argocd-install]
-    argocd-platform[argocd-platform]
-    eso-ready-check[eso-ready-check]
-    argocd-apps[argocd-apps]
-    eso-secrets-ready[eso-secrets-ready]
-    alertmanager-reenable[alertmanager-reenable]
-    redis-restore[REDIS-RESTORE]
-    smoke-tests[smoke-tests]
-
-    env-select --> tf-validate --> orphan-scan-pre-deploy --> tf-plan --> tf-apply --> tf-outputs
-    tf-outputs --> k3s-ready-check --> prometheus-crds --> argocd-install --> argocd-platform --> eso-ready-check --> argocd-apps --> eso-secrets-ready
-    eso-secrets-ready --> alertmanager-reenable
-    eso-secrets-ready --> redis-restore --> smoke-tests
+  subgraph GITOPS["2 · GitOps Bootstrap"]
+    direction LR
+    k3s["k3s\nready"] --> crds["prom\nCRDs"] --> argo-i["argocd\ninstall"] --> argo-p["argocd\nplatform"] --> eso-r["eso\nready"] --> argo-a["argocd\napps"] --> eso-s["eso\nsecrets"]
   end
 
-  PR --> Dispatch
+  subgraph POST["3 · Post-Bootstrap"]
+    direction LR
+    redis["redis\nrestore"] --> smoke["smoke\ntests"]
+    alert["alertmgr\nreenable"]
+  end
+
+  TF --> GITOPS --> POST
 ```
 
 ## Reference diagrams
@@ -156,7 +149,11 @@ flowchart TB
 - `orphan-scan-pre-deploy` runs a strict `state vs tagged` scan before planning/apply and fails fast on tagged resources found in AWS but missing from Terraform state.
 - Both `orphan-scan-pre-deploy` and `ci-infra-destroy` post-destroy scan append findings to `GITHUB_STEP_SUMMARY`.
 - Script details (modes, usage, flow): `scripts/ci/find-orphans.md`.
-- When `run_smoke_tests=true` (dev only), it also waits for the ArgoCD app to be Synced/Healthy, waits for the `healthz` deployment rollout, then curls `/healthz` from the Internet.
+- When `run_smoke_tests=true` (dev only), it also waits for the ArgoCD app to be Synced/Healthy, waits for the `healthz` deployment rollout, and validates edge paths from the Internet:
+  - `/healthz` (status check)
+  - `/grafana/` (status check)
+  - `/prometheus/` (status check)
+  - `/api/flights?limit=50&sort=lastSeen&order=desc` (status `200` + JSON body assertion `.items | type == "array"`)
   - If `run_smoke_tests=false`, the smoke-tests job emits an explicit skip reason in logs and summary.
 - The smoke test verifies edge Nginx via SSM (3 retries with 10s delay) before running the external `/healthz` curl.
   - On failure, it prints `systemctl status nginx`, recent `journalctl` logs, and the 443 listen check to speed up diagnostics.
@@ -170,8 +167,40 @@ When `run_smoke_tests=true` (dev only), the workflow:
 - Waits for the ArgoCD Application to be Synced/Healthy via SSM.
 - Waits for the `healthz` deployment rollout in the `cloudradar` namespace.
 - Fetches the edge public IP and Basic Auth settings from Terraform outputs.
-- Reads the Basic Auth password from SSM Parameter Store to curl `/healthz` externally.
+- Reads the Basic Auth password from SSM Parameter Store to validate edge endpoints externally, including a JSON contract check on `/api/flights`.
   - Uses bounded polling for SSM command status to avoid long Pending/InProgress waits.
+
+Success signals for `/api/flights` smoke:
+- HTTP status `200`
+- response body is JSON
+- `.items` field exists and is an array
+
+Failure diagnostics:
+- workflow logs print response snippets when JSON assertion fails
+- k3s diagnostics are collected via SSM before failing the job
+
+## Nightly performance baseline (k6)
+
+The lightweight performance baseline runs in a dedicated workflow:
+- Workflow: `.github/workflows/k6-nightly-baseline.yml`
+- Trigger: nightly schedule + `workflow_dispatch`
+- Scope: `GET /api/flights?limit=100&sort=lastSeen&order=desc`
+- Artifacts: `k6-summary-export.json`, `k6-run.log`
+
+Default thresholds:
+- `http_req_failed < 5%`
+- `http_req_duration p95 < 1500ms`
+- `checks > 95%`
+
+Configuration:
+- `K6_TARGET_BASE_URL` (repository variable) for scheduled runs
+- optional basic auth:
+  - `K6_BASIC_AUTH_USER` (variable)
+  - `K6_BASIC_AUTH_PASSWORD` (secret)
+
+Interpretation:
+- A failed nightly baseline does not block PR workflows.
+- Use artifacts + step summary to compare trends and investigate regressions.
 
 Prerequisite:
 - The CI role must allow `ssm:GetParameter` on the edge Basic Auth parameter.
