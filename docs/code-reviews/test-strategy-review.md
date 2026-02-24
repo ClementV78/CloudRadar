@@ -873,7 +873,7 @@ Security checks are cross-cutting and run in parallel with unit/integration test
 | Terraform dry-run | `infra/` | `terraform plan` | ✅ Existing | — |
 | Image tag/version sync | `k8s/` | `check-app-version-sync.sh` | ✅ Existing | — |
 | GHCR lowercase check | `k8s/` | `ci-k8s.yml` regex | ✅ Existing | — |
-| **K8s schema validation** | **`k8s/` (69 manifests)** | **kubeconform + CRD schemas** | **Phase 0** | **30 min** |
+| **K8s schema validation** | **`k8s/` manifests** | **kubeconform + CRD schemas** | **Phase 0** | **30 min** |
 
 This area is already mature; kubeconform is the key missing piece.
 
@@ -978,17 +978,17 @@ This is achievable in **~20h incremental work**, spread over 3-4 short iteration
 ## 8. DoD for "Test Strategy v1.1" Issue
 
 **Phase 0 — Foundations (quick wins):**
-- [ ] `spring-boot-starter-test` added to ingester and processor poms
-- [ ] `mvn test` (or `mvn verify -DskipITs`) executed in `build-and-push.yml`
-- [ ] Hadolint added to `build-and-push.yml`
-- [ ] kubeconform added to `ci-k8s.yml`
+- [x] `spring-boot-starter-test` added to ingester and processor poms
+- [x] `mvn test` (or `mvn verify -DskipITs`) executed in `build-and-push.yml`
+- [x] Hadolint added to `build-and-push.yml`
+- [x] kubeconform added to `ci-k8s.yml`
 - [ ] `.github/dependabot.yml` configured (maven + npm + github-actions)
 
 **Phase 1 — Context smoke + static analysis:**
-- [ ] one `@SpringBootTest.contextLoads()` test per Java service (3 services)
+- [x] one `@SpringBootTest.contextLoads()` test per Java service (3 services)
 - [ ] Checkstyle + SpotBugs added to Java poms
 - [ ] ESLint + Prettier configured in frontend
-- [ ] Trivy fs dependency scan added to `build-and-push.yml`
+- [x] Trivy fs dependency scan added to `build-and-push.yml`
 - [ ] one application-level smoke check added in CI (`/api/flights` -> 200 + JSON)
 
 **Phase 2 — Integration:**
