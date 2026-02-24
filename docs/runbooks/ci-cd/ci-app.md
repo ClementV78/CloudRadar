@@ -42,7 +42,7 @@ The workflow now exposes test and quality checks as **dedicated jobs** (visible 
 
 | Job | Scope | Command |
 | --- | --- | --- |
-| `java-tests` | `ingester`, `processor`, `dashboard` (matrix) | `mvn -B test` |
+| `java-tests` | `ingester`, `processor`, `dashboard` (matrix) | `mvn -B test` (unit + Redis Testcontainers integration contracts) |
 | `frontend-tests` | `frontend` | `npm ci && npm test -- --run` |
 | `dockerfile-lint` | all service Dockerfiles (matrix) | `hadolint` |
 | `dependency-security-scan` | dependencies under `src/` | `trivy fs` (`HIGH,CRITICAL`, `pkg-types=library`, `scanners=vuln`) |
@@ -51,6 +51,9 @@ Behavior:
 - Any failing gate blocks the `build-and-push` matrix (`needs` dependency).
 - Docker build/push is skipped until all gates are green.
 - On pull requests, image push remains disabled for all services (`push=false`).
+
+Redis contract reference:
+- See [`docs/events-schemas/redis-keys.md`](/home/xclem/projetsperso/CloudRadar/docs/events-schemas/redis-keys.md) for key/payload conventions validated by integration tests.
 
 ### Expected duration (PR)
 

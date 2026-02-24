@@ -8,26 +8,31 @@
 
 ## Status Update (2026-02-24)
 
-Progress implemented in issue #491:
+Progress implemented in issues #490, #491, and #506:
+- Added blocking CI test execution in `build-and-push.yml` (`mvn -B test`, `npm test -- --run`).
 - Added `contextLoads()` smoke tests for `ingester`, `processor`, and `dashboard`.
 - Added critical mapping/parsing unit tests:
   - `ingester`: `OpenSkyClientTest` (OpenSky row mapping + rate-limit headers parsing)
   - `processor`: `PositionEventTest` (JSON contract parsing/serialization)
 - Added `spring-boot-starter-test` in `ingester` and `processor` test scopes.
-- Updated Java service READMEs with local test command and coverage notes.
+- Added quality/safety gates to app CI: Hadolint (all Dockerfiles), Trivy fs dependency scan, and kubeconform manifest validation (in `ci-k8s.yml`).
 
-Note: most sections below keep the original proposal review snapshot from 2026-02-23 for traceability.
+Progress in issue #492 (open, in progress on this branch):
+- Added Redis Testcontainers integration tests for `ingester`, `processor`, and `dashboard`.
+- Added shared Redis key contract doc (`docs/events-schemas/redis-keys.md`).
+
+Note: section 2 keeps a historical proposal-review snapshot for traceability; sections 1 and 5-8 are maintained as the current status view.
 
 ## 1. Current Baseline (2026-02-24)
 
-Current repository status after issues #490 and #491:
+Current repository status after #490/#491/#506, with #492 currently in progress:
 
 | Service | Language | Source files | Tests | Type | Test framework |
 |---|---|---|---|---|---|
-| **dashboard** | Java/Spring Boot 3.3.5 | 29 | 6 test classes / 33 tests | `@WebMvcTest` + unit tests + `@SpringBootTest contextLoads()` | `spring-boot-starter-test` |
-| **ingester** | Java/Spring Boot 3.3.5 | 13 | 2 test classes / 2 tests | `@SpringBootTest contextLoads()` + mapping/parsing unit test | `spring-boot-starter-test` |
-| **processor** | Java/Spring Boot 3.3.5 | 8 | 2 test classes / 3 tests | `@SpringBootTest contextLoads()` + JSON contract unit tests | `spring-boot-starter-test` |
-| **frontend** | React/TS | ~20 | 1 test file baseline | Vitest unit baseline | Vitest |
+| **dashboard** | Java/Spring Boot 3.5.11 | 29 | 7 test classes / 37 tests | `@WebMvcTest` + unit tests + `@SpringBootTest` + Redis Testcontainers integration (branch WIP) | `spring-boot-starter-test` |
+| **ingester** | Java/Spring Boot 3.5.11 | 13 | 3 test classes / 3 tests | `@SpringBootTest` + mapping/parsing unit + Redis Testcontainers integration (branch WIP) | `spring-boot-starter-test` |
+| **processor** | Java/Spring Boot 3.5.11 | 8 | 3 test classes / 4 tests | `@SpringBootTest` + JSON contract unit + Redis Testcontainers integration (branch WIP) | `spring-boot-starter-test` |
+| **frontend** | React/TS | ~13 | 1 test file baseline | Vitest unit baseline | Vitest |
 | **admin-scale** | Python 3.11 | 1 | 0 | — | — |
 | **health** | Python 3.11 | ~2 | 0 | — | — |
 
@@ -35,8 +40,11 @@ Current repository status after issues #490 and #491:
 - `build-and-push.yml`: matrix build (6 services) with blocking test gates:
   - Java (`ingester`, `processor`, `dashboard`): `mvn -B test`
   - Frontend (`frontend`): `npm ci && npm test -- --run`
+  - Dockerfile lint (`hadolint`) on all services
+  - Dependency CVE scan (`trivy fs`) for `src/`
+- `ci-k8s.yml`: app/k8s guardrails including `kubeconform` strict validation with CRD schemas
 - `ci-infra.yml`: post-deploy smoke tests (edge paths `/healthz`, `/grafana/`, `/prometheus/`) + ArgoCD sync check
-- Current test baseline now covers all Java services plus a minimal frontend test.
+- Current baseline now covers Java services + frontend smoke, with data-path integration in progress on this branch (#492).
 
 ```mermaid
 block-beta
@@ -44,7 +52,7 @@ block-beta
   header["Test coverage by service"]:7
   space:7
   A["dashboard"] B["ingester"] C["processor"] D["frontend"] E["health"] F["admin-scale"] G["CI smoke"]
-  A1["33 tests"] B1["2 tests"] C1["3 tests"] D1["1 test file baseline"] E1["0 test"] F1["0 test"] G1["/healthz
+  A1["37 tests"] B1["3 tests"] C1["4 tests"] D1["1 test file baseline"] E1["0 test"] F1["0 test"] G1["/healthz
 /grafana
 /prometheus"]
 
@@ -63,7 +71,7 @@ Remaining gap is no longer the Java baseline. The next priority is now Python se
 
 ### Historical Snapshot (2026-02-23)
 
-The next sections still contain the original 2026-02-23 review/proposal narrative for traceability.
+The next section (2) keeps the original 2026-02-23 review/proposal narrative for traceability.
 
 ---
 
@@ -228,11 +236,11 @@ The proposed ratio is standard and fits the project:
 
 | Type | Target % | Current % |
 |---|---|---|
-| Unit / slice | 70% | **100%** (dashboard only) |
-| Integration context/contract | 20% | **0%** |
-| Pipeline / E2E smoke | 10% | **~5%** (edge paths only) |
+| Unit / slice | 70% | **Baseline now present on all Java services** |
+| Integration context/contract | 20% | **Context smoke done; data-path integration in progress** |
+| Pipeline / E2E smoke | 10% | **Infra smoke exists, app-level smoke still missing** |
 
-**Problem:** the ratio applies to dashboard only, not to the project.
+**Problem:** baseline is no longer dashboard-only, but integration depth and app-level E2E smoke still lag.
 
 To make the ratio meaningful, we first need to extend baseline tests to the 3 other Java services. Recommended order:
 
@@ -289,7 +297,7 @@ gantt
 | Add Vitest in frontend (`package.json`) | frontend | 30 min |
 | Add pytest for health | health | 20 min |
 
-> **CI impact:** `build-and-push` should run `mvn verify -DskipITs` (unit/slice only) or equivalent `npm test` for frontend. Right now it runs **no tests**.
+> **CI impact:** `build-and-push` already runs Java and frontend tests. Remaining CI improvements are deeper gates (SpotBugs/Checkstyle, richer smoke, image scan, and summaries).
 
 ### Phase 1: Context smoke — every service starts (~2h)
 
@@ -305,11 +313,19 @@ gantt
 
 | Test | Service | Validates |
 |---|---|---|
-| `RedisPublisherIntegrationTest` | ingester | Redis keys written, hash format |
+| `RedisPublisherIntegrationTest` | ingester | Redis list key and payload contract from ingester |
 | `RedisAggregateProcessorIntegrationTest` | processor | Redis read + aggregation |
-| `FlightQueryServiceIntegrationTest` | dashboard | DTO reconstruction from Redis |
+| `FlightQueryServiceRedisIntegrationTest` | dashboard | DTO reconstruction from Redis |
 
 > **Redis key convention:** document in a shared file (`docs/events-schemas/redis-keys.md`) to keep inter-service tests aligned.
+
+**Run commands (local or CI-equivalent):**
+
+```bash
+cd src/ingester && mvn -B test
+cd src/processor && mvn -B test
+cd src/dashboard && mvn -B test
+```
 
 ### Phase 3: HTTP contract + extended E2E smoke (~3h)
 
@@ -378,26 +394,26 @@ This allows `@SpringBootTest` context loading without real external dependencies
 
 ---
 
-## 5. Missing Test Categories — Path to DevOps Excellence
+## 5. Remaining Test Categories — Path to DevOps Excellence
 
-Codex strategy + improvements in sections 2-4 cover the **application testing pyramid** (unit -> integration -> E2E). A strong DevOps test strategy goes beyond app code. The categories below are **not yet covered** and differentiate a "good" from an "excellent" pipeline, without overengineering.
+Codex strategy + improvements in sections 2-4 cover the **application testing pyramid** (unit -> integration -> E2E). A strong DevOps test strategy goes beyond app code. The categories below distinguish what is already covered vs what remains to reach an "excellent" pipeline.
 
 ### 5.1 Full map — existing vs missing
 
 | Category | Sub-type | Status | Where | Effort |
 |---|---|---|---|---|
-| **Unit tests** | Business logic (Mockito) | ✅ dashboard only | `src/dashboard/test/` | — |
+| **Unit tests** | Business logic (Mockito/JUnit) | ✅ Java baseline across dashboard/ingester/processor | `src/*/src/test/` | — |
 | **Slice tests** | `@WebMvcTest` (controller layer) | ✅ dashboard only | `src/dashboard/test/` | — |
-| **Context smoke** | `@SpringBootTest` | ❌ Missing | — | ~1h |
-| **Integration** (data-path) | Redis Testcontainers | ❌ Missing | — | ~6h |
+| **Context smoke** | `@SpringBootTest` | ✅ Implemented (#491) | `src/*/src/test/` | — |
+| **Integration** (data-path) | Redis Testcontainers | 🟡 In progress (#492) | `src/*/src/test/` | ~6h |
 | **HTTP contract** | MockWebServer / JSON payload | ❌ Missing | — | ~3h |
 | **E2E smoke** (infra) | Edge path checks | ✅ Partial | `ci-infra.yml` | ~30 min to extend |
 | **Static analysis — IaC** | tfsec (Terraform) | ✅ | `ci-infra.yml` | — |
 | **Static analysis — Java** | Checkstyle / SpotBugs | ❌ Missing | — | ~1h |
 | **Static analysis — Frontend** | ESLint + Prettier | ❌ Missing | — | ~30 min |
-| **Static analysis — Dockerfile** | Hadolint | ❌ Missing | — | ~10 min |
-| **K8s manifest validation** | kubeconform | ❌ Missing | — | ~30 min |
-| **Dependency vulnerability scan** | Dependabot / Trivy fs | ❌ Missing | — | ~30 min |
+| **Static analysis — Dockerfile** | Hadolint | ✅ Implemented (#506) | `build-and-push.yml` | — |
+| **K8s manifest validation** | kubeconform | ✅ Implemented (#506) | `ci-k8s.yml` | — |
+| **Dependency vulnerability scan** | Dependabot / Trivy fs | 🟡 Partial (`Trivy fs` done, Dependabot missing) | `build-and-push.yml` | ~15 min remaining |
 | **Container image scan** | Trivy image | ❌ Missing | — | ~15 min |
 | **Secret scanning** | GitGuardian (GitHub App) | ✅ | GitHub App | — |
 | **Performance baseline** | k6 / Artillery | ❌ Missing | — | ~2h |
@@ -406,7 +422,7 @@ Codex strategy + improvements in sections 2-4 cover the **application testing py
 
 ### 5.2 Static analysis (SAST/linting) — **high priority**
 
-This category is fully missing for application code. It is one of the highest-ROI test categories: **fast, deterministic, low maintenance**.
+This category is partially covered (`hadolint` already in place), but language-level static analysis is still missing and remains one of the highest-ROI additions.
 
 #### Java — Checkstyle + SpotBugs
 
@@ -481,7 +497,7 @@ validate-manifests:
 
 ### 5.4 Dependency vulnerability scanning (SCA) — **high priority**
 
-No Dependabot config and no active `trivy fs` gate yet. Dependencies (Spring Boot, Redis client, Jackson, npm) are not continuously scanned for known CVEs.
+Dependabot is still missing, but an active `trivy fs` gate already scans dependencies in CI. Dependencies are therefore partially covered for CVEs.
 
 Two complementary options:
 
@@ -875,7 +891,7 @@ Security checks are cross-cutting and run in parallel with unit/integration test
 | GHCR lowercase check | `k8s/` | `ci-k8s.yml` regex | ✅ Existing | — |
 | **K8s schema validation** | **`k8s/` manifests** | **kubeconform + CRD schemas** | **Phase 0** | **30 min** |
 
-This area is already mature; kubeconform is the key missing piece.
+This area is already mature, and kubeconform is now in place. Remaining gap here is mostly app-level smoke depth rather than schema validation.
 
 ---
 
@@ -954,11 +970,10 @@ Full matrix:
 
 | Gap | Impact |
 |---|---|
-| **Missing Phase 0** (foundations) | Levels 1-3 are hard to execute without prerequisites |
-| **No tests in `build-and-push`** | Build pipeline can pass while regressions exist |
+| **Phase 0 not fully complete** (Dependabot still missing) | Supply-chain update automation remains manual |
+| **No app-level smoke in CI** (`/api/flights`) | Infra can be green while data-path is broken |
 | **Level 3 scope too broad** | Full-chain integration becomes fragile pseudo-E2E |
-| **Frontend omitted** | Zero confidence on UI runtime behavior |
-| **No shared Redis key contract docs** | Inter-service integration tests may drift |
+| **Frontend coverage still minimal** | UI confidence remains low beyond render smoke |
 | **No explicit implementation order** | Risk of doing expensive tests before quick wins |
 
 ### Final recommendation
@@ -992,9 +1007,9 @@ This is achievable in **~20h incremental work**, spread over 3-4 short iteration
 - [ ] one application-level smoke check added in CI (`/api/flights` -> 200 + JSON)
 
 **Phase 2 — Integration:**
-- [ ] Redis Testcontainers implemented in at least one service (ingester or processor)
+- [x] Redis Testcontainers tests added across all three Java services on branch `test/492-redis-testcontainers-contracts` (issue #492 still open)
 - [ ] Trivy image scan added to `build-and-push.yml`
-- [ ] `docs/events-schemas/redis-keys.md` documents shared Redis key contracts
+- [x] `docs/events-schemas/redis-keys.md` documents shared Redis key contracts
 
 **Phase 3 — Contract + frontend:**
 - [ ] HTTP contract test added (MockWebServer or payload JSON) in at least one service
