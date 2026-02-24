@@ -35,11 +35,11 @@
 - Simplicity self-check (heuristic): ask yourself, "Would a senior engineer call this overcomplicated for this scope?" If yes, simplify.
 
 ### 4.2 Context & Documentation Hygiene
-- At session start, execute this checklist in order: re-read `AGENTS.md`; load `.codex-context.md` without asking (if present) and confirm recap; review `docs/runbooks/issue-log.md`; review all ADRs in `docs/architecture/decisions/`; review relevant files in `docs/`.
+- At session start, execute this checklist in order: re-read `AGENTS.md`; load `.codex-context.md` without asking (if present) and confirm recap; review `docs/runbooks/troubleshooting/issue-log.md`; review all ADRs in `docs/architecture/decisions/`; review relevant files in `docs/`.
 - **`.codex-context.md` maintenance rule**: this is a local session file (never committed; in `.gitignore`). Update it regularly during work (after each major task block) with active branches, current issue/PR, recent decisions, and next steps.
 - Explicitly mark “planned” vs “implemented” in README status sections.
-- Update `docs/runbooks/issue-log.md` when a new issue occurs (except minor), when there is new information, or when the issue is resolved/closed.
-- Before logging a new issue, check `docs/runbooks/issue-log.md` for similar past incidents to reuse lessons learned.
+- Update `docs/runbooks/troubleshooting/issue-log.md` when a new issue occurs (except minor), when there is new information, or when the issue is resolved/closed.
+- Before logging a new issue, check `docs/runbooks/troubleshooting/issue-log.md` for similar past incidents to reuse lessons learned.
 
 ### 4.3 Command Transparency & Learning
 - Always show executed commands.
