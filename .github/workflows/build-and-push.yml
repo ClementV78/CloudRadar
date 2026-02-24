@@ -109,9 +109,10 @@ jobs:
       - name: Scan dependencies in src/
         uses: aquasecurity/trivy-action@master
         with:
+          scanners: vuln
           scan-type: fs
           scan-ref: src
-          vuln-type: library
+          pkg-types: library
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"

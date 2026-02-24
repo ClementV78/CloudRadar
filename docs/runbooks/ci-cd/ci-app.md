@@ -45,7 +45,7 @@ The workflow now exposes test and quality checks as **dedicated jobs** (visible 
 | `java-tests` | `ingester`, `processor`, `dashboard` (matrix) | `mvn -B test` |
 | `frontend-tests` | `frontend` | `npm ci && npm test -- --run` |
 | `dockerfile-lint` | all service Dockerfiles (matrix) | `hadolint` |
-| `dependency-security-scan` | dependencies under `src/` | `trivy fs` (`HIGH,CRITICAL`, `library`) |
+| `dependency-security-scan` | dependencies under `src/` | `trivy fs` (`HIGH,CRITICAL`, `pkg-types=library`, `scanners=vuln`) |
 
 Behavior:
 - Any failing gate blocks the `build-and-push` matrix (`needs` dependency).
