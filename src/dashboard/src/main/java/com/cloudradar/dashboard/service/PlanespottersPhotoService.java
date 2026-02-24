@@ -16,8 +16,6 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +32,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class PlanespottersPhotoService {
   private static final Logger log = LoggerFactory.getLogger(PlanespottersPhotoService.class);
-  private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_INSTANT.withZone(ZoneOffset.UTC);
+  private static final String PHOTOS_FIELD = "photos";
+  private static final String THUMBNAIL_FIELD = "thumbnail";
+  private static final String THUMBNAIL_LARGE_FIELD = "thumbnail_large";
   private static final Set<String> TRUSTED_HOSTS = Set.of(
       "t.plnspttrs.net",
       "cdn.planespotters.net",
@@ -132,7 +132,7 @@ public class PlanespottersPhotoService {
       return FlightPhoto.rateLimited();
     }
 
-    String url = properties.getBaseUrl().replaceAll("/+$", "") + "/" + path;
+    String url = stripTrailingSlashes(properties.getBaseUrl()) + "/" + path;
     log.debug("Planespotters upstream request GET {}", url);
     HttpRequest request = HttpRequest.newBuilder()
         .GET()
@@ -184,7 +184,7 @@ public class PlanespottersPhotoService {
       return FlightPhoto.error();
     }
 
-    JsonNode photos = root.path("photos");
+    JsonNode photos = root.path(PHOTOS_FIELD);
     if (!photos.isArray() || photos.isEmpty()) {
       upstreamNotFoundCounter.increment();
       log.debug("Planespotters payload returned no photos");
@@ -192,8 +192,8 @@ public class PlanespottersPhotoService {
     }
 
     JsonNode first = photos.get(0);
-    String thumbSrc = sanitizeUrl(first.path("thumbnail").path("src").asText(null));
-    String thumbLargeSrc = sanitizeUrl(first.path("thumbnail_large").path("src").asText(null));
+    String thumbSrc = sanitizeUrl(first.path(THUMBNAIL_FIELD).path("src").asText(null));
+    String thumbLargeSrc = sanitizeUrl(first.path(THUMBNAIL_LARGE_FIELD).path("src").asText(null));
     String sourceLink = sanitizeUrl(first.path("link").asText(null));
 
     if (thumbSrc == null || thumbLargeSrc == null || sourceLink == null) {
@@ -205,11 +205,11 @@ public class PlanespottersPhotoService {
     upstreamSuccessCounter.increment();
     return FlightPhoto.available(
         thumbSrc,
-        toNullableInt(first.path("thumbnail").path("size").path("width")),
-        toNullableInt(first.path("thumbnail").path("size").path("height")),
+        toNullableInt(first.path(THUMBNAIL_FIELD).path("size").path("width")),
+        toNullableInt(first.path(THUMBNAIL_FIELD).path("size").path("height")),
         thumbLargeSrc,
-        toNullableInt(first.path("thumbnail_large").path("size").path("width")),
-        toNullableInt(first.path("thumbnail_large").path("size").path("height")),
+        toNullableInt(first.path(THUMBNAIL_LARGE_FIELD).path("size").path("width")),
+        toNullableInt(first.path(THUMBNAIL_LARGE_FIELD).path("size").path("height")),
         trimToNull(first.path("photographer").asText(null)),
         sourceLink);
   }
@@ -268,6 +268,17 @@ public class PlanespottersPhotoService {
     }
     String trimmed = registration.trim();
     return trimmed.isEmpty() ? null : trimmed.toUpperCase(Locale.ROOT);
+  }
+
+  private static String stripTrailingSlashes(String value) {
+    if (value == null || value.isEmpty()) {
+      return "";
+    }
+    int end = value.length();
+    while (end > 0 && value.charAt(end - 1) == '/') {
+      end--;
+    }
+    return value.substring(0, end);
   }
 
   private static String urlEncode(String value) {
