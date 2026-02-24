@@ -2,6 +2,33 @@
 
 This runbook explains the `build-and-push` GitHub Actions workflow, which automates Docker image builds and pushes for all CloudRadar application services.
 
+## Pipeline summary (quick view)
+
+```mermaid
+flowchart TD
+  T["GitHub event"] --> E{"Event type"}
+
+  E -->|"pull_request -> main<br/>push -> main<br/>push tag v*"| G["Run visible gates"]
+
+  G --> J1["java-tests (matrix)<br/>mvn -B test"]
+  G --> J2["frontend-tests<br/>npm ci + npm test -- --run"]
+  G --> J3["dockerfile-lint (matrix)<br/>hadolint"]
+  G --> J4["dependency-security-scan<br/>trivy fs HIGH/CRITICAL"]
+
+  J1 --> F{"All gates pass?"}
+  J2 --> F
+  J3 --> F
+  J4 --> F
+
+  F -->|"No"| X["Workflow fails<br/>No Docker build/push"]
+  F -->|"Yes"| B{"Event after gates"}
+  B -->|"pull_request -> main"| B1["Build-and-push matrix<br/>Build only on PR (push=false)"]
+  B -->|"push -> main OR push tag v*"| B2["Build-and-push matrix<br/>Build + push"]
+  B2 --> TAG{"Push ref"}
+  TAG -->|"main"| TMAIN["Publish tags:<br/>main + latest + sha"]
+  TAG -->|"tag v*"| TTAG["Publish tags:<br/>semver + sha"]
+```
+
 ## When it runs
 
 - On **pull requests** to `main` that touch files in `src/`, workflow file, or Dockerfile: runs service tests as blocking gates, then builds all services but **does not push** to GHCR (dry-run validation).
@@ -11,34 +38,62 @@ This runbook explains the `build-and-push` GitHub Actions workflow, which automa
 
 ## PR quality gates (blocking)
 
-Before Docker build/push logic, the workflow executes these test commands:
+The workflow now exposes test and quality checks as **dedicated jobs** (visible in the GitHub Actions graph) before any image build:
 
-| Service type | Services | Command |
+| Job | Scope | Command |
 | --- | --- | --- |
-| Java | `ingester`, `processor`, `dashboard` | `mvn -B test` |
-| Frontend | `frontend` | `npm ci && npm test -- --run` |
+| `java-tests` | `ingester`, `processor`, `dashboard` (matrix) | `mvn -B test` |
+| `frontend-tests` | `frontend` | `npm ci && npm test -- --run` |
+| `dockerfile-lint` | all service Dockerfiles (matrix) | `hadolint` |
+| `dependency-security-scan` | dependencies under `src/` | `trivy fs` (`HIGH,CRITICAL`, `library`) |
 
 Behavior:
-- A failing test fails the matrix job immediately.
-- Docker build/push steps are not executed for the failing service.
-- On pull requests, image push remains disabled for all services.
+- Any failing gate blocks the `build-and-push` matrix (`needs` dependency).
+- Docker build/push is skipped until all gates are green.
+- On pull requests, image push remains disabled for all services (`push=false`).
 
-### Expected duration (PR, per service)
+### Expected duration (PR)
 
 These values are approximate and depend on cache warmup:
 
-| Service | Test gate duration (approx) |
+| Gate | Duration (approx) |
 | --- | --- |
-| `ingester` | 30-90s |
-| `processor` | 30-90s |
-| `dashboard` | 60-150s |
-| `frontend` | 20-60s |
-| `health`, `admin-scale` | no test gate in this workflow |
+| `java-tests` (3 services matrix) | 1-4 min |
+| `frontend-tests` | 20-60s |
+| `dockerfile-lint` (6 services matrix) | 20-60s |
+| `dependency-security-scan` | 30-120s |
+| `build-and-push` matrix (after gates) | depends on Docker cache and changed services |
+
+### Visible log signals (quick checks)
+
+Use these markers in job logs:
+
+| Job | Success signal | Failure signal |
+| --- | --- | --- |
+| `java-tests` | `BUILD SUCCESS` | `BUILD FAILURE` / failing JUnit test |
+| `frontend-tests` | `Test Files ... passed` | Vitest test failure output |
+| `dockerfile-lint` | no findings (exit 0) | `DLxxxx` Hadolint rules (exit 1) |
+| `dependency-security-scan` | `Total: 0 (HIGH: 0, CRITICAL: 0)` | HIGH/CRITICAL findings with `exit-code: 1` |
+
+### Related manifest gate (`ci-k8s`)
+
+Kubernetes schema validation is executed in `.github/workflows/ci-k8s.yml` via `validate-k8s-manifests`:
+
+```bash
+kubeconform -strict -summary \
+  -schema-location default \
+  -schema-location "https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json" \
+  <k8s manifests except kustomization.yaml and raw CRD definition files>
+```
+
+Expected success signal:
+- `Summary: ... Invalid: 0, Errors: 0`
 
 ### Path filters
 
 To avoid unnecessary builds, the workflow only runs when:
 - Any file in `src/**` changes
+- `VERSION` changes
 - `.github/workflows/build-and-push.yml` changes
 - `Dockerfile*` or `.dockerignore` changes
 
@@ -97,7 +152,10 @@ SKIP_VERSION_GUARD=1 git push
 
 ## What happens
 
-The workflow uses a **matrix strategy** to build all services in **parallel**:
+Execution order:
+
+1. Run visible quality/test jobs in parallel: `java-tests`, `frontend-tests`, `dockerfile-lint`, `dependency-security-scan`.
+2. If all are green, start `build-and-push` matrix for the 6 services.
 
 ### Services built
 
@@ -110,7 +168,7 @@ The workflow uses a **matrix strategy** to build all services in **parallel**:
 
 ### Per-service job
 
-For each service, the workflow:
+For each service in `build-and-push`, the workflow:
 
 1. **Checkout** code from the branch
 2. **Setup Buildx** for multi-platform builds (optional future enhancement)
@@ -213,50 +271,13 @@ After images are pushed:
 
 ## Pipeline diagrams (Mermaid)
 
-### 1) Global event flow
-
-```mermaid
-flowchart TD
-  T["GitHub event"] --> E{"Event type"}
-
-  E -->|"pull_request -> main"| PR["Matrix jobs (6 services)"]
-  E -->|"push -> main OR push tag v*"| PUSH["Matrix jobs (6 services)"]
-
-  PR --> G1["Run test gates<br/>(Java: mvn -B test<br/>Frontend: npm ci + npm test -- --run)"]
-  PUSH --> G2["Run test gates<br/>(Java: mvn -B test<br/>Frontend: npm ci + npm test -- --run)"]
-
-  G1 --> F1{"Tests pass?"}
-  G2 --> F2{"Tests pass?"}
-
-  F1 -->|"No"| X1["Job fails<br/>No build/push"]
-  F2 -->|"No"| X2["Job fails<br/>No build/push"]
-
-  F1 -->|"Yes"| B1["Docker build only<br/>(push=false on PR)"]
-  F2 -->|"Yes"| B2["Docker build + push"]
-  B2 --> TAG{"Push ref"}
-  TAG -->|"main"| TMAIN["Publish tags:<br/>main + latest + sha"]
-  TAG -->|"tag v*"| TTAG["Publish tags:<br/>semver + sha"]
-```
-
-### 2) Per-service matrix job flow
+### Per-service matrix job flow
 
 ```mermaid
 flowchart LR
-  S["Start matrix job for one service"] --> C["Checkout code"]
-  C --> K{"Service"}
-
-  K -->|"ingester / processor / dashboard"| JT["Setup Java 17 + mvn -B test"]
-
-  K -->|"frontend"| NT["Setup Node.js 20 + npm ci + npm test -- --run"]
-
-  K -->|"health / admin-scale"| SK["No test gate in this workflow"]
-
-  JT --> R{"Gate passed?"}
-  NT --> R
-  SK --> R
-
-  R -->|"No"| F["Fail job before Docker build/push"]
-  R -->|"Yes"| BX["Setup Docker Buildx"]
+  P["Prerequisites green:<br/>java-tests + frontend-tests + hadolint + trivy"] --> S["Start matrix job for one service"]
+  S --> C["Checkout code"]
+  C --> BX["Setup Docker Buildx"]
   BX --> L{"PR event?"}
   L -->|"Yes"| M1["Extract metadata"]
   M1 --> D1["Build image only<br/>(push=false)"]

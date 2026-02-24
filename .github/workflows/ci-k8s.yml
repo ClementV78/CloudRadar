@@ -35,3 +35,39 @@ jobs:
             exit 1
           fi
           echo "OK: no uppercase GHCR references."
+
+  validate-k8s-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kubeconform
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
+            | tar xz -C "$HOME/.local/bin" kubeconform
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Validate k8s manifests (strict + CRD schemas)
+        run: |
+          set -euo pipefail
+          mapfile -t manifests < <(
+            find k8s -type f \( -name '*.yaml' -o -name '*.yml' \) \
+              ! -name 'kustomization.yaml' \
+              ! -path 'k8s/platform/crds/*' \
+              | sort
+          )
+          if [ "${#manifests[@]}" -eq 0 ]; then
+            echo "No Kubernetes manifests found under k8s/."
+            exit 1
+          fi
+
+          CRD_SCHEMA_BASE='https://raw.githubusercontent.com/datreeio/CRDs-catalog/main'
+          CRD_SCHEMA_URL="${CRD_SCHEMA_BASE}/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"
+
+          kubeconform -strict -summary \
+            -schema-location default \
+            -schema-location "${CRD_SCHEMA_URL}" \
+            "${manifests[@]}"
