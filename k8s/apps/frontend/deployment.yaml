@@ -22,7 +22,7 @@ spec:
         runAsUser: 101
       containers:
         - name: frontend
-          image: ghcr.io/clementv78/cloudradar/frontend:0.1.42
+          image: ghcr.io/clementv78/cloudradar/frontend:0.1.43
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
