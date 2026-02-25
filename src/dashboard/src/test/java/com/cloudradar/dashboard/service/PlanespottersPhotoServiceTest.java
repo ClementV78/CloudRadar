@@ -14,6 +14,8 @@ import static org.mockito.Mockito.when;
 import com.cloudradar.dashboard.config.DashboardProperties;
 import com.cloudradar.dashboard.model.FlightPhoto;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import java.lang.reflect.Method;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -191,6 +193,22 @@ class PlanespottersPhotoServiceTest {
   }
 
   @Test
+  void resolvePhoto_returnsErrorWhenUpstreamRequestThrowsIOException() throws Exception {
+    String cacheKey = "cloudradar:photo:v1:icao24:abc123";
+    when(valueOperations.get(cacheKey)).thenReturn(null);
+    when(valueOperations.increment(any(String.class))).thenReturn(1L);
+    when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenThrow(new IOException("network down"));
+
+    PlanespottersPhotoService service =
+        new PlanespottersPhotoService(redisTemplate, objectMapper, properties, httpClient);
+    FlightPhoto photo = service.resolvePhoto("abc123", null);
+
+    assertNotNull(photo);
+    assertEquals("error", photo.status());
+  }
+
+  @Test
   @SuppressWarnings("unchecked")
   void resolvePhoto_usesRegistrationFallbackWhenHexNotFound() throws Exception {
     String cacheKey = "cloudradar:photo:v1:icao24:abc123";
@@ -235,5 +253,27 @@ class PlanespottersPhotoServiceTest {
     PlanespottersPhotoService service = new PlanespottersPhotoService(redisTemplate, objectMapper, properties, httpClient);
     FlightPhoto photo = service.resolvePhoto("abc123", null);
     assertNull(photo);
+  }
+
+  @Test
+  void stripTrailingSlashes_handlesNullEmptyAndTrailingSeparators() throws Exception {
+    assertEquals("", invokeStripTrailingSlashes(null));
+    assertEquals("", invokeStripTrailingSlashes(""));
+    assertEquals(
+        "https://api.planespotters.net/pub/photos",
+        invokeStripTrailingSlashes("https://api.planespotters.net/pub/photos///"));
+  }
+
+  @Test
+  void stripTrailingSlashes_preservesValueWithoutTrailingSlash() throws Exception {
+    assertEquals(
+        "https://api.planespotters.net/pub/photos",
+        invokeStripTrailingSlashes("https://api.planespotters.net/pub/photos"));
+  }
+
+  private static String invokeStripTrailingSlashes(String value) throws Exception {
+    Method method = PlanespottersPhotoService.class.getDeclaredMethod("stripTrailingSlashes", String.class);
+    method.setAccessible(true);
+    return (String) method.invoke(null, value);
   }
 }

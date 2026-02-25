@@ -32,6 +32,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class RedisAggregateProcessor {
   private static final Logger LOGGER = LoggerFactory.getLogger(RedisAggregateProcessor.class);
+  private static final String UNKNOWN = "unknown";
   private static final String AIRCRAFT_HLL_SUFFIX = ":aircraft_hll";
   private static final String AIRCRAFT_MILITARY_HLL_SUFFIX = ":aircraft_military_hll";
 
@@ -113,15 +114,31 @@ public class RedisAggregateProcessor {
         );
         if (payload == null) {
           refreshQueueDepth();
-          continue;
+        } else {
+          processPayload(payload);
+          refreshQueueDepth();
         }
-        processPayload(payload);
-        refreshQueueDepth();
       } catch (Exception ex) {
+        if (isInterruptedShutdown(ex)) {
+          Thread.currentThread().interrupt();
+          LOGGER.debug("Processor loop interrupted during shutdown");
+          return;
+        }
         errorCounter.increment();
         LOGGER.warn("Processor loop error", ex);
       }
     }
+  }
+
+  private static boolean isInterruptedShutdown(Throwable ex) {
+    Throwable current = ex;
+    while (current != null) {
+      if (current instanceof InterruptedException) {
+        return true;
+      }
+      current = current.getCause();
+    }
+    return false;
   }
 
   private void processPayload(String payload) {
@@ -197,7 +214,7 @@ public class RedisAggregateProcessor {
   private void recordAircraftCategory(Optional<AircraftMetadata> metadata) {
     String category = metadata
         .map(meta -> meta.categoryOrFallback())
-        .orElse("unknown");
+        .orElse(UNKNOWN);
 
     // Low-cardinality label value intended for Top-N dashboard panels.
     Counter counter = categoryCounters.computeIfAbsent(
@@ -212,7 +229,7 @@ public class RedisAggregateProcessor {
         .map(AircraftMetadata::country)
         .filter(v -> v != null && !v.isBlank())
         .map(String::trim)
-        .orElse("unknown");
+        .orElse(UNKNOWN);
     Counter counter = countryCounters.computeIfAbsent(
         country,
         c -> meterRegistry.counter("processor.aircraft.country.events", "country", c)
@@ -223,7 +240,7 @@ public class RedisAggregateProcessor {
   private void recordAircraftEnrichment(Optional<AircraftMetadata> metadata) {
     String militaryLabel = metadata
         .map(AircraftMetadata::militaryLabel)
-        .orElse("unknown");
+        .orElse(UNKNOWN);
     Counter militaryCounter = militaryCounters.computeIfAbsent(
         militaryLabel,
         label -> meterRegistry.counter("processor.aircraft.military.events", "military", label)
@@ -236,7 +253,7 @@ public class RedisAggregateProcessor {
           .map(String::trim)
           .map(String::toUpperCase)
           .filter(v -> v.length() <= 8)
-          .orElse("unknown");
+          .orElse(UNKNOWN);
       Counter typeCounter = militaryTypecodeCounters.computeIfAbsent(
           typecode,
           code -> meterRegistry.counter("processor.aircraft.military.typecode.events", "typecode", code)

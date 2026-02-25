@@ -6,20 +6,26 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import com.cloudradar.processor.aircraft.AircraftMetadata;
+import com.cloudradar.processor.aircraft.AircraftMetadataRepository;
 import com.cloudradar.processor.config.ProcessorProperties;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.lang.reflect.Method;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+import java.util.concurrent.locks.LockSupport;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.connection.DataType;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -97,6 +103,7 @@ class RedisAggregateProcessorIntegrationTest {
 
     processor.start();
     try {
+      LockSupport.parkNanos(Duration.ofMillis(1200).toNanos());
       redisTemplate.opsForList().rightPush(properties.getRedis().getInputKey(), payload);
 
       waitUntil(
@@ -132,16 +139,25 @@ class RedisAggregateProcessorIntegrationTest {
       waitUntil(
           () -> {
             Set<String> keys = redisTemplate.keys(properties.getRedis().getActivityBucketKeyPrefix() + "*");
-            return keys != null && !keys.isEmpty();
+            if (keys == null || keys.isEmpty()) {
+              return false;
+            }
+            return keys.stream()
+                .map(redisTemplate::type)
+                .anyMatch(DataType.HASH::equals);
           },
           Duration.ofSeconds(8),
           "processor did not write activity bucket contract");
 
       Set<String> bucketKeys = redisTemplate.keys(properties.getRedis().getActivityBucketKeyPrefix() + "*");
       assertNotNull(bucketKeys);
-      assertFalse(bucketKeys.isEmpty());
+      Set<String> bucketHashKeys =
+          bucketKeys.stream()
+              .filter(key -> DataType.HASH.equals(redisTemplate.type(key)))
+              .collect(Collectors.toSet());
+      assertFalse(bucketHashKeys.isEmpty());
 
-      String bucketKey = bucketKeys.iterator().next();
+      String bucketKey = bucketHashKeys.iterator().next();
       Object eventsTotal = redisTemplate.opsForHash().get(bucketKey, "events_total");
       assertEquals("1", String.valueOf(eventsTotal));
 
@@ -153,15 +169,153 @@ class RedisAggregateProcessorIntegrationTest {
     }
   }
 
-  private static void waitUntil(BooleanSupplier condition, Duration timeout, String failureMessage)
-      throws InterruptedException {
+  @Test
+  void processor_recordsUnknownCountersWhenMetadataRepositoryReturnsEmpty() throws Exception {
+    ProcessorProperties properties = new ProcessorProperties();
+    properties.setPollTimeoutSeconds(1);
+    properties.setTrackLength(1);
+
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    AircraftMetadataRepository repository = icao24 -> Optional.empty();
+    RedisAggregateProcessor processor =
+        new RedisAggregateProcessor(
+            redisTemplate,
+            objectMapper,
+            properties,
+            meterRegistry,
+            Optional.of(repository));
+
+    Map<String, Object> event =
+        Map.ofEntries(
+            Map.entry("icao24", "def456"),
+            Map.entry("callsign", "AFR456"),
+            Map.entry("lat", 48.7),
+            Map.entry("lon", 2.1),
+            Map.entry("time_position", 1_706_100_000L),
+            Map.entry("last_contact", 1_706_100_001L),
+            Map.entry("ingested_at", "2026-02-24T11:00:00Z"),
+            Map.entry("opensky_fetch_epoch", 1_706_100_000L));
+
+    String payload = objectMapper.writeValueAsString(event);
+
+    processor.start();
+    try {
+      redisTemplate.opsForList().rightPush(properties.getRedis().getInputKey(), payload);
+
+      waitUntil(
+          () -> counterValue(meterRegistry, "processor.aircraft.category.events", "category", "unknown") >= 1.0,
+          Duration.ofSeconds(8),
+          "processor did not record unknown category");
+      waitUntil(
+          () -> counterValue(meterRegistry, "processor.aircraft.country.events", "country", "unknown") >= 1.0,
+          Duration.ofSeconds(8),
+          "processor did not record unknown country");
+      waitUntil(
+          () -> counterValue(meterRegistry, "processor.aircraft.military.events", "military", "unknown") >= 1.0,
+          Duration.ofSeconds(8),
+          "processor did not record unknown military label");
+    } finally {
+      processor.stop();
+    }
+  }
+
+  @Test
+  void processor_recordsUnknownMilitaryTypecodeWhenMetadataTypecodeIsInvalid() throws Exception {
+    ProcessorProperties properties = new ProcessorProperties();
+    properties.setPollTimeoutSeconds(1);
+    properties.setTrackLength(1);
+
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    AircraftMetadataRepository repository =
+        icao24 ->
+            Optional.of(
+                new AircraftMetadata(
+                    icao24,
+                    "France",
+                    "Military",
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    "TOO_LONG_TYPECODE",
+                    true,
+                    1999,
+                    "Air Force"));
+    RedisAggregateProcessor processor =
+        new RedisAggregateProcessor(
+            redisTemplate,
+            objectMapper,
+            properties,
+            meterRegistry,
+            Optional.of(repository));
+
+    Map<String, Object> event =
+        Map.ofEntries(
+            Map.entry("icao24", "fed789"),
+            Map.entry("callsign", "FRA789"),
+            Map.entry("lat", 47.9),
+            Map.entry("lon", 1.9),
+            Map.entry("time_position", 1_706_200_000L),
+            Map.entry("last_contact", 1_706_200_001L),
+            Map.entry("ingested_at", "2026-02-24T12:00:00Z"),
+            Map.entry("opensky_fetch_epoch", 1_706_200_000L));
+
+    String payload = objectMapper.writeValueAsString(event);
+
+    processor.start();
+    try {
+      redisTemplate.opsForList().rightPush(properties.getRedis().getInputKey(), payload);
+
+      waitUntil(
+          () ->
+              counterValue(
+                      meterRegistry,
+                      "processor.aircraft.military.typecode.events",
+                      "typecode",
+                      "unknown")
+                  >= 1.0,
+          Duration.ofSeconds(8),
+          "processor did not record unknown military typecode");
+    } finally {
+      processor.stop();
+    }
+  }
+
+  @Test
+  void isInterruptedShutdown_detectsInterruptedCauseChain() throws Exception {
+    Throwable interrupted = new RuntimeException(new IllegalStateException(new InterruptedException("stop")));
+    Throwable nonInterrupted = new RuntimeException(new IllegalStateException("no interruption"));
+
+    assertTrue(invokeIsInterruptedShutdown(interrupted));
+    assertFalse(invokeIsInterruptedShutdown(nonInterrupted));
+  }
+
+  private static void waitUntil(BooleanSupplier condition, Duration timeout, String failureMessage) {
     long deadline = System.nanoTime() + timeout.toNanos();
+    long pollIntervalNanos = Duration.ofMillis(100).toNanos();
     while (System.nanoTime() < deadline) {
       if (condition.getAsBoolean()) {
         return;
       }
-      Thread.sleep(100);
+      LockSupport.parkNanos(pollIntervalNanos);
     }
     fail(failureMessage);
+  }
+
+  private static double counterValue(
+      SimpleMeterRegistry meterRegistry, String name, String tagKey, String tagValue) {
+    try {
+      return meterRegistry.get(name).tag(tagKey, tagValue).counter().count();
+    } catch (Exception ignored) {
+      return 0.0;
+    }
+  }
+
+  private static boolean invokeIsInterruptedShutdown(Throwable ex) throws Exception {
+    Method method =
+        RedisAggregateProcessor.class.getDeclaredMethod("isInterruptedShutdown", Throwable.class);
+    method.setAccessible(true);
+    return (boolean) method.invoke(null, ex);
   }
 }

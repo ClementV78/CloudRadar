@@ -130,7 +130,8 @@ public class FlightUpdateStreamService {
         completeSilently(emitter);
         return;
       }
-      log.warn("SSE event delivery failed for event={}", eventName, ex);
+      log.warn("SSE event delivery failed for event={} cause={}", eventName, rootCauseSummary(ex));
+      log.debug("SSE unexpected delivery error details for event={}", eventName, ex);
       completeWithErrorSilently(emitter, ex);
     }
   }

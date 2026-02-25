@@ -26,10 +26,15 @@ Progress in issue #493 (open, in progress on this branch):
 - Added dedicated nightly k6 workflow (`k6-nightly-baseline.yml`) with summary + artifacts.
 - Added runbooks for smoke interpretation and k6 baseline execution.
 
-Progress in issue #507 (open, in progress on this branch):
+Progress in issue #507 (merged):
 - Added frontend UI smoke tests (`App` render + map smoke empty/non-empty).
 - Added SonarCloud workflow + project config (`sonar-project.properties`) with lcov ingestion.
 - Added docs for frontend test coverage and SonarCloud quality-gate interpretation.
+
+Progress in issue #514 (open, in progress on this branch):
+- Added JaCoCo Maven plugin wiring for `dashboard`, `ingester`, and `processor`.
+- Extended SonarCloud workflow to generate/validate Java JaCoCo reports + frontend lcov before scan.
+- Expanded SonarCloud project properties to ingest Java + frontend coverage in one quality gate.
 
 Note: section 2 keeps a historical proposal-review snapshot for traceability; sections 1 and 5-8 are maintained as the current status view.
 
@@ -54,7 +59,7 @@ Current repository status after #490/#491/#506, with #492 currently in progress:
   - Dependency CVE scan (`trivy fs`) for `src/`
 - `ci-k8s.yml`: app/k8s guardrails including `kubeconform` strict validation with CRD schemas
 - `ci-infra.yml`: post-deploy smoke tests (edge paths `/healthz`, `/grafana/`, `/prometheus/`) + ArgoCD sync check
-- `sonarcloud.yml`: quality-gate analysis on PR/main with frontend lcov coverage ingestion
+- `sonarcloud.yml`: quality-gate analysis on PR/main with frontend lcov + Java JaCoCo coverage ingestion (branch #514)
 - Current baseline now covers Java services + frontend smoke, with data-path integration in progress on this branch (#492).
 
 ```mermaid
@@ -422,7 +427,7 @@ Codex strategy + improvements in sections 2-4 cover the **application testing py
 | **Static analysis — IaC** | tfsec (Terraform) | ✅ | `ci-infra.yml` | — |
 | **Static analysis — Java** | Checkstyle / SpotBugs | ❌ Missing | — | ~1h |
 | **Static analysis — Frontend** | ESLint + Prettier | ❌ Missing | — | ~30 min |
-| **Quality gate / trends** | SonarCloud | 🟡 Implemented on #507 branch (frontend scope) | `.github/workflows/sonarcloud.yml` | — |
+| **Quality gate / trends** | SonarCloud | 🟡 Expanded on #514 branch (frontend + Java scope) | `.github/workflows/sonarcloud.yml` | — |
 | **Static analysis — Dockerfile** | Hadolint | ✅ Implemented (#506) | `build-and-push.yml` | — |
 | **K8s manifest validation** | kubeconform | ✅ Implemented (#506) | `ci-k8s.yml` | — |
 | **Dependency vulnerability scan** | Dependabot / Trivy fs | 🟡 Partial (`Trivy fs` done, Dependabot missing) | `build-and-push.yml` | ~15 min remaining |

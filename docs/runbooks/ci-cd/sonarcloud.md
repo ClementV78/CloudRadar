@@ -6,23 +6,34 @@ This runbook explains how CloudRadar uses SonarCloud for PR quality-gate checks 
 
 - Workflow: `.github/workflows/sonarcloud.yml`
 - Sonar config: `sonar-project.properties`
-- Coverage source: `src/frontend/coverage/lcov.info` (Vitest)
+- Coverage sources:
+  - Frontend: `src/frontend/coverage/lcov.info` (Vitest)
+  - Java:
+    - `src/dashboard/target/site/jacoco/jacoco.xml`
+    - `src/ingester/target/site/jacoco/jacoco.xml`
+    - `src/processor/target/site/jacoco/jacoco.xml`
+- Java analyzer mode:
+  - Default: optimized (`sonar.java.skipUnchanged=true`) to keep CI fast.
+  - Manual first/full baseline: run `workflow_dispatch` with `full_java_scan=true`.
 
 ## Workflow diagram
 
 ```mermaid
 flowchart LR
   A[workflow_dispatch or PR/main push] --> B[checkout]
-  B --> C[setup node 20]
-  C --> D[npm ci]
-  D --> E[vitest coverage]
-  E --> F{SONAR_TOKEN set?}
-  F -->|No| G[fail with explicit error]
-  F -->|Yes| H[sonar scan]
-  H --> I[quality gate wait]
-  I --> J{gate status}
-  J -->|Green| K[check passes]
-  J -->|Red| L[check fails]
+  B --> C[setup java 17]
+  C --> D[mvn verify dashboard/ingester/processor]
+  D --> E[setup node 20]
+  E --> F[npm ci + vitest coverage]
+  F --> G{coverage reports exist?}
+  G -->|No| H[fail with missing report error]
+  G -->|Yes| I{SONAR_TOKEN set?}
+  I -->|No| J[fail with explicit error]
+  I -->|Yes| K[sonar scan]
+  K --> L[quality gate wait]
+  L --> M{gate status}
+  M -->|Green| N[check passes]
+  M -->|Red| O[check fails]
 ```
 
 ## Triggers
@@ -30,6 +41,11 @@ flowchart LR
 - `workflow_dispatch` (manual validation)
 - `pull_request` to `main`
 - `push` to `main`
+
+`workflow_dispatch` input:
+- `full_java_scan` (boolean, default `false`)
+  - `true`: force full Java analysis (including unchanged Java files)
+  - `false`: optimized mode (skip unchanged Java files)
 
 Path filters:
 - `src/**`
@@ -60,23 +76,35 @@ If your SonarCloud project key/org differs, update `sonar-project.properties` ac
 ## Local validation before CI
 
 ```bash
+for svc in dashboard ingester processor; do
+  mvn -B -f "src/${svc}/pom.xml" verify
+done
+
 cd src/frontend
 npm ci
 npm run test:coverage
-ls -l coverage/lcov.info
+
+ls -l \
+  coverage/lcov.info \
+  ../dashboard/target/site/jacoco/jacoco.xml \
+  ../ingester/target/site/jacoco/jacoco.xml \
+  ../processor/target/site/jacoco/jacoco.xml
 ```
 
 Expected:
 - tests pass
 - `coverage/lcov.info` exists
+- JaCoCo XML reports exist for all Java services
 
 ## Run manually
 
 1. Open GitHub Actions
 2. Select `SonarCloud Quality Gate`
-3. Click `Run workflow`
+3. Set `full_java_scan=true` for the first full Java baseline (or leave `false` for normal runs)
+4. Click `Run workflow`
 
 Expected results:
+- `Run Java tests with JaCoCo XML reports` succeeds
 - `Run frontend tests with coverage (lcov)` succeeds
 - `SonarCloud scan and quality gate` succeeds
 - PR check appears as green quality gate
@@ -95,11 +123,27 @@ Fix:
 ### Sonar scan succeeds but coverage is `0.0%`
 
 Cause:
-- lcov report missing or wrong path
+- lcov and/or JaCoCo reports missing, wrong path, or not mapped to scanned sources
 
 Fix:
 - ensure `src/frontend/coverage/lcov.info` is generated
 - verify `sonar.javascript.lcov.reportPaths=src/frontend/coverage/lcov.info`
+- ensure Java reports are generated:
+  - `src/dashboard/target/site/jacoco/jacoco.xml`
+  - `src/ingester/target/site/jacoco/jacoco.xml`
+  - `src/processor/target/site/jacoco/jacoco.xml`
+- verify Sonar properties:
+  - `sonar.coverage.jacoco.xmlReportPaths=...`
+  - `sonar.java.binaries=...`
+
+### PR shows `0 source files analyzed` for Java
+
+Cause:
+- Java unchanged-file optimization is enabled, so Java files outside PR diff can be skipped.
+
+Fix:
+- run `workflow_dispatch` with `full_java_scan=true` to force full Java analysis
+- re-run the `SonarCloud Quality Gate` workflow
 
 ### Quality gate remains red
 
@@ -116,3 +160,4 @@ Fix:
 - App pipeline runbook: `docs/runbooks/ci-cd/ci-app.md`
 - Frontend runbook: `docs/runbooks/operations/frontend.md`
 - Issue: #507
+- Issue: #514

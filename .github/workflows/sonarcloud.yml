@@ -2,6 +2,12 @@ name: SonarCloud Quality Gate
 
 on:
   workflow_dispatch:
+    inputs:
+      full_java_scan:
+        description: 'Force full Java analysis (disable unchanged-file optimization)'
+        required: false
+        default: false
+        type: boolean
   pull_request:
     branches:
       - main
@@ -30,6 +36,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set up Java 17
+        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Run Java tests with JaCoCo XML reports
+        run: |
+          mvn -B -f src/dashboard/pom.xml verify
+          mvn -B -f src/ingester/pom.xml verify
+          mvn -B -f src/processor/pom.xml verify
+
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -43,6 +62,20 @@ jobs:
           npm ci
           npm run test:coverage
 
+      - name: Validate coverage reports are present
+        run: |
+          for report in \
+            src/dashboard/target/site/jacoco/jacoco.xml \
+            src/ingester/target/site/jacoco/jacoco.xml \
+            src/processor/target/site/jacoco/jacoco.xml \
+            src/frontend/coverage/lcov.info
+          do
+            if [ ! -f "$report" ]; then
+              echo "::error::Missing coverage report: $report"
+              exit 1
+            fi
+          done
+
       - name: Validate SonarCloud token
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -50,6 +83,16 @@ jobs:
           if [ -z "$SONAR_TOKEN" ]; then
             echo "::error::SONAR_TOKEN is not configured. Add it in repository secrets before enabling this workflow."
             exit 1
+          fi
+
+      - name: Select Java analysis mode
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.full_java_scan }}" = "true" ]; then
+            echo "SONAR_JAVA_SKIP_UNCHANGED=false" >> "$GITHUB_ENV"
+            echo "Full Java analysis enabled (includes unchanged files)."
+          else
+            echo "SONAR_JAVA_SKIP_UNCHANGED=true" >> "$GITHUB_ENV"
+            echo "Optimized Java analysis enabled (skip unchanged files)."
           fi
 
       - name: SonarCloud scan and quality gate
@@ -61,3 +104,4 @@ jobs:
           args: >
             -Dsonar.qualitygate.wait=true
             -Dsonar.qualitygate.timeout=300
+            -Dsonar.java.skipUnchanged=${{ env.SONAR_JAVA_SKIP_UNCHANGED }}
