@@ -10,6 +10,7 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
 - Implemented in this scope:
   - full-screen map UI with dark/cyber style
   - `dark/satellite` map modes
+  - collapsible map legend (compact toggle on desktop, bottom-sheet panel on mobile)
   - aircraft markers with heading-oriented SVG icons
   - click-to-open detail panel (desktop sidebar, mobile bottom sheet behavior)
   - KPI strip based on `/api/flights/metrics`
