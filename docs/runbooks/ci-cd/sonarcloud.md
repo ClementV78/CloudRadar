@@ -135,6 +135,29 @@ Fix:
 - verify Sonar properties:
   - `sonar.coverage.jacoco.xmlReportPaths=...`
   - `sonar.java.binaries=...`
+  - `sonar.java.libraries=...`
+
+### Warning `sonar.java.libraries is empty`
+
+Cause:
+- Java analyzer cannot resolve external classpath dependencies, so some source analysis rules run with reduced precision.
+
+Fix:
+- keep the Sonar workflow step that prepares Java dependencies:
+  - `mvn -B -f src/<service>/pom.xml -DskipTests dependency:copy-dependencies -DincludeScope=test`
+- ensure Sonar properties include:
+  - `sonar.java.libraries=src/dashboard/target/dependency/*.jar,src/ingester/target/dependency/*.jar,src/processor/target/dependency/*.jar`
+
+### Warning `sonar.java.test.libraries is empty`
+
+Cause:
+- Java analyzer cannot resolve test-scope dependencies, reducing precision on test file analysis.
+
+Fix:
+- prepare dependencies with test scope in the Sonar workflow:
+  - `mvn -B -f src/<service>/pom.xml -DskipTests dependency:copy-dependencies -DincludeScope=test`
+- ensure Sonar properties include:
+  - `sonar.java.test.libraries=src/dashboard/target/dependency/*.jar,src/ingester/target/dependency/*.jar,src/processor/target/dependency/*.jar`
 
 ### PR shows `0 source files analyzed` for Java
 
