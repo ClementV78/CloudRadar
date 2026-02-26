@@ -98,11 +98,11 @@ public class OpenSkyClient {
           "%s/states/all?lamin=%s&lamax=%s&lomin=%s&lomax=%s",
           baseUrl, bbox.latMin(), bbox.latMax(), bbox.lonMin(), bbox.lonMax());
 
-      HttpRequest request = HttpRequest.newBuilder()
+      HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
           .uri(URI.create(url))
-          .header("Authorization", "Bearer " + tokenService.getToken())
-          .GET()
-          .build();
+          .header("Authorization", "Bearer " + tokenService.getToken());
+      addRelayAuthHeader(requestBuilder);
+      HttpRequest request = requestBuilder.GET().build();
 
       httpStartNs = System.nanoTime();
       HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -290,5 +290,18 @@ public class OpenSkyClient {
       log.debug("Unable to parse X-Rate-Limit-Reset header value: {}", header.get());
       return null;
     }
+  }
+
+  private void addRelayAuthHeader(HttpRequest.Builder requestBuilder) {
+    String headerName = endpointProvider.relayAuthHeaderName();
+    String headerValue = endpointProvider.relayAuthHeaderValue();
+    if (!isPresent(headerName) || !isPresent(headerValue)) {
+      return;
+    }
+    requestBuilder.header(headerName, headerValue);
+  }
+
+  private boolean isPresent(String value) {
+    return value != null && !value.isBlank();
   }
 }

@@ -7,4 +7,11 @@ public record OpenSkyProperties(
     String baseUrl,
     String tokenUrl,
     String clientId,
-    String clientSecret) {}
+    String clientSecret,
+    String routingMode,
+    String tunnelBaseUrl,
+    String tunnelTokenUrl,
+    String workerBaseUrl,
+    String workerTokenUrl,
+    String relayAuthHeader,
+    String relayAuthToken) {}

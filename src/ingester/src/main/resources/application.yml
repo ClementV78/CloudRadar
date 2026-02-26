@@ -26,6 +26,13 @@ opensky:
   token-url: ${OPENSKY_TOKEN_URL:https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token}
   client-id: ${OPENSKY_CLIENT_ID:}
   client-secret: ${OPENSKY_CLIENT_SECRET:}
+  routing-mode: ${OPENSKY_ROUTING_MODE:direct}
+  tunnel-base-url: ${OPENSKY_TUNNEL_BASE_URL:}
+  tunnel-token-url: ${OPENSKY_TUNNEL_TOKEN_URL:}
+  worker-base-url: ${OPENSKY_WORKER_BASE_URL:}
+  worker-token-url: ${OPENSKY_WORKER_TOKEN_URL:}
+  relay-auth-header: ${OPENSKY_RELAY_AUTH_HEADER:}
+  relay-auth-token: ${OPENSKY_RELAY_AUTH_TOKEN:}
   client-id-ssm: ${OPENSKY_CLIENT_ID_SSM:}
   client-secret-ssm: ${OPENSKY_CLIENT_SECRET_SSM:}
   base-url-ssm: ${OPENSKY_BASE_URL_SSM:}

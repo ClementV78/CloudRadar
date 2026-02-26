@@ -116,11 +116,12 @@ public class OpenSkyTokenService {
       String body = "grant_type=client_credentials&client_id=" + URLEncoder.encode(clientId, StandardCharsets.UTF_8) +
           "&client_secret=" + URLEncoder.encode(clientSecret, StandardCharsets.UTF_8);
 
-      HttpRequest request = HttpRequest.newBuilder()
+      HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
           .uri(URI.create(tokenUrl))
-          .header("Content-Type", "application/x-www-form-urlencoded")
-          .POST(HttpRequest.BodyPublishers.ofString(body))
-          .build();
+          .header("Content-Type", "application/x-www-form-urlencoded");
+      addRelayAuthHeader(requestBuilder);
+      HttpRequest request =
+          requestBuilder.POST(HttpRequest.BodyPublishers.ofString(body)).build();
 
       httpStartNs = System.nanoTime();
       HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -188,5 +189,18 @@ public class OpenSkyTokenService {
       return new TokenRefreshException("Token refresh failed: " + message);
     }
     return new TokenRefreshException("Token refresh failed: " + message, cause);
+  }
+
+  private void addRelayAuthHeader(HttpRequest.Builder requestBuilder) {
+    String headerName = endpointProvider.relayAuthHeaderName();
+    String headerValue = endpointProvider.relayAuthHeaderValue();
+    if (!isPresent(headerName) || !isPresent(headerValue)) {
+      return;
+    }
+    requestBuilder.header(headerName, headerValue);
+  }
+
+  private boolean isPresent(String value) {
+    return value != null && !value.isBlank();
   }
 }
