@@ -49,6 +49,12 @@ jobs:
           mvn -B -f src/ingester/pom.xml verify
           mvn -B -f src/processor/pom.xml verify
 
+      - name: Prepare Java dependencies for Sonar type analysis
+        run: |
+          mvn -B -f src/dashboard/pom.xml -DskipTests dependency:copy-dependencies -DincludeScope=compile
+          mvn -B -f src/ingester/pom.xml -DskipTests dependency:copy-dependencies -DincludeScope=compile
+          mvn -B -f src/processor/pom.xml -DskipTests dependency:copy-dependencies -DincludeScope=compile
+
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
