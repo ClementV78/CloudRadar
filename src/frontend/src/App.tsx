@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, Polyline, Popup, Rectangle, TileLayer, useMapEvents } from 'react-leaflet';
-import L, { type DivIcon } from 'leaflet';
+import type { Marker as LeafletMarker } from 'leaflet';
 
 import {
   fetchBboxBoostStatus,
@@ -18,7 +18,8 @@ import { DetailPanel } from './components/DetailPanel';
 import { Header } from './components/Header';
 import { KpiStrip } from './components/KpiStrip';
 import { MapLegend } from './components/MapLegend';
-import { markerBaseSize, markerGlyph } from './aircraftVisuals';
+import { createRefreshWatchdog, resolveSnapshotUpdateAction, shouldRefreshFromStreamEvent } from './mapRefresh';
+import { createMarkerIconResolver } from './markerIcons';
 import type {
   ApiStatus,
   Bbox,
@@ -322,18 +323,6 @@ function toTrackSegments(detail: FlightDetailResponse | null): ClassifiedTrackSe
   };
 }
 
-function markerOpacity(selected: boolean, isStatic: boolean): number {
-  if (selected) {
-    return 1;
-  }
-
-  if (isStatic) {
-    return 0.45;
-  }
-
-  return 1;
-}
-
 function hitboxDebugEnabled(): boolean {
   if (typeof window === 'undefined') {
     return false;
@@ -343,34 +332,18 @@ function hitboxDebugEnabled(): boolean {
   return value === '1' || value === 'true';
 }
 
-function markerIcon(flight: FlightMapItem, selected: boolean, zoom: number, isStatic: boolean): DivIcon {
-  const heading = flight.heading ?? 0;
-  const baseSize = markerBaseSize(flight.aircraftSize);
-  const scale = Math.min(1.75, Math.max(0.95, 1 + (zoom - 8) * 0.13));
-  const rawSize = Math.round(baseSize * scale);
-  const size = rawSize % 2 === 0 ? rawSize : rawSize + 1;
-  const hitPadding = Math.max(6, Math.round(size * 0.24));
-  const rawHitSize = size + hitPadding;
-  const hitSize = rawHitSize % 2 === 0 ? rawHitSize : rawHitSize + 1;
-  const pulseClass = selected ? 'marker-pulse' : '';
-  const opacity = markerOpacity(selected, isStatic);
-  const debugClass = hitboxDebugEnabled() ? ' is-debug' : '';
-  const glyph = markerGlyph(flight, size, selected);
+function applyMarkerHeading(marker: LeafletMarker, heading: number | null): void {
+  const rotator = marker.getElement()?.querySelector('.aircraft-rotator');
+  if (rotator instanceof HTMLElement) {
+    rotator.style.transform = `rotate(${heading ?? 0}deg)`;
+  }
+}
 
-  return L.divIcon({
-    className: 'aircraft-div-icon',
-    iconSize: [hitSize, hitSize],
-    iconAnchor: [Math.round(hitSize / 2), Math.round(hitSize / 2)],
-    html: `
-      <div class="aircraft-hitbox${debugClass}" style="width: ${hitSize}px; height: ${hitSize}px">
-        <div class="aircraft-marker ${pulseClass}" style="width: ${size}px; height: ${size}px; opacity: ${opacity.toFixed(2)}">
-          <div class="aircraft-rotator" style="transform: rotate(${heading}deg)">
-            ${glyph}
-          </div>
-        </div>
-      </div>
-    `
-  });
+function applyMarkerPose(marker: LeafletMarker, flight: FlightMapItem): void {
+  if (isFiniteNumber(flight.lat) && isFiniteNumber(flight.lon)) {
+    marker.setLatLng([flight.lat, flight.lon]);
+  }
+  applyMarkerHeading(marker, flight.heading);
 }
 
 function ZoomSync({ onZoomChange }: { onZoomChange: (zoom: number) => void }): null {
@@ -409,7 +382,9 @@ export default function App(): JSX.Element {
   const lastBatchEpochRef = useRef<number | null>(null);
   const hasMetricsRef = useRef<boolean>(false);
   const missingSelectionCyclesRef = useRef<number>(0);
+  const selectedIcao24Ref = useRef<string | null>(null);
   const mapFlightsRef = useRef<FlightMapItem[]>([]);
+  const markerRefsRef = useRef<Map<string, LeafletMarker>>(new Map());
   const previousSnapshotPositionsRef = useRef<Map<string, { lat: number; lon: number }>>(new Map());
   const animationFrameRef = useRef<number | null>(null);
   const effectiveBboxRef = useRef<Bbox>(IDF_BBOX);
@@ -417,6 +392,8 @@ export default function App(): JSX.Element {
   const refreshQueuedRef = useRef(false);
   const refreshDataRef = useRef<() => Promise<void>>(async () => {});
   const isMountedRef = useRef(true);
+  const resolveMarkerIcon = useMemo(() => createMarkerIconResolver(), []);
+  const debugHitbox = useMemo(() => hitboxDebugEnabled(), []);
 
   const detailOpen = Boolean(selectedIcao24);
 
@@ -433,6 +410,7 @@ export default function App(): JSX.Element {
 
       const startFlights = mapFlightsRef.current;
       if (!startFlights.length || !targetFlights.length || durationMs <= 0) {
+        mapFlightsRef.current = targetFlights;
         setMapFlights(targetFlights);
         return;
       }
@@ -449,8 +427,14 @@ export default function App(): JSX.Element {
           }
           return interpolateFlight(start, target, progress);
         });
-
-        setMapFlights(nextFlights);
+        mapFlightsRef.current = nextFlights;
+        for (const flight of nextFlights) {
+          const marker = markerRefsRef.current.get(flight.icao24);
+          if (!marker) {
+            continue;
+          }
+          applyMarkerPose(marker, flight);
+        }
 
         if (progress < 1) {
           animationFrameRef.current = window.requestAnimationFrame(tick);
@@ -458,6 +442,7 @@ export default function App(): JSX.Element {
         }
 
         animationFrameRef.current = null;
+        mapFlightsRef.current = targetFlights;
         setMapFlights(targetFlights);
       };
 
@@ -465,6 +450,18 @@ export default function App(): JSX.Element {
     },
     [cancelMarkerAnimation]
   );
+
+  const registerMarkerRef = useCallback((icao24: string, marker: LeafletMarker | null) => {
+    if (!marker) {
+      markerRefsRef.current.delete(icao24);
+      return;
+    }
+    markerRefsRef.current.set(icao24, marker);
+    const currentFlight = mapFlightsRef.current.find((flight) => flight.icao24 === icao24);
+    if (currentFlight) {
+      applyMarkerPose(marker, currentFlight);
+    }
+  }, []);
 
   const loadDetail = useCallback(async (icao24: string) => {
     try {
@@ -553,14 +550,18 @@ export default function App(): JSX.Element {
         setStaticByIcao(computeStaticByIcao(normalizedFlights));
       }
 
-      if (!mapFlightsRef.current.length) {
+      const snapshotAction = resolveSnapshotUpdateAction({
+        hasRenderedFlights: mapFlightsRef.current.length > 0,
+        batchChanged,
+        animationRunning: animationFrameRef.current !== null
+      });
+
+      if (snapshotAction === 'snap') {
         cancelMarkerAnimation();
+        mapFlightsRef.current = normalizedFlights;
         setMapFlights(normalizedFlights);
-      } else if (batchChanged) {
+      } else if (snapshotAction === 'animate') {
         animateMarkers(normalizedFlights, resolveAnimationDurationMs(batchEpoch, previousBatchEpoch));
-      } else {
-        cancelMarkerAnimation();
-        setMapFlights(normalizedFlights);
       }
 
       setApiStatus('online');
@@ -581,8 +582,9 @@ export default function App(): JSX.Element {
         lastBatchEpochRef.current = batchEpoch;
       }
 
-      if (selectedIcao24) {
-        const stillPresent = normalizedFlights.some((flight) => flight.icao24 === selectedIcao24);
+      const selectedIcao24Current = selectedIcao24Ref.current;
+      if (selectedIcao24Current) {
+        const stillPresent = normalizedFlights.some((flight) => flight.icao24 === selectedIcao24Current);
         if (!stillPresent) {
           missingSelectionCyclesRef.current += 1;
           if (missingSelectionCyclesRef.current >= 3) {
@@ -593,7 +595,7 @@ export default function App(): JSX.Element {
         } else if (batchChanged) {
           missingSelectionCyclesRef.current = 0;
           // Detail refresh is async by design: the map update path must never wait for it.
-          void loadDetail(selectedIcao24);
+          void loadDetail(selectedIcao24Current);
         } else {
           missingSelectionCyclesRef.current = 0;
         }
@@ -607,7 +609,7 @@ export default function App(): JSX.Element {
       setApiStatus((previous) => (previous === 'online' ? 'degraded' : 'offline'));
       setOpenSkyStatus('unknown');
     }
-  }, [animateMarkers, cancelMarkerAnimation, computeStaticByIcao, loadDetail, selectedIcao24]);
+  }, [animateMarkers, cancelMarkerAnimation, computeStaticByIcao, loadDetail]);
 
   const drainQueuedRefreshes = useCallback(async () => {
     // Coalesce timer + SSE bursts; each iteration awaits I/O, so the event loop keeps progressing.
@@ -637,6 +639,10 @@ export default function App(): JSX.Element {
   useEffect(() => {
     refreshDataRef.current = refreshData;
   }, [refreshData]);
+
+  useEffect(() => {
+    selectedIcao24Ref.current = selectedIcao24;
+  }, [selectedIcao24]);
 
   useEffect(
     () => () => {
@@ -781,13 +787,15 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     void refreshDataRef.current();
+    const watchdog = createRefreshWatchdog(() => {
+      void refreshDataRef.current();
+    }, REFRESH_INTERVAL_MS);
+
     const unsubscribeStream = subscribeFlightUpdates(
       (event) => {
-        if (
-          event.latestOpenSkyBatchEpoch === null
-          || event.latestOpenSkyBatchEpoch !== lastBatchEpochRef.current
-        ) {
+        if (shouldRefreshFromStreamEvent(event.latestOpenSkyBatchEpoch, lastBatchEpochRef.current)) {
           void refreshDataRef.current();
+          watchdog.reschedule();
         }
       },
       () => {
@@ -795,13 +803,9 @@ export default function App(): JSX.Element {
       }
     );
 
-    const refreshTimer = window.setInterval(() => {
-      void refreshDataRef.current();
-    }, REFRESH_INTERVAL_MS);
-
     return () => {
       unsubscribeStream();
-      window.clearInterval(refreshTimer);
+      watchdog.stop();
     };
   }, []);
 
@@ -845,6 +849,16 @@ export default function App(): JSX.Element {
   useEffect(() => {
     mapFlightsRef.current = mapFlights;
   }, [mapFlights]);
+
+  useEffect(() => {
+    for (const flight of mapFlights) {
+      const marker = markerRefsRef.current.get(flight.icao24);
+      if (!marker) {
+        continue;
+      }
+      applyMarkerPose(marker, flight);
+    }
+  }, [mapFlights, mapZoom, selectedIcao24, staticByIcao]);
 
   useEffect(
     () => () => {
@@ -907,6 +921,47 @@ export default function App(): JSX.Element {
     setDetailError(null);
   }, []);
 
+  const markerElements = useMemo(
+    () =>
+      mapFlights.map((flight) => {
+        const selected = selectedIcao24 === flight.icao24;
+        const isStatic = Boolean(staticByIcao[flight.icao24]);
+        return (
+          <Marker
+            key={flight.icao24}
+            ref={(marker) => registerMarkerRef(flight.icao24, marker)}
+            position={[flight.lat as number, flight.lon as number]}
+            icon={resolveMarkerIcon({
+              flight,
+              selected,
+              zoom: mapZoom,
+              isStatic,
+              debugHitbox
+            })}
+            eventHandlers={{
+              mousedown: (event) => {
+                const mouseEvent = event.originalEvent as MouseEvent | undefined;
+                if (mouseEvent && mouseEvent.button !== 0) {
+                  return;
+                }
+                void handleSelectFlight(flight);
+              }
+            }}
+          >
+            <Popup>
+              <div className="popup-content">
+                <strong>{flight.callsign || flight.icao24}</strong>
+                <div>icao24: {flight.icao24}</div>
+                <div>altitude: {flight.altitude ?? 'n/a'} m</div>
+                <div>speed: {formatSpeedKmh(flight.speed)}</div>
+              </div>
+            </Popup>
+          </Marker>
+        );
+      }),
+    [debugHitbox, handleSelectFlight, mapFlights, mapZoom, registerMarkerRef, resolveMarkerIcon, selectedIcao24, staticByIcao]
+  );
+
   return (
     <main className="main-layout">
       <div className="background-grid" aria-hidden="true" />
@@ -959,35 +1014,7 @@ export default function App(): JSX.Element {
             />
           ))}
 
-          {mapFlights.map((flight) => {
-            const selected = selectedIcao24 === flight.icao24;
-            const isStatic = Boolean(staticByIcao[flight.icao24]);
-            return (
-              <Marker
-                key={flight.icao24}
-                position={[flight.lat as number, flight.lon as number]}
-                icon={markerIcon(flight, selected, mapZoom, isStatic)}
-                eventHandlers={{
-                  mousedown: (event) => {
-                    const mouseEvent = event.originalEvent as MouseEvent | undefined;
-                    if (mouseEvent && mouseEvent.button !== 0) {
-                      return;
-                    }
-                    void handleSelectFlight(flight);
-                  }
-                }}
-              >
-                <Popup>
-                  <div className="popup-content">
-                    <strong>{flight.callsign || flight.icao24}</strong>
-                    <div>icao24: {flight.icao24}</div>
-                    <div>altitude: {flight.altitude ?? 'n/a'} m</div>
-                    <div>speed: {formatSpeedKmh(flight.speed)}</div>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
+          {markerElements}
         </MapContainer>
         <MapLegend />
       </section>
