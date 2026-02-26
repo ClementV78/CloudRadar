@@ -13,7 +13,7 @@ This service renders the live IDF map, aircraft markers, flight detail panel, an
   - aircraft markers with heading-oriented SVG icons
   - click-to-open detail panel (desktop sidebar, mobile bottom sheet behavior)
   - KPI strip based on `/api/flights/metrics`
-  - backend-driven refresh via SSE (`/api/flights/stream`) with 10s fallback polling
+  - backend-driven refresh via SSE (`/api/flights/stream`) with a 10s watchdog polling fallback (rescheduled on relevant SSE events)
   - marker interpolation between consecutive OpenSky batches (smooth N-1 -> N movement)
   - ingester ON/OFF toggle via `/admin/ingester/scale` (Basic Auth prompt on first toggle action, not on page load)
 - Deferred by design:
@@ -46,7 +46,7 @@ flowchart LR
 
 1. Frontend subscribes to `GET /api/flights/stream` (SSE):
    - on `batch-update`, it refreshes map + metrics
-2. Fallback polling runs every 10s (resilience if SSE disconnects)
+2. Fallback polling is managed by a watchdog (`setTimeout`) at 10s and is rescheduled when SSE triggers a relevant refresh.
 3. On marker click, frontend fetches:
    - `GET /api/flights/{icao24}?include=track,enrichment`
 4. Detail panel and track polyline are updated from this detail payload.
@@ -67,6 +67,10 @@ flowchart LR
   - KPI cards and lightweight sparkline rendering
 - `src/api.ts`
   - typed API client wrappers
+- `src/mapRefresh.ts`
+  - refresh orchestration helpers (`snap/animate/noop`, stream-trigger decision, watchdog scheduling)
+- `src/markerIcons.ts`
+  - marker icon resolver with visual-identity cache (heading-independent)
 - `src/types.ts`
   - frontend contracts matching backend response models
 - `src/constants.ts`
@@ -76,6 +80,9 @@ flowchart LR
 
 - Refresh interval fallback: `10s` (`REFRESH_INTERVAL_MS`)
 - Optional override: `VITE_UI_REFRESH_MS`
+- Watchdog behavior:
+  - fallback polling uses `setTimeout` watchdog (not fixed `setInterval`)
+  - watchdog timer is rescheduled when SSE triggers a refresh, reducing same-batch trigger collisions
 - API status:
   - `online` when refresh succeeds
   - `degraded` if refresh fails after a successful cycle
@@ -87,6 +94,11 @@ flowchart LR
   - animation duration derives from OpenSky batch epoch delta when available
   - fallback to `REFRESH_INTERVAL_MS` when epoch delta is missing
   - interpolation is skipped for unrealistic jumps (too old / too far)
+  - same-batch refreshes do not interrupt an in-progress interpolation
+  - animation frames update Leaflet markers directly (`setLatLng` + `.aircraft-rotator` transform), then sync React state at animation end
+- Marker icon rendering:
+  - `DivIcon` instances are cached by visual identity (fleet/airframe/size/selected/static/zoom/debug)
+  - heading rotation is applied to marker DOM, not encoded in icon HTML
 - KPI activity trends:
   - charts use unique aircraft buckets from backend metrics (`aircraftTotal`, `aircraftMilitary`)
   - raw event counters (`eventsTotal`, `eventsMilitary`) remain available for operational diagnostics

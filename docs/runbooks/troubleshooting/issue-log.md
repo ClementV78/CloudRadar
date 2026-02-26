@@ -15,6 +15,19 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
   3. Add unit tests covering both header-limit and fallback behaviors.
 - **Guardrail:** For external rate limits, compute throttling decisions from provider headers when available; keep config as fallback only.
 
+### [frontend/map] Marker interpolation could be interrupted by same-batch refresh cycles
+- **Severity:** Medium
+- **Impact:** Aircraft markers could appear static or snap early when a fallback refresh hit the same batch while interpolation was in progress.
+- **Signal:** Interpolation started on batch change but could be cancelled by same-batch refresh paths, especially under SSE + polling overlap.
+- **Analysis:** The previous map hardening (#504) serialized refresh execution, but same-batch cycles could still cancel running interpolation and reapply final positions early. Icon rendering also recreated `DivIcon` instances too often, amplifying perceived stutter.
+- **Resolution:**
+  1. Introduce explicit snapshot action selection (`snap|animate|noop`) and keep same-batch cycles as `noop` while animation runs.
+  2. Switch polling fallback to watchdog scheduling (`setTimeout` rescheduled on relevant SSE events) to reduce trigger collisions.
+  3. Cache marker icons by visual identity and move heading rotation to DOM updates (not inline icon HTML) to reduce render churn.
+  4. Keep refresh serialization/coalescing and selection-stability guardrails from earlier fixes.
+- **Guardrail:** Keep SSE as the primary trigger, keep polling as resilience watchdog, and never cancel in-progress interpolation for same-batch refreshes.
+- **Refs:** issue #520, issue #504
+
 ## 2026-02-24
 
 ### [frontend/map] Intermittent marker freeze due to overlapping refresh cycles
