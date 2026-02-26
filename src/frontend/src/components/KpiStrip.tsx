@@ -3,7 +3,10 @@ import type { FlightMapItem, FlightsMetricsResponse, TypeBreakdownItem } from '.
 interface KpiStripProps {
   flights: FlightMapItem[];
   metrics: FlightsMetricsResponse | null;
+  activeTab?: KpiTab;
 }
+
+export type KpiTab = 'traffic' | 'defense' | 'fleet';
 
 interface ChartPoint {
   epoch: number;
@@ -224,7 +227,7 @@ function dominantLabel(items: TypeBreakdownItem[]): string {
   return items[0].key;
 }
 
-export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
+export function KpiStrip({ flights, metrics, activeTab }: KpiStripProps): JSX.Element {
   const activeAircraft = metrics?.activeAircraft ?? flights.length;
   const trafficDensity = metrics?.trafficDensityPer10kKm2 ?? 0;
   const militaryShare = metrics?.militarySharePercent ?? 0;
@@ -256,10 +259,16 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
   const militaryEventsWindow = activityPoints.reduce((sum, point) => sum + safeCount(point.aircraftMilitary), 0);
   const maxActivity = Math.max(...totalAircraftSeries.map((point) => point.count), activeAircraft, 1);
   const windowLabel = formatWindowLabel(metrics?.activityWindowSeconds ?? 0);
+  const cardClass = (tab: KpiTab, base: string): string => {
+    if (!activeTab) {
+      return base;
+    }
+    return `${base} ${activeTab === tab ? 'is-active' : 'is-collapsed'}`;
+  };
 
   return (
     <section className="kpi-strip">
-      <article className="kpi-card kpi-traffic glass-panel">
+      <article id="kpi-panel-traffic" className={cardClass('traffic', 'kpi-card kpi-traffic glass-panel')}>
         <h3>Traffic density</h3>
         <div className="kpi-card-layout">
           <RingGauge
@@ -293,7 +302,7 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
         </div>
       </article>
 
-      <article className="kpi-card kpi-defense glass-panel">
+      <article id="kpi-panel-defense" className={cardClass('defense', 'kpi-card kpi-defense glass-panel')}>
         <h3>Defense activity</h3>
         <div className="kpi-card-layout">
           <RingGauge
@@ -324,7 +333,7 @@ export function KpiStrip({ flights, metrics }: KpiStripProps): JSX.Element {
         </div>
       </article>
 
-      <article className="kpi-card kpi-fleet glass-panel">
+      <article id="kpi-panel-fleet" className={cardClass('fleet', 'kpi-card kpi-fleet glass-panel')}>
         <h3>Fleet breakdown</h3>
         {topFleet.length === 0 ? (
           <div className="kpi-sub">no fleet breakdown yet</div>
