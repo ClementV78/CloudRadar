@@ -94,17 +94,19 @@ curl -fsS http://localhost:18080/healthz
 
 4. UI can load flights data through edge proxy:
 - Open the dashboard URL in browser
-- Validate map markers refresh every 10s
+- Validate map markers refresh on `batch-update` events and continue updating with 10s watchdog fallback when SSE is silent/disconnected
 - Click one marker and confirm detail panel + track rendering
 
 ## SSE stream behavior and logs
 
 The frontend subscribes to dashboard SSE endpoint `GET /api/flights/stream` (`EventSource`) for push refresh (`batch-update`, `heartbeat`).
+Polling remains enabled as resilience fallback via a 10s watchdog timer rescheduled by relevant SSE refresh events.
 
 Expected behavior:
 - Browser tab close/reload or idle proxy timeout can terminate SSE connections.
 - These disconnects are normal and should not be treated as incidents.
 - Dashboard backend now classifies expected client disconnect IO errors (`broken pipe`, connection reset/abort, socket/stream closed) as normal stream lifecycle events.
+- Same-batch fallback polling should not interrupt an in-progress marker interpolation.
 
 Log interpretation:
 - `DEBUG` disconnect messages in `FlightUpdateStreamService` are expected lifecycle noise.

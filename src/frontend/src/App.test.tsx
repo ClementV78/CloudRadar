@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { forwardRef, useEffect, type ReactNode } from 'react';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 
 import App from './App';
@@ -35,7 +35,28 @@ vi.mock('leaflet', () => ({
 
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children?: ReactNode }) => <div data-testid="leaflet-map">{children}</div>,
-  Marker: ({ children }: { children?: ReactNode }) => <div data-testid="map-marker">{children}</div>,
+  Marker: forwardRef(({ children }: { children?: ReactNode }, ref) => {
+    useEffect(() => {
+      const markerMock = {
+        setLatLng: () => {},
+        getElement: () => document.createElement('div')
+      };
+
+      if (typeof ref === 'function') {
+        ref(markerMock as never);
+        return () => ref(null);
+      }
+      if (ref) {
+        (ref as { current: unknown }).current = markerMock;
+        return () => {
+          (ref as { current: unknown }).current = null;
+        };
+      }
+      return undefined;
+    }, [ref]);
+
+    return <div data-testid="map-marker">{children}</div>;
+  }),
   Polyline: () => <div data-testid="map-polyline" />,
   Popup: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   Rectangle: () => <div data-testid="map-bbox" />,
@@ -151,6 +172,10 @@ beforeEach(() => {
   vi.mocked(api.triggerBboxBoost).mockResolvedValue(DEFAULT_BOOST_STATUS);
   vi.mocked(api.fetchFlightDetail).mockResolvedValue(DEFAULT_DETAIL);
   vi.mocked(api.subscribeFlightUpdates).mockImplementation(() => () => {});
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('App UI smoke', () => {

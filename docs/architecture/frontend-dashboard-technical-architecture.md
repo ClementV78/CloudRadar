@@ -174,7 +174,7 @@ sequenceDiagram
 This diagram shows the batch-driven refresh loop: a `batch-update` event triggers a map/metrics pull on the frontend side.
 If no batch changes, the SSE connection stays alive (heartbeat) without forcing a heavy refresh cycle.
 
-Frontend keeps a low-frequency polling fallback if SSE disconnects.
+Frontend keeps a low-frequency polling watchdog fallback and reschedules it when relevant SSE events trigger a refresh.
 On each batch update, marker positions are interpolated from `N-1` to `N` over the measured batch interval to avoid teleport effects.
 Detail requests (`GET /api/flights/{icao24}`) are handled asynchronously and must not block the global refresh loop.
 Ingester toggles use a write-then-read reconciliation pattern: `POST /admin/ingester/scale` followed by short `GET /admin/ingester/scale` polling until target replicas converge.
@@ -184,6 +184,7 @@ Ingester toggles use a write-then-read reconciliation pattern: `POST /admin/inge
 - Static/grayed markers are computed only when `latestOpenSkyBatchEpoch` changes.
 - `staticByIcao` compares aircraft movement between consecutive batches using `STATIC_POSITION_THRESHOLD_KM`.
 - Static state context is reset when the active bbox changes.
+- Same-batch refreshes do not cancel an in-progress marker interpolation.
 - Selected flight details are refreshed on batch change, but detail fetch remains non-blocking.
 - Ingester toggle state is optimistic in UI and reconciled against observed scale state before leaving loading mode.
 
@@ -221,7 +222,9 @@ This backend-driven model keeps legend, map markers, detail panel, and KPI fleet
 - Redis hash scan is O(n) on active aircraft count.
 - SQLite lookups are local and cached to reduce repeated I/O.
 - DTO payloads are intentionally compact for frequent refresh cycles.
-- SSE avoids blind high-frequency polling.
+- SSE avoids blind high-frequency polling, while watchdog fallback keeps resilience if stream delivery pauses.
+- Marker interpolation updates Leaflet marker pose directly per frame; React state sync is performed at animation completion.
+- Marker icons are cached by visual identity to avoid repeated `DivIcon` recreation churn.
 - Non-blocking detail requests prevent selection interactions from degrading map refresh cadence.
 
 ## 12. Known Limits
