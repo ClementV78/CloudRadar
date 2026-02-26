@@ -161,8 +161,9 @@ public class RedisAggregateProcessor {
 
     if (properties.getTrackLength() > 0) {
       String trackKey = properties.getRedis().getTrackKeyPrefix() + redisIcao;
+      long trackEndIndex = (long) properties.getTrackLength() - 1L;
       redisTemplate.opsForList().leftPush(trackKey, payload);
-      redisTemplate.opsForList().trim(trackKey, 0, properties.getTrackLength() - 1);
+      redisTemplate.opsForList().trim(trackKey, 0L, trackEndIndex);
     }
 
     updateBboxState(event, redisIcao);

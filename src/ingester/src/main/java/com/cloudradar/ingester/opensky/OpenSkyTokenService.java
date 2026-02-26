@@ -153,6 +153,16 @@ public class OpenSkyTokenService {
       }
       log.error("Failed to get OpenSky token", e);
       throw e;
+    } catch (InterruptedException e) {
+      if (!recorded && httpStartNs > 0) {
+        tokenRequestTimer.record(System.nanoTime() - httpStartNs, TimeUnit.NANOSECONDS);
+      }
+      Thread.currentThread().interrupt();
+      tokenRequestExceptionCounter.increment();
+      TokenRefreshException failure =
+          registerTokenFailure("Token refresh request interrupted", e);
+      log.error("Failed to get OpenSky token", failure);
+      throw failure;
     } catch (Exception e) {
       if (!recorded && httpStartNs > 0) {
         tokenRequestTimer.record(System.nanoTime() - httpStartNs, TimeUnit.NANOSECONDS);

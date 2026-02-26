@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -30,10 +31,16 @@ public class PrometheusMetricsService {
   private final ObjectMapper objectMapper;
   private final HttpClient httpClient;
 
+  @Autowired
   public PrometheusMetricsService(DashboardProperties properties, ObjectMapper objectMapper) {
+    this(properties, objectMapper, HttpClient.newHttpClient());
+  }
+
+  PrometheusMetricsService(
+      DashboardProperties properties, ObjectMapper objectMapper, HttpClient httpClient) {
     this.properties = properties;
     this.objectMapper = objectMapper;
-    this.httpClient = HttpClient.newHttpClient();
+    this.httpClient = httpClient;
   }
 
   /**
@@ -48,7 +55,7 @@ public class PrometheusMetricsService {
     }
 
     try {
-      String baseUrl = prometheus.getBaseUrl().replaceAll("/+$", "");
+      String baseUrl = trimTrailingSlashes(prometheus.getBaseUrl());
       String query = URLEncoder.encode(CREDITS_PER_REQUEST_24H_QUERY, StandardCharsets.UTF_8);
       URI uri = URI.create(baseUrl + "/api/v1/query?query=" + query);
 
@@ -83,9 +90,21 @@ public class PrometheusMetricsService {
         return Optional.empty();
       }
       return Optional.of(Double.parseDouble(raw));
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      log.debug("Prometheus query interrupted", ex);
+      return Optional.empty();
     } catch (Exception ex) {
       log.debug("Unable to query Prometheus OpenSky credits/request 24h", ex);
       return Optional.empty();
     }
+  }
+
+  private String trimTrailingSlashes(String value) {
+    int end = value.length();
+    while (end > 0 && value.charAt(end - 1) == '/') {
+      end--;
+    }
+    return value.substring(0, end);
   }
 }

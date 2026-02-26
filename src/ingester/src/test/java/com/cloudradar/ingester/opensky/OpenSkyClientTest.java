@@ -97,4 +97,41 @@ class OpenSkyClientTest {
         .isEqualTo("https://opensky.example/states/all?lamin=46.0&lamax=50.0&lomin=2.0&lomax=4.0");
     assertThat(request.headers().firstValue("Authorization")).hasValue("Bearer test-token");
   }
+
+  @Test
+  void fetchStatesReinterruptsThreadWhenHttpClientSendIsInterrupted() throws Exception {
+    OpenSkyEndpointProvider endpointProvider = org.mockito.Mockito.mock(OpenSkyEndpointProvider.class);
+    when(endpointProvider.baseUrl()).thenReturn("https://opensky.example");
+
+    OpenSkyTokenService tokenService = org.mockito.Mockito.mock(OpenSkyTokenService.class);
+    when(tokenService.getToken()).thenReturn("test-token");
+
+    StringRedisTemplate redisTemplate = org.mockito.Mockito.mock(StringRedisTemplate.class);
+    HttpClient httpClient = org.mockito.Mockito.mock(HttpClient.class);
+    when(httpClient.send(any(HttpRequest.class), ArgumentMatchers.<HttpResponse.BodyHandler<String>>any()))
+        .thenThrow(new InterruptedException("interrupted"));
+
+    IngesterProperties properties = new IngesterProperties(
+        10_000L,
+        new IngesterProperties.Redis("cloudradar:ingest:queue"),
+        new IngesterProperties.Bbox(46.0, 50.0, 2.0, 4.0),
+        new IngesterProperties.RateLimit(4000, 50, 80, 95, 30_000L, 300_000L),
+        new IngesterProperties.BboxBoost("cloudradar:opensky:bbox:boost:active", 1.0));
+
+    OpenSkyClient client = new OpenSkyClient(
+        endpointProvider,
+        properties,
+        redisTemplate,
+        tokenService,
+        new SimpleMeterRegistry(),
+        httpClient,
+        new ObjectMapper());
+
+    FetchResult result = client.fetchStates();
+
+    assertThat(result.states()).isEmpty();
+    assertThat(result.remainingCredits()).isNull();
+    assertThat(Thread.currentThread().isInterrupted()).isTrue();
+    Thread.interrupted();
+  }
 }
