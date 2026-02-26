@@ -11,6 +11,7 @@ import com.cloudradar.ingester.opensky.OpenSkyClient;
 import com.cloudradar.ingester.redis.RedisPublisher;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -112,6 +113,70 @@ class FlightIngestJobTest {
     assertThat(readAtomicLongField(job, "creditLimitOverride")).isEqualTo(-1L);
   }
 
+  @Test
+  void ingestKeepsBaseDelayWhenRemainingCreditsMissing() {
+    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
+    RedisPublisher redisPublisher = mock(RedisPublisher.class);
+    when(openSkyClient.fetchStates()).thenReturn(new FetchResult(List.of(), null, null, null));
+    when(redisPublisher.pushEvents(anyList())).thenReturn(0);
+
+    FlightIngestJob job = new FlightIngestJob(
+        openSkyClient,
+        redisPublisher,
+        new SimpleMeterRegistry(),
+        buildProperties());
+
+    job.ingest();
+
+    assertThat(readLongField(job, "currentDelayMs")).isEqualTo(10_000L);
+  }
+
+  @Test
+  void effectiveQuotaFallsBackToConfiguredQuotaWithoutHeaderOverride() {
+    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
+    RedisPublisher redisPublisher = mock(RedisPublisher.class);
+
+    FlightIngestJob job = new FlightIngestJob(
+        openSkyClient,
+        redisPublisher,
+        new SimpleMeterRegistry(),
+        buildPropertiesWithQuota(4000L));
+
+    assertThat(invokeEffectiveQuota(job, buildPropertiesWithQuota(4000L).rateLimit())).isEqualTo(4000L);
+  }
+
+  @Test
+  void ingestKeepsBaseDelayWhenRateLimitConfigMissing() {
+    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
+    RedisPublisher redisPublisher = mock(RedisPublisher.class);
+    when(openSkyClient.fetchStates()).thenReturn(new FetchResult(List.of(), 399, 400, null));
+    when(redisPublisher.pushEvents(anyList())).thenReturn(0);
+
+    FlightIngestJob job = new FlightIngestJob(
+        openSkyClient,
+        redisPublisher,
+        new SimpleMeterRegistry(),
+        buildPropertiesWithoutRateLimit());
+
+    job.ingest();
+
+    assertThat(readLongField(job, "currentDelayMs")).isEqualTo(10_000L);
+  }
+
+  @Test
+  void quotaOrDefaultUsesConfiguredQuotaWhenNoHeaderOverride() {
+    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
+    RedisPublisher redisPublisher = mock(RedisPublisher.class);
+
+    FlightIngestJob job = new FlightIngestJob(
+        openSkyClient,
+        redisPublisher,
+        new SimpleMeterRegistry(),
+        buildPropertiesWithQuota(4000L));
+
+    assertThat(invokeQuotaOrDefault(job)).isEqualTo(4000.0);
+  }
+
   private IngesterProperties buildProperties() {
     return buildPropertiesWithQuota(4000L);
   }
@@ -122,6 +187,15 @@ class FlightIngestJobTest {
         new IngesterProperties.Redis("cloudradar:ingest:queue"),
         new IngesterProperties.Bbox(46.0, 50.0, 2.0, 4.0),
         new IngesterProperties.RateLimit(quota, 50, 80, 95, 30_000L, 300_000L),
+        new IngesterProperties.BboxBoost("cloudradar:opensky:bbox:boost:active", 1.0));
+  }
+
+  private IngesterProperties buildPropertiesWithoutRateLimit() {
+    return new IngesterProperties(
+        10_000L,
+        new IngesterProperties.Redis("cloudradar:ingest:queue"),
+        new IngesterProperties.Bbox(46.0, 50.0, 2.0, 4.0),
+        null,
         new IngesterProperties.BboxBoost("cloudradar:opensky:bbox:boost:active", 1.0));
   }
 
@@ -142,6 +216,28 @@ class FlightIngestJobTest {
       return ((java.util.concurrent.atomic.AtomicLong) field.get(target)).get();
     } catch (ReflectiveOperationException ex) {
       throw new IllegalStateException("Unable to read test field: " + fieldName, ex);
+    }
+  }
+
+  private long invokeEffectiveQuota(FlightIngestJob job, IngesterProperties.RateLimit rateLimit) {
+    try {
+      Method method = FlightIngestJob.class.getDeclaredMethod(
+          "effectiveQuota",
+          IngesterProperties.RateLimit.class);
+      method.setAccessible(true);
+      return (long) method.invoke(job, rateLimit);
+    } catch (ReflectiveOperationException ex) {
+      throw new IllegalStateException("Unable to invoke effectiveQuota for test coverage", ex);
+    }
+  }
+
+  private double invokeQuotaOrDefault(FlightIngestJob job) {
+    try {
+      Method method = FlightIngestJob.class.getDeclaredMethod("quotaOrDefault");
+      method.setAccessible(true);
+      return (double) method.invoke(job);
+    } catch (ReflectiveOperationException ex) {
+      throw new IllegalStateException("Unable to invoke quotaOrDefault for test coverage", ex);
     }
   }
 
