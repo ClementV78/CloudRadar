@@ -133,6 +133,8 @@ OpenSky credit tracking:
 ### Throttling behavior
 
 Credits are tracked from `X-Rate-Limit-Remaining` on each OpenSky response.
+When available, `X-Rate-Limit-Limit` is used as the effective quota for consumed-percent
+calculation and refresh throttling. If missing, fallback is `OPENSKY_CREDITS_QUOTA`.
 When consumption crosses thresholds (percent consumed):
 
 - >= 50% -> log warn threshold reached
@@ -140,6 +142,11 @@ When consumption crosses thresholds (percent consumed):
 - >= 95% -> refresh interval switches to `INGESTER_REFRESH_CRITICAL_MS`
 
 When credits reset (remaining increases), per-period counters reset automatically.
+
+Operational logs emitted for rate-limit diagnostics:
+- `OpenSky rate-limit header detected: limit=... (configured quota=...)`
+- `OpenSky header limit (...) differs from configured OPENSKY_CREDITS_QUOTA (...)`
+- `OpenSky rate-limit reset header updated: reset_at_epoch_seconds=...`
 
 ### Token refresh resilience
 

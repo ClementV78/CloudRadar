@@ -217,7 +217,20 @@ public class FlightIngestJob {
 
   private void updateResetTracking(Integer creditLimit, Long resetAt) {
     if (creditLimit != null && creditLimit > 0) {
-      creditLimitOverride.set(creditLimit);
+      long previous = creditLimitOverride.getAndSet(creditLimit);
+      if (previous != creditLimit) {
+        long configuredQuota = properties.rateLimit() == null ? 0 : properties.rateLimit().quota();
+        log.info(
+            "OpenSky rate-limit header detected: limit={} (configured quota={})",
+            creditLimit,
+            configuredQuota);
+        if (configuredQuota > 0 && configuredQuota != creditLimit) {
+          log.warn(
+              "OpenSky header limit ({}) differs from configured OPENSKY_CREDITS_QUOTA ({}). Throttling now uses header limit.",
+              creditLimit,
+              configuredQuota);
+        }
+      }
     } else {
       IngesterProperties.RateLimit rateLimit = properties.rateLimit();
       if (rateLimit != null && rateLimit.quota() > 0) {
@@ -226,7 +239,10 @@ public class FlightIngestJob {
     }
 
     if (resetAt != null && resetAt > 0) {
-      resetAtEpochSeconds.set(resetAt);
+      long previousResetAt = resetAtEpochSeconds.getAndSet(resetAt);
+      if (previousResetAt != resetAt) {
+        log.info("OpenSky rate-limit reset header updated: reset_at_epoch_seconds={}", resetAt);
+      }
     }
   }
 
@@ -297,8 +313,7 @@ public class FlightIngestJob {
   }
 
   private double quotaOrDefault() {
-    IngesterProperties.RateLimit rateLimit = properties.rateLimit();
-    return rateLimit == null ? 0.0 : rateLimit.quota();
+    return (double) effectiveQuota(properties.rateLimit());
   }
 
   private double thresholdPercent(String threshold) {
@@ -316,11 +331,15 @@ public class FlightIngestJob {
 
   private void updateRateLimit(Integer remainingCredits) {
     IngesterProperties.RateLimit rateLimit = properties.rateLimit();
-    if (rateLimit == null || remainingCredits == null || rateLimit.quota() <= 0) {
+    if (rateLimit == null || remainingCredits == null) {
       return;
     }
 
-    long quota = rateLimit.quota();
+    long quota = effectiveQuota(rateLimit);
+    if (quota <= 0) {
+      return;
+    }
+
     long remaining = remainingCredits;
     double consumed = ((double) (quota - remaining) / (double) quota) * 100.0;
     if (consumed < 0) {
@@ -333,9 +352,10 @@ public class FlightIngestJob {
     RateLimitLevel level = resolveLevel(consumed, rateLimit);
     if (level != lastRateLevel) {
       log.warn(
-          "OpenSky credits consumed {}% (remaining: {}). Threshold reached: {}%",
+          "OpenSky credits consumed {}% (remaining: {}/{}). Threshold reached: {}%",
           String.format("%.1f", consumed),
           remaining,
+          quota,
           levelToPercent(level, rateLimit));
       lastRateLevel = level;
     }
@@ -345,6 +365,17 @@ public class FlightIngestJob {
       log.info("Adjusting refresh interval to {}s based on OpenSky credit usage", newDelayMs / 1000);
       currentDelayMs = newDelayMs;
     }
+  }
+
+  private long effectiveQuota(IngesterProperties.RateLimit rateLimit) {
+    long limitFromHeaders = creditLimitOverride.get();
+    if (limitFromHeaders > 0) {
+      return limitFromHeaders;
+    }
+    if (rateLimit == null || rateLimit.quota() <= 0) {
+      return 0;
+    }
+    return rateLimit.quota();
   }
 
   private RateLimitLevel resolveLevel(double consumed, IngesterProperties.RateLimit rateLimit) {

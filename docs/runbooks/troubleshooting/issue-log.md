@@ -2,6 +2,19 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-02-26
+
+### [app/opensky] Credit-consumption throttling could use configured quota instead of OpenSky header limit
+- **Severity:** Medium
+- **Impact:** The ingester could switch too early (or too late) to `warn/critical` refresh intervals when `X-Rate-Limit-Limit` differed from `OPENSKY_CREDITS_QUOTA`, causing misleading logs like `consumed 90%`.
+- **Signal:** Log line `OpenSky credits consumed ...` used `remaining` from headers but throttling quota from static config.
+- **Analysis:** `FlightIngestJob.updateRateLimit(...)` computed consumed percent from `rateLimit.quota()` only, while OpenSky may return a different effective quota in `X-Rate-Limit-Limit`.
+- **Resolution:**
+  1. Use effective quota for throttling (`X-Rate-Limit-Limit` when present, fallback to configured quota).
+  2. Include remaining/quota pair in warning logs for faster diagnostics.
+  3. Add unit tests covering both header-limit and fallback behaviors.
+- **Guardrail:** For external rate limits, compute throttling decisions from provider headers when available; keep config as fallback only.
+
 ## 2026-02-24
 
 ### [frontend/map] Intermittent marker freeze due to overlapping refresh cycles
