@@ -93,11 +93,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install hadolint binary
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.local/bin"
+          curl -sSfL https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 \
+            -o "$HOME/.local/bin/hadolint"
+          chmod +x "$HOME/.local/bin/hadolint"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Lint service Dockerfile
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: src/${{ matrix.service }}/Dockerfile
-          failure-threshold: error
+        run: hadolint --failure-threshold error "src/${{ matrix.service }}/Dockerfile"
 
   dependency-security-scan:
     name: Trivy fs dependency scan

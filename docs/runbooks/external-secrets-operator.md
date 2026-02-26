@@ -273,15 +273,12 @@ spec:
     - secretKey: routing-mode
       remoteRef:
         key: /cloudradar/opensky/routing_mode
-        optional: true
     - secretKey: tunnel-base-url
       remoteRef:
         key: /cloudradar/opensky/tunnel/base_url
-        optional: true
     - secretKey: worker-base-url
       remoteRef:
         key: /cloudradar/opensky/worker/base_url
-        optional: true
 ```
 
 **Test:**

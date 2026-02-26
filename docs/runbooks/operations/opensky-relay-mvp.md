@@ -85,6 +85,8 @@ kubectl -n cloudradar get externalsecret opensky-credentials
 kubectl -n cloudradar get secret opensky-secret -o jsonpath='{.data.routing-mode}' | base64 -d
 ```
 
+Note: in this MVP manifest, OpenSky routing keys are required in SSM (no per-key `optional` fallback in `ExternalSecret`).
+
 ## 5) Switch and rollback procedure
 
 Switch to tunnel primary:
