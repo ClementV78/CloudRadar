@@ -1,6 +1,6 @@
 import { forwardRef, useEffect, type ReactNode } from 'react';
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import App from './App';
 import * as api from './api';
@@ -204,5 +204,22 @@ describe('App UI smoke', () => {
     });
 
     expect(screen.getByText('AFR123')).toBeInTheDocument();
+  });
+
+  it('switches KPI tab selection when category is clicked', async () => {
+    vi.mocked(api.fetchFlights).mockResolvedValue(buildFlightsResponse([]));
+
+    render(<App />);
+
+    const trafficButton = await screen.findByRole('button', { name: 'Traffic density' });
+    const defenseButton = screen.getByRole('button', { name: 'Military share' });
+
+    expect(trafficButton).toHaveAttribute('aria-pressed', 'true');
+    expect(defenseButton).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(defenseButton);
+
+    expect(defenseButton).toHaveAttribute('aria-pressed', 'true');
+    expect(trafficButton).toHaveAttribute('aria-pressed', 'false');
   });
 });

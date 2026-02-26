@@ -17,6 +17,7 @@ import { IDF_BBOX, MAP_MAX_BOUNDS, REFRESH_INTERVAL_MS, STALE_AFTER_SECONDS } fr
 import { DetailPanel } from './components/DetailPanel';
 import { Header } from './components/Header';
 import { KpiStrip } from './components/KpiStrip';
+import type { KpiTab } from './components/KpiStrip';
 import { MapLegend } from './components/MapLegend';
 import { createRefreshWatchdog, resolveSnapshotUpdateAction, shouldRefreshFromStreamEvent } from './mapRefresh';
 import { createMarkerIconResolver } from './markerIcons';
@@ -379,6 +380,7 @@ export default function App(): JSX.Element {
   const [ingesterKnown, setIngesterKnown] = useState(false);
   const [ingesterLoading, setIngesterLoading] = useState(false);
   const [ingesterPendingTarget, setIngesterPendingTarget] = useState<0 | 1 | null>(null);
+  const [activeKpiTab, setActiveKpiTab] = useState<KpiTab>('traffic');
   const lastBatchEpochRef = useRef<number | null>(null);
   const hasMetricsRef = useRef<boolean>(false);
   const missingSelectionCyclesRef = useRef<number>(0);
@@ -1028,13 +1030,37 @@ export default function App(): JSX.Element {
         onClose={handleCloseDetail}
       />
 
-      <section className="kpi-tabs glass-panel">
-        <span>Traffic density</span>
-        <span>Military share</span>
-        <span>Aircraft types</span>
+      <section className="kpi-tabs glass-panel" aria-label="KPI categories">
+        <button
+          type="button"
+          className={`kpi-tab-button${activeKpiTab === 'traffic' ? ' is-active' : ''}`}
+          aria-pressed={activeKpiTab === 'traffic'}
+          aria-controls="kpi-panel-traffic"
+          onClick={() => setActiveKpiTab('traffic')}
+        >
+          Traffic density
+        </button>
+        <button
+          type="button"
+          className={`kpi-tab-button${activeKpiTab === 'defense' ? ' is-active' : ''}`}
+          aria-pressed={activeKpiTab === 'defense'}
+          aria-controls="kpi-panel-defense"
+          onClick={() => setActiveKpiTab('defense')}
+        >
+          Military share
+        </button>
+        <button
+          type="button"
+          className={`kpi-tab-button${activeKpiTab === 'fleet' ? ' is-active' : ''}`}
+          aria-pressed={activeKpiTab === 'fleet'}
+          aria-controls="kpi-panel-fleet"
+          onClick={() => setActiveKpiTab('fleet')}
+        >
+          Aircraft types
+        </button>
       </section>
 
-      <KpiStrip flights={flights} metrics={metrics} />
+      <KpiStrip flights={flights} metrics={metrics} activeTab={activeKpiTab} />
     </main>
   );
 }
