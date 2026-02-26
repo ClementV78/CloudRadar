@@ -216,34 +216,57 @@ public class FlightIngestJob {
   }
 
   private void updateResetTracking(Integer creditLimit, Long resetAt) {
+    applyEffectiveCreditLimit(creditLimit);
+    applyResetAtHeader(resetAt);
+  }
+
+  private void applyEffectiveCreditLimit(Integer creditLimit) {
     if (creditLimit != null && creditLimit > 0) {
-      long previous = creditLimitOverride.getAndSet(creditLimit);
-      if (previous != creditLimit) {
-        long configuredQuota = properties.rateLimit() == null ? 0 : properties.rateLimit().quota();
-        log.info(
-            "OpenSky rate-limit header detected: limit={} (configured quota={})",
-            creditLimit,
-            configuredQuota);
-        if (configuredQuota > 0 && configuredQuota != creditLimit) {
-          log.warn(
-              "OpenSky header limit ({}) differs from configured OPENSKY_CREDITS_QUOTA ({}). Throttling now uses header limit.",
-              creditLimit,
-              configuredQuota);
-        }
-      }
-    } else {
-      IngesterProperties.RateLimit rateLimit = properties.rateLimit();
-      if (rateLimit != null && rateLimit.quota() > 0) {
-        creditLimitOverride.set(rateLimit.quota());
-      }
+      applyCreditLimitFromHeader(creditLimit);
+      return;
     }
 
-    if (resetAt != null && resetAt > 0) {
-      long previousResetAt = resetAtEpochSeconds.getAndSet(resetAt);
-      if (previousResetAt != resetAt) {
-        log.info("OpenSky rate-limit reset header updated: reset_at_epoch_seconds={}", resetAt);
-      }
+    long configuredQuota = configuredQuota();
+    if (configuredQuota > 0) {
+      creditLimitOverride.set(configuredQuota);
     }
+  }
+
+  private void applyCreditLimitFromHeader(long creditLimit) {
+    long previous = creditLimitOverride.getAndSet(creditLimit);
+    if (previous == creditLimit) {
+      return;
+    }
+
+    long configuredQuota = configuredQuota();
+    log.info(
+        "OpenSky rate-limit header detected: limit={} (configured quota={})",
+        creditLimit,
+        configuredQuota);
+    if (configuredQuota > 0 && configuredQuota != creditLimit) {
+      log.warn(
+          "OpenSky header limit ({}) differs from configured OPENSKY_CREDITS_QUOTA ({}). Throttling now uses header limit.",
+          creditLimit,
+          configuredQuota);
+    }
+  }
+
+  private void applyResetAtHeader(Long resetAt) {
+    if (resetAt == null || resetAt <= 0) {
+      return;
+    }
+    long previousResetAt = resetAtEpochSeconds.getAndSet(resetAt);
+    if (previousResetAt != resetAt) {
+      log.info("OpenSky rate-limit reset header updated: reset_at_epoch_seconds={}", resetAt);
+    }
+  }
+
+  private long configuredQuota() {
+    IngesterProperties.RateLimit rateLimit = properties.rateLimit();
+    if (rateLimit == null || rateLimit.quota() <= 0) {
+      return 0;
+    }
+    return rateLimit.quota();
   }
 
   private double resetEtaSeconds() {
@@ -313,7 +336,7 @@ public class FlightIngestJob {
   }
 
   private double quotaOrDefault() {
-    return (double) effectiveQuota(properties.rateLimit());
+    return effectiveQuota(properties.rateLimit());
   }
 
   private double thresholdPercent(String threshold) {
