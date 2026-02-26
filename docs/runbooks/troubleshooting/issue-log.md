@@ -4,6 +4,20 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-26
 
+### [ci/sonar] Main quality gate failed on reliability + hotspot review after map hardening merge
+- **Severity:** Medium
+- **Impact:** SonarCloud `main` gate stayed red (`new_reliability_rating=B`, `new_security_hotspots_reviewed=0%`), which blocked merge confidence and delayed delivery.
+- **Signal:** SonarCloud summary reported 2 failed conditions after merge commit `09c3dc6`:
+  - 4 new-code `BUG` issues (`java:S2142` x3, `java:S2184` x1)
+  - 1 `TO_REVIEW` hotspot (`java:S5852`) on regex trailing-slash cleanup
+- **Analysis:** Interrupted execution paths in HTTP clients were swallowed by broad `catch (Exception)` blocks without explicit re-interrupt, and one regex-based URL normalization triggered hotspot review despite low practical risk.
+- **Resolution:**
+  1. Replace regex trailing-slash cleanup in `PrometheusMetricsService` with a non-regex trim helper.
+  2. Handle `InterruptedException` explicitly in `PrometheusMetricsService`, `OpenSkyTokenService`, and `OpenSkyClient` (`Thread.currentThread().interrupt()` + controlled fallback path).
+  3. Cast Redis track-trim index arithmetic to `long` in `RedisAggregateProcessor` to avoid integer operation warning (`S2184`).
+  4. Add focused unit tests for interruption + Prometheus URL trimming to keep coverage on changed paths.
+- **Guardrail:** For blocking calls (`HttpClient.send`), always catch `InterruptedException` explicitly and preserve thread interruption before fallback/rethrow.
+
 ### [app/opensky] Credit-consumption throttling could use configured quota instead of OpenSky header limit
 - **Severity:** Medium
 - **Impact:** The ingester could switch too early (or too late) to `warn/critical` refresh intervals when `X-Rate-Limit-Limit` differed from `OPENSKY_CREDITS_QUOTA`, causing misleading logs like `consumed 90%`.

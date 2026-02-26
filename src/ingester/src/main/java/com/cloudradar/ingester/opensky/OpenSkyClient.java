@@ -152,6 +152,15 @@ public class OpenSkyClient {
       statesRequestExceptionCounter.increment();
       log.error("Failed to fetch OpenSky states", ex);
       throw ex;
+    } catch (InterruptedException ex) {
+      lastStatusCode.set(0);
+      if (!recorded && httpStartNs > 0) {
+        statesRequestTimer.record(System.nanoTime() - httpStartNs, TimeUnit.NANOSECONDS);
+      }
+      statesRequestExceptionCounter.increment();
+      Thread.currentThread().interrupt();
+      log.error("Failed to fetch OpenSky states: request interrupted", ex);
+      return new FetchResult(List.of(), null, null, null);
     } catch (Exception ex) {
       lastStatusCode.set(0);
       if (!recorded && httpStartNs > 0) {
