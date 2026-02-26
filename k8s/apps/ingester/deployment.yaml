@@ -22,7 +22,7 @@ spec:
         runAsUser: 10001
       containers:
         - name: ingester
-          image: ghcr.io/clementv78/cloudradar/ingester:0.1.50
+          image: ghcr.io/clementv78/cloudradar/ingester:0.1.51
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -51,6 +51,48 @@ spec:
                 secretKeyRef:
                   name: opensky-secret
                   key: token-url
+            - name: OPENSKY_ROUTING_MODE
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: routing-mode
+                  optional: true
+            - name: OPENSKY_TUNNEL_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: tunnel-base-url
+                  optional: true
+            - name: OPENSKY_TUNNEL_TOKEN_URL
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: tunnel-token-url
+                  optional: true
+            - name: OPENSKY_WORKER_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: worker-base-url
+                  optional: true
+            - name: OPENSKY_WORKER_TOKEN_URL
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: worker-token-url
+                  optional: true
+            - name: OPENSKY_RELAY_AUTH_HEADER
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: relay-auth-header
+                  optional: true
+            - name: OPENSKY_RELAY_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: opensky-secret
+                  key: relay-auth-token
+                  optional: true
             - name: OPENSKY_LAT_MIN
               value: "47.9557"
             - name: OPENSKY_LAT_MAX

@@ -139,7 +139,8 @@ Purpose: deploy the Redis buffer used by ingester/processor.
 
 Purpose: run the Java ingester locally or deploy it to k3s.
 
-- Runbook: `docs/runbooks/ingester.md`
+- Runbook: `docs/runbooks/operations/ingester.md`
+- Relay routing (MVP): `docs/runbooks/operations/opensky-relay-mvp.md`
 
 ## 3.6) Processor aggregates
 

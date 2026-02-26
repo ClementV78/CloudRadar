@@ -57,8 +57,18 @@ See [ADR-0016](../architecture/decisions/ADR-0016-2026-01-29-external-secrets-op
 aws ssm put-parameter --name /cloudradar/opensky/client_id --value "..." --type SecureString
 aws ssm put-parameter --name /cloudradar/opensky/client_secret --value "..." --type SecureString
 aws ssm put-parameter --name /cloudradar/opensky/base_url --value "https://opensky-network.org/api" --type String
-aws ssm put-parameter --name /cloudradar/opensky/token_url --value "https://opensky-network.org/api/v1/authentication/openid/auth" --type String
+aws ssm put-parameter --name /cloudradar/opensky/token_url --value "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token" --type String
+aws ssm put-parameter --name /cloudradar/opensky/routing_mode --value "worker-fallback" --type String
+aws ssm put-parameter --name /cloudradar/opensky/tunnel/base_url --value "<PRIVATE_TUNNEL_BASE_URL>" --type String
+aws ssm put-parameter --name /cloudradar/opensky/tunnel/token_url --value "<PRIVATE_TUNNEL_TOKEN_URL>" --type String
+aws ssm put-parameter --name /cloudradar/opensky/tunnel/auth_header --value "X-CloudRadar-Relay-Token" --type String
+aws ssm put-parameter --name /cloudradar/opensky/tunnel/auth_token --value "<PRIVATE_RELAY_SHARED_TOKEN>" --type SecureString
+aws ssm put-parameter --name /cloudradar/opensky/worker/base_url --value "<CLOUDFLARE_WORKER_BASE_URL>" --type String
+aws ssm put-parameter --name /cloudradar/opensky/worker/token_url --value "<CLOUDFLARE_WORKER_TOKEN_URL>" --type String
 ```
+
+OpenSky relay operations details (Cloudflare tunnel + private local relay contract):
+- `docs/runbooks/operations/opensky-relay-mvp.md`
 
 **Grafana:**
 ```bash
@@ -235,7 +245,7 @@ kubectl describe clustersecretstore ssm-parameter-store
 
 ## Phase 4: Create ExternalSecrets
 
-### 1. OpenSky API Key
+### 1. OpenSky credentials and routing
 
 File: `k8s/apps/external-secrets/opensky-secret.yaml`
 
@@ -244,34 +254,44 @@ apiVersion: external-secrets.io/v1beta1
 kind: ExternalSecret
 metadata:
   name: opensky-credentials
-  namespace: default
+  namespace: cloudradar
 spec:
   refreshInterval: 1h
   secretStoreRef:
     name: ssm-parameter-store
+    kind: ClusterSecretStore
   target:
-    name: opensky-secret  # K8s Secret name
-    template:
-      engineVersion: v2
-      data:
-        api-key: "{{ .apiKey }}"
+    name: opensky-secret
+    creationPolicy: Owner
   data:
-    - secretKey: apiKey
+    - secretKey: client-id
       remoteRef:
-        key: /cloudradar/opensky-api-key  # SSM param path
+        key: /cloudradar/opensky/client_id
+    - secretKey: client-secret
+      remoteRef:
+        key: /cloudradar/opensky/client_secret
+    - secretKey: routing-mode
+      remoteRef:
+        key: /cloudradar/opensky/routing_mode
+    - secretKey: tunnel-base-url
+      remoteRef:
+        key: /cloudradar/opensky/tunnel/base_url
+    - secretKey: worker-base-url
+      remoteRef:
+        key: /cloudradar/opensky/worker/base_url
 ```
 
 **Test:**
 ```bash
 kubectl apply -f k8s/apps/external-secrets/opensky-secret.yaml
-kubectl get externalsecret opensky-credentials
+kubectl -n cloudradar get externalsecret opensky-credentials
 # Should show READY
 
-kubectl get secret opensky-secret
-# Should exist with key 'api-key'
+kubectl -n cloudradar get secret opensky-secret
+# Should exist with OpenSky credentials and routing keys
 
-kubectl get secret opensky-secret -o jsonpath='{.data.api-key}' | base64 -d
-# Should print the API key
+kubectl -n cloudradar get secret opensky-secret -o jsonpath='{.data.routing-mode}' | base64 -d
+# Should print the current routing mode
 ```
 
 ### 2. Grafana Admin Password

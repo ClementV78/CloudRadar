@@ -36,11 +36,17 @@ Runbook for the OpenSky ingester service (Java 17 / Spring Boot).
 - `REDIS_PORT` (default `6379`)
 - `INGESTER_REDIS_KEY` (default `cloudradar:ingest:queue`)
 
-### OpenSky auth (SSM or direct)
+### OpenSky auth + routing mode
 
-- `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` (optional direct credentials)
-- `OPENSKY_CLIENT_ID_SSM` / `OPENSKY_CLIENT_SECRET_SSM` (default `/cloudradar/opensky/client_id` and `/cloudradar/opensky/client_secret`)
-- `OPENSKY_BASE_URL_SSM` / `OPENSKY_TOKEN_URL_SSM` (optional SSM parameter names for custom OpenSky endpoints)
+- `OPENSKY_CLIENT_ID` / `OPENSKY_CLIENT_SECRET` (required credentials)
+- `OPENSKY_ROUTING_MODE` (default `direct`)
+  - `direct`: use `OPENSKY_BASE_URL` + `OPENSKY_TOKEN_URL`
+  - `tunnel-primary`: use `OPENSKY_TUNNEL_BASE_URL` + `OPENSKY_TUNNEL_TOKEN_URL`
+  - `worker-fallback`: use `OPENSKY_WORKER_BASE_URL` + `OPENSKY_WORKER_TOKEN_URL`
+- `OPENSKY_BASE_URL` / `OPENSKY_TOKEN_URL` (used in `direct` mode)
+- `OPENSKY_TUNNEL_BASE_URL` / `OPENSKY_TUNNEL_TOKEN_URL` (used in `tunnel-primary` mode)
+- `OPENSKY_WORKER_BASE_URL` / `OPENSKY_WORKER_TOKEN_URL` (used in `worker-fallback` mode)
+- `OPENSKY_RELAY_AUTH_HEADER` / `OPENSKY_RELAY_AUTH_TOKEN` (optional, sent only in `tunnel-primary` mode)
 
 ## Local development
 
@@ -55,6 +61,7 @@ docker run -d --name redis-local -p 6379:6379 redis:7-alpine
 ```bash
 export OPENSKY_CLIENT_ID="<client-id>"
 export OPENSKY_CLIENT_SECRET="<client-secret>"
+export OPENSKY_ROUTING_MODE=direct
 export REDIS_HOST=localhost
 export REDIS_PORT=6379
 export INGESTER_REFRESH_MS=30000
@@ -80,10 +87,18 @@ Follow `docs/runbooks/aws-account-bootstrap.md` to create:
 
 - `/cloudradar/opensky/client_id`
 - `/cloudradar/opensky/client_secret`
-- `/cloudradar/opensky/base_url` (optional)
-- `/cloudradar/opensky/token_url` (optional)
+- `/cloudradar/opensky/base_url`
+- `/cloudradar/opensky/token_url`
+- `/cloudradar/opensky/routing_mode` (`direct` | `tunnel-primary` | `worker-fallback`)
+- `/cloudradar/opensky/tunnel/base_url` (placeholder pattern: `<PRIVATE_TUNNEL_BASE_URL>`)
+- `/cloudradar/opensky/tunnel/token_url` (placeholder pattern: `<PRIVATE_TUNNEL_TOKEN_URL>`)
+- `/cloudradar/opensky/tunnel/auth_header` (optional)
+- `/cloudradar/opensky/tunnel/auth_token` (optional, `SecureString`)
+- `/cloudradar/opensky/worker/base_url` (placeholder pattern: `<CLOUDFLARE_WORKER_BASE_URL>`)
+- `/cloudradar/opensky/worker/token_url` (placeholder pattern: `<CLOUDFLARE_WORKER_TOKEN_URL>`)
 
 Ensure the k3s node IAM role can read them (`ssm:GetParameter`).
+Never commit real tunnel hostnames, local IPs, or personal endpoints in Git.
 
 ### 2) Deploy the ingester manifests
 
@@ -95,6 +110,27 @@ kubectl -n cloudradar logs deploy/ingester --tail=50
 
 Note: the ingester deployment is set to `replicas: 0` by default. Use the admin scale API runbook
 to enable it when needed: `docs/runbooks/admin-scale.md`.
+
+### 2.1) Switch routing mode (MVP rollout/rollback)
+
+Switch to tunnel-primary:
+
+```bash
+aws ssm put-parameter --name /cloudradar/opensky/routing_mode --type String --overwrite --value "tunnel-primary"
+kubectl -n cloudradar rollout restart deploy/ingester
+kubectl -n cloudradar logs deploy/ingester --tail=100 | grep "OpenSky routing mode selected"
+```
+
+Rollback to worker-fallback:
+
+```bash
+aws ssm put-parameter --name /cloudradar/opensky/routing_mode --type String --overwrite --value "worker-fallback"
+kubectl -n cloudradar rollout restart deploy/ingester
+kubectl -n cloudradar logs deploy/ingester --tail=100 | grep "OpenSky routing mode selected"
+```
+
+For local/private relay and Cloudflare tunnel setup, see:
+- `docs/runbooks/operations/opensky-relay-mvp.md`
 
 ### 3) Validate health + metrics
 

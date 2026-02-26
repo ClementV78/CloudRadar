@@ -4,6 +4,19 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-02-26
 
+### [app/opensky] Cloud egress `522` mitigated with config-driven tunnel-primary/worker-fallback routing
+- **Severity:** High
+- **Impact:** Ingestion could repeatedly return `Fetched 0 states, pushed 0 events` when OpenSky blocked cloud-origin traffic, reducing map freshness.
+- **Signal:** Recurring `OpenSky fetch failed: status=522` from cloud-hosted ingester runtime.
+- **Analysis:** Direct cloud-origin requests to OpenSky were intermittently blocked; traffic needed a non-cloud egress path while preserving an operational fallback.
+- **Resolution:**
+  1. Add deterministic OpenSky routing mode in ingester config (`direct`, `tunnel-primary`, `worker-fallback`) with explicit endpoint validation.
+  2. Add optional relay auth header/token support for tunnel-primary mode.
+  3. Wire new OpenSky routing keys through SSM -> ESO -> `opensky-secret` -> ingester env vars.
+  4. Document Cloudflare tunnel + local relay MVP operations, private/local config handling, and mode switch/rollback runbook.
+- **Guardrail:** Never commit real local relay identity (IP/FQDN/tunnel ID/token). Keep sensitive endpoint details in SSM/Secrets only.
+- **Refs:** issue #524
+
 ### [ci/sonar] Main quality gate failed on reliability + hotspot review after map hardening merge
 - **Severity:** Medium
 - **Impact:** SonarCloud `main` gate stayed red (`new_reliability_rating=B`, `new_security_hotspots_reviewed=0%`), which blocked merge confidence and delayed delivery.
