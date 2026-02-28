@@ -115,19 +115,19 @@ The MVP edge certificate flow is:
 ```mermaid
 flowchart LR
   subgraph GH["GitHub Actions (manual)"]
-    WF["bootstrap-terraform-backend\n(issue_tls=true)"]
+    WF["bootstrap-terraform-backend<br>(issue_tls=true)"]
     CERTBOT["certbot + dns-route53"]
     WF --> CERTBOT
   end
 
   subgraph LE["Let's Encrypt + DNS challenge"]
     LECA["Let's Encrypt CA"]
-    R53["Route53 hosted zone\n_acme-challenge TXT"]
+    R53["Route53 hosted zone<br>_acme-challenge TXT"]
   end
 
   subgraph AWS["AWS"]
-    SSM["SSM Parameter Store\n/cloudradar/edge/tls/fullchain_pem\n/cloudradar/edge/tls/privkey_pem"]
-    EDGE["Edge EC2 (Nginx)\nuser-data strict TLS load"]
+    SSM["SSM Parameter Store<br>/cloudradar/edge/tls/fullchain_pem<br>/cloudradar/edge/tls/privkey_pem"]
+    EDGE["Edge EC2 (Nginx)<br>user-data strict TLS load"]
   end
 
   CERTBOT -->|DNS-01 challenge| R53
@@ -140,6 +140,9 @@ flowchart LR
 Strict behavior:
 - edge boot fails if TLS parameters are missing, expired, or cert/key mismatch.
 - bootstrap run fails when `issue_tls=false` and no valid existing certificate is found in SSM.
+
+Decision reference:
+- [ADR-0020: Edge TLS Certificate Lifecycle (MVP)](./decisions/ADR-0020-2026-02-28-edge-tls-certificate-lifecycle-mvp.md)
 
 ## Kubernetes workloads (namespaces + data flow)
 
