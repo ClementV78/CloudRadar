@@ -68,6 +68,18 @@ variable "admin_token_ssm_parameter_name" {
   type        = string
 }
 
+variable "tls_fullchain_ssm_parameter_name" {
+  description = "SSM parameter name storing the TLS fullchain PEM."
+  type        = string
+  default     = "/cloudradar/edge/tls/fullchain_pem"
+}
+
+variable "tls_privkey_ssm_parameter_name" {
+  description = "SSM parameter name storing the TLS private key PEM."
+  type        = string
+  default     = "/cloudradar/edge/tls/privkey_pem"
+}
+
 variable "region" {
   description = "AWS region for the SSM parameter lookup."
   type        = string

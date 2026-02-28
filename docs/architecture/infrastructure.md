@@ -105,6 +105,45 @@ flowchart TB
   k3s -. "SSM (optional)" .-> ssmEndpoints
 ```
 
+## Edge TLS Certificate Architecture (MVP)
+
+The MVP edge certificate flow is:
+- certificate issuance via Let's Encrypt DNS-01 from the bootstrap workflow,
+- certificate artifacts stored in AWS SSM Parameter Store,
+- strict certificate loading at edge boot (no self-signed fallback).
+
+```mermaid
+flowchart LR
+  subgraph GH["GitHub Actions (manual)"]
+    WF["bootstrap-terraform-backend<br>(issue_tls=true)"]
+    CERTBOT["certbot + dns-route53"]
+    WF --> CERTBOT
+  end
+
+  subgraph LE["Let's Encrypt + DNS challenge"]
+    LECA["Let's Encrypt CA"]
+    R53["Route53 hosted zone<br>_acme-challenge TXT"]
+  end
+
+  subgraph AWS["AWS"]
+    SSM["SSM Parameter Store<br>/cloudradar/edge/tls/fullchain_pem<br>/cloudradar/edge/tls/privkey_pem"]
+    EDGE["Edge EC2 (Nginx)<br>user-data strict TLS load"]
+  end
+
+  CERTBOT -->|DNS-01 challenge| R53
+  CERTBOT -->|certificate issuance| LECA
+  CERTBOT -->|store PEM| SSM
+  EDGE -->|GetParameter + decrypt| SSM
+  EDGE -->|serve HTTPS:443| INTERNET[(Internet)]
+```
+
+Strict behavior:
+- edge boot fails if TLS parameters are missing, expired, or cert/key mismatch.
+- bootstrap run fails when `issue_tls=false` and no valid existing certificate is found in SSM.
+
+Decision reference:
+- [ADR-0020: Edge TLS Certificate Lifecycle (MVP)](./decisions/ADR-0020-2026-02-28-edge-tls-certificate-lifecycle-mvp.md)
+
 ## Kubernetes workloads (namespaces + data flow)
 
 ```mermaid
@@ -250,6 +289,7 @@ See [docs/runbooks/observability.md](../runbooks/observability.md) for operation
 ## Status
 
 - Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, S3 backup bucket for SQLite snapshots.
+- Implemented (Edge TLS MVP): Let's Encrypt DNS-01 issuance from bootstrap workflow and certificate storage in SSM (`/cloudradar/edge/tls/*`) consumed by edge at boot in strict mode.
 - Implemented (IaC, dev): SSM/KMS interface endpoints are temporarily disabled to reduce cost; edge uses HTTPS egress for SSM.
 - Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery, Redis buffer in the data namespace, EBS CSI driver + `ebs-gp3` StorageClass.
 - Implemented (Observability): Prometheus + Grafana stack (7d retention, 5GB PVC, $0.50/month), auto-deployed via ArgoCD, secrets/config synced from SSM via ESO.
@@ -271,6 +311,6 @@ See [docs/runbooks/observability.md](../runbooks/observability.md) for operation
 - SQLite backup bucket is provisioned by the Terraform bootstrap stack to keep it outside environment destroys.
 - TODO: set edge `server_name` to the public DNS name once available (remove nginx warning).
 - TODO: improve edge HA by running nginx on public k3s nodes + ASG (min 1, ideally 2+) with vertical scaling as needed.
-- TODO: migrate edge TLS to ACM + Route53 (issue #14).
+- Planned (v1.1+): evaluate migration of edge TLS to ACM/managed edge path (issue #14). Current MVP remains Let's Encrypt DNS-01 + SSM TLS artifacts.
 - TODO: tighten edge egress to k3s SG (replace CIDR-based egress).
 - IAM permissions needed for these resources are documented in `docs/runbooks/aws-account-bootstrap.md`.

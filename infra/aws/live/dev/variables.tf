@@ -201,6 +201,18 @@ variable "edge_admin_token_ssm_parameter_name" {
   type        = string
 }
 
+variable "edge_tls_fullchain_ssm_parameter_name" {
+  description = "SSM parameter name storing the edge TLS fullchain PEM."
+  type        = string
+  default     = "/cloudradar/edge/tls/fullchain_pem"
+}
+
+variable "edge_tls_privkey_ssm_parameter_name" {
+  description = "SSM parameter name storing the edge TLS private key PEM."
+  type        = string
+  default     = "/cloudradar/edge/tls/privkey_pem"
+}
+
 variable "edge_dashboard_nodeport" {
   description = "NodePort for the dashboard service."
   type        = number

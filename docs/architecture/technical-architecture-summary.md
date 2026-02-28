@@ -36,7 +36,7 @@ Chaque évolution, chaque arbitrage technique et chaque correction ont été tra
 **Observability & SRE Practices**:
 - ✅ Full-stack metrics (app → platform → infra) with Prometheus + Grafana
 - ✅ Service-level instrumentation (`/healthz` + Prometheus scrape endpoints)
-- ✅ 20 Architecture Decision Records documenting trade-offs
+- ✅ 21 Architecture Decision Records documenting trade-offs
 
 **Security & Compliance**:
 - ✅ Zero-trust network architecture (IAM-only access, no SSH)
@@ -177,6 +177,7 @@ graph TB
 | **Network** | Single ingress (443), private subnets, security groups deny-by-default | Attack surface minimized |
 | **Access** | No SSH keys, IAM-only (SSM Session Manager for debugging) | Zero credential sprawl |
 | **Secrets** | SSM Parameter Store + External Secrets Operator | No plaintext secrets committed in Git; runtime secrets synced to k8s |
+| **Edge TLS Cert** | Let's Encrypt DNS-01 -> SSM (`/cloudradar/edge/tls/*`) -> edge boot load | Public cert without port 80; cert artifacts persist outside env destroys ([ADR-0020](decisions/ADR-0020-2026-02-28-edge-tls-certificate-lifecycle-mvp.md)) |
 | **IAM** | Least-privilege roles + OIDC for CI/CD (no long-lived CI secrets) | CloudTrail auditability, reduced credential sprawl |
 | **Encryption** | EBS encrypted at rest, TLS in transit (edge Nginx + in-cluster ingress) | Data protection at rest/transit |
 | **State** | Terraform backend in S3 (encrypted, versioned, DynamoDB lock) | Safe concurrent operations, rollback and audit history |
@@ -520,7 +521,7 @@ pie
 
 **For deeper technical details**:
 - [Full Technical Architecture Document](./technical-architecture-document.md) — Complete 28-diagram analysis (1000+ lines)
-- [Architecture Decision Records](./decisions/) — 20 ADRs (context, alternatives, trade-offs)
+- [Architecture Decision Records](./decisions/) — 21 ADRs (context, alternatives, trade-offs)
 - [Infrastructure Documentation](./infrastructure.md) — AWS/Terraform architecture details
 - [Application Architecture](./application-architecture.md) — Microservices design patterns
 - [Runbooks](../runbooks/) — Bootstrap, operations, troubleshooting
@@ -528,4 +529,4 @@ pie
 
 ---
 
-**Document Maintenance**: Update when major architectural changes are merged. Last updated: 2026-02-13.
+**Document Maintenance**: Update when major architectural changes are merged. Last updated: 2026-02-28.
