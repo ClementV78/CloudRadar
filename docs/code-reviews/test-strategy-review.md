@@ -8,7 +8,7 @@
 
 ## Status Update (2026-02-24)
 
-Progress implemented in issues #490, #491, and #506:
+Progress implemented in issues #490, #491, #506, and #509:
 - Added blocking CI test execution in `build-and-push.yml` (`mvn -B test`, `npm test -- --run`).
 - Added `contextLoads()` smoke tests for `ingester`, `processor`, and `dashboard`.
 - Added critical mapping/parsing unit tests:
@@ -16,6 +16,10 @@ Progress implemented in issues #490, #491, and #506:
   - `processor`: `PositionEventTest` (JSON contract parsing/serialization)
 - Added `spring-boot-starter-test` in `ingester` and `processor` test scopes.
 - Added quality/safety gates to app CI: Hadolint (all Dockerfiles), Trivy fs dependency scan, and kubeconform manifest validation (in `ci-k8s.yml`).
+- Updated Java service READMEs with local test command and coverage notes.
+- Added visible CI quality gates (`java-tests`, `frontend-tests`, `dockerfile-lint`, `dependency-security-scan`) before image build.
+- Added workflow-level summary reports in both `build-and-push` and `ci-k8s`.
+- Removed CI annotation noise from unsupported Trivy action input and known Hadolint warning-only findings.
 
 Progress in issue #492 (open, in progress on this branch):
 - Added Redis Testcontainers integration tests for `ingester`, `processor`, and `dashboard`.
@@ -40,7 +44,7 @@ Note: section 2 keeps a historical proposal-review snapshot for traceability; se
 
 ## 1. Current Baseline (2026-02-24)
 
-Current repository status after #490/#491/#506, with #492 currently in progress:
+Current repository status after #490/#491/#506/#509, with #492 currently in progress:
 
 | Service | Language | Source files | Tests | Type | Test framework |
 |---|---|---|---|---|---|
@@ -1014,6 +1018,8 @@ This is achievable in **~20h incremental work**, spread over 3-4 short iteration
 - [x] `mvn test` (or `mvn verify -DskipITs`) executed in `build-and-push.yml`
 - [x] Hadolint added to `build-and-push.yml`
 - [x] kubeconform added to `ci-k8s.yml`
+- [x] Workflow-level CI summary reports added (`build-and-push`, `ci-k8s`)
+- [x] Trivy fs action input normalized (`vuln-type`) to avoid unsupported-input warnings
 - [ ] `.github/dependabot.yml` configured (maven + npm + github-actions)
 
 **Phase 1 — Context smoke + static analysis:**
