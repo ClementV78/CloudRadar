@@ -68,15 +68,31 @@ Issue #532 defines renewal monitoring and controlled renewal execution.
 ## Alternatives considered
 
 1. **ACM + ALB/CloudFront managed termination**
-   - Pros: managed renewals.
-   - Cons: increased cost/complexity for MVP edge model.
+   - Pros:
+     - fully managed issuance and renewal lifecycle,
+     - native AWS integration and mature operational model.
+   - Why not retained for MVP:
+     - ACM public certificates are not exportable, so they cannot be used directly by the current Edge Nginx TLS termination model.
+     - Adopting ACM implies changing the termination point to ALB/CloudFront, which is a broader architecture change than issue #531.
+     - This adds always-on resources and additional cost/operations for a scope currently focused on low-cost MVP delivery.
 
 2. **cert-manager inside k3s with DNS-01**
-   - Pros: Kubernetes-native lifecycle.
-   - Cons: extra cluster components and operational overhead for this scope.
+   - Pros:
+     - Kubernetes-native certificate automation,
+     - well-known operational pattern for in-cluster ingress TLS.
+   - Why not retained for MVP:
+     - Current public TLS termination is outside the cluster (Edge Nginx EC2), so cert-manager does not solve the end-to-end path alone.
+     - It would require either (a) moving TLS termination into k3s ingress or (b) adding a secure cert handoff from cluster to edge host, both outside MVP scope.
+     - Introduces extra controllers/permissions and troubleshooting surface for limited immediate value.
 
 3. **Store certificate/key directly in Terraform state or repository files**
-   - Rejected for security reasons (secret exposure and persistence in state/history).
+   - Pros:
+     - very simple initial implementation path,
+     - no additional runtime fetch logic required.
+   - Why not retained for MVP:
+     - private key exposure risk in Git history or Terraform state snapshots/backups is not acceptable.
+     - would violate project security baseline (no plaintext secrets in code/state) and least-privilege principles.
+     - rollback and sharing operations would increase accidental disclosure risk.
 
 ## Implementation status
 
