@@ -177,6 +177,7 @@ graph TB
 | **Network** | Single ingress (443), private subnets, security groups deny-by-default | Attack surface minimized |
 | **Access** | No SSH keys, IAM-only (SSM Session Manager for debugging) | Zero credential sprawl |
 | **Secrets** | SSM Parameter Store + External Secrets Operator | No plaintext secrets committed in Git; runtime secrets synced to k8s |
+| **Edge TLS Cert** | Let's Encrypt DNS-01 -> SSM (`/cloudradar/edge/tls/*`) -> edge boot load | Public cert without port 80; cert artifacts persist outside env destroys |
 | **IAM** | Least-privilege roles + OIDC for CI/CD (no long-lived CI secrets) | CloudTrail auditability, reduced credential sprawl |
 | **Encryption** | EBS encrypted at rest, TLS in transit (edge Nginx + in-cluster ingress) | Data protection at rest/transit |
 | **State** | Terraform backend in S3 (encrypted, versioned, DynamoDB lock) | Safe concurrent operations, rollback and audit history |

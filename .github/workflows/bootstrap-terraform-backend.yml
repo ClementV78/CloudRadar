@@ -23,6 +23,14 @@ on:
       dns_zone_name:
         description: "Optional Route53 hosted zone name for delegated subdomain (e.g., cloudradar.example.com)"
         required: false
+      issue_tls:
+        description: "Issue a public TLS certificate with Let's Encrypt DNS-01 and store it in SSM"
+        required: false
+        type: boolean
+        default: false
+      tls_domain:
+        description: "TLS domain to issue (required when issue_tls=true, e.g., cloudradar.example.com)"
+        required: false
       role_arn:
         description: "Optional role ARN to assume (defaults to AWS_TERRAFORM_ROLE_ARN variable)"
         required: false
@@ -60,10 +68,14 @@ jobs:
           BACKUP_BUCKET="${{ inputs.backup_bucket_name || vars.TF_BACKUP_BUCKET_NAME }}"
           AIRCRAFT_REFERENCE_BUCKET="${{ inputs.aircraft_reference_bucket_name || vars.TF_AIRCRAFT_REFERENCE_BUCKET_NAME }}"
           DNS_ZONE_NAME="${{ inputs.dns_zone_name || vars.DNS_ZONE_NAME }}"
+          ISSUE_TLS="${{ inputs.issue_tls }}"
+          TLS_DOMAIN="${{ inputs.tls_domain }}"
 
           {
             echo "STATE_BUCKET=${STATE_BUCKET}"
             echo "LOCK_TABLE=${LOCK_TABLE}"
+            echo "ISSUE_TLS=${ISSUE_TLS}"
+            echo "TLS_DOMAIN=${TLS_DOMAIN}"
             echo "TF_VAR_state_bucket_name=${STATE_BUCKET}"
             echo "TF_VAR_lock_table_name=${LOCK_TABLE}"
             echo "TF_VAR_region=${{ inputs.region || vars.AWS_REGION }}"
@@ -162,3 +174,156 @@ jobs:
           fi
 
           terraform -chdir=infra/aws/bootstrap apply -auto-approve "${APPLY_ARGS[@]}"
+
+      - name: Validate TLS issue inputs
+        if: ${{ inputs.issue_tls }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${TLS_DOMAIN}" ]]; then
+            echo "tls_domain is required when issue_tls=true" >&2
+            exit 1
+          fi
+          if [[ -z "${DNS_ZONE_NAME:-}" ]]; then
+            echo "dns_zone_name (input or DNS_ZONE_NAME variable) is required when issue_tls=true" >&2
+            exit 1
+          fi
+
+          DNS_ZONE_NO_DOT="${DNS_ZONE_NAME%.}"
+          if [[ "${TLS_DOMAIN}" != "${DNS_ZONE_NO_DOT}" && "${TLS_DOMAIN}" != *".${DNS_ZONE_NO_DOT}" ]]; then
+            echo "tls_domain (${TLS_DOMAIN}) must be within dns_zone_name (${DNS_ZONE_NO_DOT})" >&2
+            exit 1
+          fi
+
+      - name: Validate existing TLS parameters when issue_tls=false
+        if: ${{ !inputs.issue_tls }}
+        env:
+          TLS_FULLCHAIN_PARAM: /cloudradar/edge/tls/fullchain_pem
+          TLS_PRIVKEY_PARAM: /cloudradar/edge/tls/privkey_pem
+        run: |
+          set -euo pipefail
+          CERT_PATH="$(mktemp)"
+          KEY_PATH="$(mktemp)"
+          trap 'rm -f "${CERT_PATH}" "${KEY_PATH}"' EXIT
+
+          aws ssm get-parameter \
+            --name "${TLS_FULLCHAIN_PARAM}" \
+            --with-decryption \
+            --query 'Parameter.Value' \
+            --output text > "${CERT_PATH}"
+
+          aws ssm get-parameter \
+            --name "${TLS_PRIVKEY_PARAM}" \
+            --with-decryption \
+            --query 'Parameter.Value' \
+            --output text > "${KEY_PATH}"
+
+          # Fail fast if no valid certificate is present while TLS issuance is not requested.
+          openssl x509 -in "${CERT_PATH}" -noout -checkend 0 >/dev/null
+          cert_modulus_md5="$(openssl x509 -in "${CERT_PATH}" -noout -modulus | openssl md5)"
+          key_modulus_md5="$(openssl rsa -in "${KEY_PATH}" -noout -modulus | openssl md5)"
+          if [[ "${cert_modulus_md5}" != "${key_modulus_md5}" ]]; then
+            echo "Existing SSM TLS certificate and private key do not match." >&2
+            exit 1
+          fi
+
+      - name: Install certbot DNS Route53 plugin
+        if: ${{ inputs.issue_tls }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y certbot python3-certbot-dns-route53
+
+      - name: Issue TLS certificate and store in SSM Parameter Store
+        if: ${{ inputs.issue_tls }}
+        env:
+          TLS_FULLCHAIN_PARAM: /cloudradar/edge/tls/fullchain_pem
+          TLS_PRIVKEY_PARAM: /cloudradar/edge/tls/privkey_pem
+          TLS_METADATA_PARAM: /cloudradar/edge/tls/metadata
+        run: |
+          set -euo pipefail
+
+          CERTBOT_DIR="$(mktemp -d)"
+          trap 'rm -rf "${CERTBOT_DIR}"' EXIT
+
+          certbot certonly \
+            --non-interactive \
+            --agree-tos \
+            --register-unsafely-without-email \
+            --dns-route53 \
+            --key-type rsa \
+            --rsa-key-size 2048 \
+            --config-dir "${CERTBOT_DIR}/config" \
+            --work-dir "${CERTBOT_DIR}/work" \
+            --logs-dir "${CERTBOT_DIR}/logs" \
+            -d "${TLS_DOMAIN}"
+
+          FULLCHAIN_PATH="${CERTBOT_DIR}/config/live/${TLS_DOMAIN}/fullchain.pem"
+          PRIVKEY_PATH="${CERTBOT_DIR}/config/live/${TLS_DOMAIN}/privkey.pem"
+
+          if [[ ! -s "${FULLCHAIN_PATH}" || ! -s "${PRIVKEY_PATH}" ]]; then
+            echo "Certificate issuance succeeded but expected cert/key files are missing." >&2
+            exit 1
+          fi
+
+          put_secure_parameter_with_tier_fallback() {
+            local param_name="$1"
+            local source_file="$2"
+            local param_value
+            local stderr_file
+            stderr_file="$(mktemp)"
+            param_value="$(cat "${source_file}")"
+
+            if aws ssm put-parameter \
+              --name "${param_name}" \
+              --type SecureString \
+              --tier Standard \
+              --overwrite \
+              --value "${param_value}" \
+              >/dev/null 2>"${stderr_file}"; then
+              echo "Stored ${param_name} as SecureString (Standard tier)."
+              rm -f "${stderr_file}"
+              return 0
+            fi
+
+            if grep -Eiq "Standard parameters may have values with a maximum size of 4096|ValidationException|size" "${stderr_file}"; then
+              aws ssm put-parameter \
+                --name "${param_name}" \
+                --type SecureString \
+                --tier Advanced \
+                --overwrite \
+                --value "${param_value}" \
+                >/dev/null
+              echo "Stored ${param_name} as SecureString (Advanced tier fallback)."
+              rm -f "${stderr_file}"
+              return 0
+            fi
+
+            echo "Failed storing ${param_name}." >&2
+            cat "${stderr_file}" >&2
+            rm -f "${stderr_file}"
+            return 1
+          }
+
+          put_secure_parameter_with_tier_fallback "${TLS_FULLCHAIN_PARAM}" "${FULLCHAIN_PATH}"
+          put_secure_parameter_with_tier_fallback "${TLS_PRIVKEY_PARAM}" "${PRIVKEY_PATH}"
+
+          NOT_AFTER="$(openssl x509 -in "${FULLCHAIN_PATH}" -noout -enddate | cut -d= -f2-)"
+          FINGERPRINT_SHA256="$(openssl x509 -in "${FULLCHAIN_PATH}" -noout -fingerprint -sha256 | cut -d= -f2)"
+          ISSUED_AT_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          METADATA_JSON="$(jq -cn \
+            --arg domain "${TLS_DOMAIN}" \
+            --arg not_after "${NOT_AFTER}" \
+            --arg fingerprint_sha256 "${FINGERPRINT_SHA256}" \
+            --arg issued_at "${ISSUED_AT_UTC}" \
+            '{domain:$domain, not_after:$not_after, fingerprint_sha256:$fingerprint_sha256, issued_at:$issued_at, source:"letsencrypt-dns-01"}')"
+
+          aws ssm put-parameter \
+            --name "${TLS_METADATA_PARAM}" \
+            --type String \
+            --overwrite \
+            --value "${METADATA_JSON}" \
+            >/dev/null
+
+          echo "TLS certificate issued for ${TLS_DOMAIN}."
+          echo "Certificate metadata written to ${TLS_METADATA_PARAM}."

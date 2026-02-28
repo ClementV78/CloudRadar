@@ -21,6 +21,7 @@ Purpose: establish IAM baseline, MFA, budgets, and the GitHub OIDC provider + Te
 Purpose: create the S3 bucket and DynamoDB table used by Terraform state and locking.
 
 - Runbook: `docs/runbooks/bootstrap/terraform-backend-bootstrap.md`
+- For strict edge TLS mode, ensure TLS artifacts exist in SSM (`/cloudradar/edge/tls/fullchain_pem`, `/cloudradar/edge/tls/privkey_pem`) before edge apply/redeploy.
 
 ## 2.1) CI workflow reference (recommended)
 

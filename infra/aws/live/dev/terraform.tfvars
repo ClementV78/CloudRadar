@@ -25,21 +25,23 @@ k3s_server_extra_args    = ["--node-taint=node-role.kubernetes.io/control-plane:
 
 edge_instance_type = "t3.micro"
 # edge_ami_id                        = "ami-xxxxxxxxxxxxxxxxx"
-edge_root_volume_size               = 40
-edge_allowed_cidrs                  = ["0.0.0.0/0"]
-edge_server_name                    = "_"
-edge_basic_auth_user                = "cloudradar"
-edge_basic_auth_ssm_parameter_name  = "/cloudradar/edge/basic-auth"
-edge_admin_token_ssm_parameter_name = "/cloudradar/admin/k8s-admin-api-token"
-edge_ssm_egress_enabled             = true
-edge_dashboard_nodeport             = 30080
-edge_api_nodeport                   = 30081
-edge_health_nodeport                = 32736
-edge_admin_nodeport                 = 32737
-edge_prometheus_nodeport            = 30080
-edge_grafana_nodeport               = 30080
-edge_enable_http_redirect           = true
-edge_ssm_vpc_endpoints_enabled      = false
+edge_root_volume_size                 = 40
+edge_allowed_cidrs                    = ["0.0.0.0/0"]
+edge_server_name                      = "_"
+edge_basic_auth_user                  = "cloudradar"
+edge_basic_auth_ssm_parameter_name    = "/cloudradar/edge/basic-auth"
+edge_admin_token_ssm_parameter_name   = "/cloudradar/admin/k8s-admin-api-token"
+edge_tls_fullchain_ssm_parameter_name = "/cloudradar/edge/tls/fullchain_pem"
+edge_tls_privkey_ssm_parameter_name   = "/cloudradar/edge/tls/privkey_pem"
+edge_ssm_egress_enabled               = true
+edge_dashboard_nodeport               = 30080
+edge_api_nodeport                     = 30081
+edge_health_nodeport                  = 32736
+edge_admin_nodeport                   = 32737
+edge_prometheus_nodeport              = 30080
+edge_grafana_nodeport                 = 30080
+edge_enable_http_redirect             = true
+edge_ssm_vpc_endpoints_enabled        = false
 
 # Optional: enable EC2 Serial Console login for ec2-user (temporary).
 # Provide a SHA-512 password hash via TF_VAR_k3s_server_serial_console_password_hash.
