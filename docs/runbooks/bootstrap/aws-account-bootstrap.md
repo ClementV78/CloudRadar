@@ -498,7 +498,9 @@ Store these values in a secure place and in GitHub Actions variables if needed.
 - OIDC provider tag/name: `github-actions-oidc`
 
 ## Auth paths (GitHub Actions vs AWS CLI)
-- **GitHub Actions** uses OIDC to assume `CloudRadarTerraformRole` (no IAM user or static keys).
+- **GitHub Actions** uses OIDC role separation:
+  - `bootstrap-terraform-backend` -> `CloudRadarBootstrapRole` (`AWS_BOOTSTRAP_ROLE_ARN`)
+  - `ci-infra` / `ci-infra-destroy` -> `CloudRadarTerraformRole` (`AWS_TERRAFORM_ROLE_ARN`)
 - **AWS CLI (local)** uses a profile for `CloudRadarTerraformUser`, then assumes `CloudRadarTerraformRole`.
   The user needs only `sts:AssumeRole` + MFA.
 
