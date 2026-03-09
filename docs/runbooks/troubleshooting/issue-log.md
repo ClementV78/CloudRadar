@@ -2,6 +2,21 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-03-09
+
+### [ci/infra] Edge TLS failure surfaced as generic `nginx inactive` in smoke tests
+- **Severity:** Medium
+- **Impact:** `ci-infra` smoke tests failed late with a generic Nginx readiness error, making TLS root-cause identification slow.
+- **Signal:** `SMOKE-TESTS` reported `Edge nginx not ready after 3 attempts` with `nginx_status=inactive`.
+- **Analysis:** The pipeline checked Nginx readiness and public HTTP endpoints, but lacked explicit TLS preflight and public certificate diagnostics in the same step.
+- **Resolution:**
+  1. Add explicit TLS artifact validation in SSM (`fullchain_pem`, `privkey_pem`, cert not expired, cert/key match).
+  2. Add edge TLS preflight via SSM before Nginx checks (`cloud-init status --wait`, `/etc/nginx/ssl/edge.crt`/`edge.key`, cert metadata, cert/key modulus match).
+  3. Add public TLS verification with `openssl s_client` and expiry guard (`>= 14 days`).
+  4. Use strict HTTPS checks with `--resolve` when `dns_zone_name` is available (fallback to `-k` only when DNS name is missing, with warning).
+  5. Add dedicated edge diagnostics on failure (`cloud-init-output`, `/tmp/ssm-tls-*.err`, `systemctl/journalctl nginx`).
+- **Guardrail:** Keep a TLS-specific preflight before edge health HTTP checks so cert boot issues fail with explicit, actionable errors.
+
 ## 2026-02-26
 
 ### [app/opensky] Cloud egress `522` mitigated with config-driven tunnel-primary/worker-fallback routing
