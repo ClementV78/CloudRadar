@@ -3,37 +3,11 @@ name: bootstrap-terraform-backend
 on:
   workflow_dispatch:
     inputs:
-      region:
-        description: "AWS region for backend resources"
-        required: true
-        default: "us-east-1"
-      state_bucket_name:
-        description: "S3 bucket name for Terraform state (must be globally unique)"
-        required: true
-      lock_table_name:
-        description: "DynamoDB table name for Terraform locks"
-        required: true
-        default: "cloudradar-tf-lock"
-      backup_bucket_name:
-        description: "Optional S3 bucket name for SQLite backups"
-        required: false
-      aircraft_reference_bucket_name:
-        description: "Optional S3 bucket name for aircraft reference data artifacts"
-        required: false
-      dns_zone_name:
-        description: "Optional Route53 hosted zone name for delegated subdomain (e.g., cloudradar.example.com)"
-        required: false
       issue_tls:
         description: "Issue a public TLS certificate with Let's Encrypt DNS-01 and store it in SSM"
         required: false
         type: boolean
         default: false
-      tls_domain:
-        description: "TLS domain to issue (required when issue_tls=true, e.g., cloudradar.example.com)"
-        required: false
-      role_arn:
-        description: "Optional role ARN to assume (defaults to AWS_TERRAFORM_ROLE_ARN variable)"
-        required: false
 
 permissions:
   id-token: write
@@ -52,10 +26,8 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          # Prefer explicit input, fallback to repo variable.
-          role-to-assume: ${{ inputs.role_arn || vars.AWS_TERRAFORM_ROLE_ARN }}
-          # Inputs are required, but keep fallback in case defaults change.
-          aws-region: ${{ inputs.region || vars.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Terraform init (local backend)
         run: terraform -chdir=infra/aws/bootstrap init -backend=false
@@ -63,22 +35,34 @@ jobs:
       - name: Resolve backend inputs
         run: |
           set -euo pipefail
-          STATE_BUCKET="${{ inputs.state_bucket_name || vars.TF_STATE_BUCKET }}"
-          LOCK_TABLE="${{ inputs.lock_table_name || vars.TF_LOCK_TABLE_NAME }}"
-          BACKUP_BUCKET="${{ inputs.backup_bucket_name || vars.TF_BACKUP_BUCKET_NAME }}"
-          AIRCRAFT_REFERENCE_BUCKET="${{ inputs.aircraft_reference_bucket_name || vars.TF_AIRCRAFT_REFERENCE_BUCKET_NAME }}"
-          DNS_ZONE_NAME="${{ inputs.dns_zone_name || vars.DNS_ZONE_NAME }}"
+          REGION="${{ vars.AWS_REGION }}"
+          STATE_BUCKET="${{ vars.TF_STATE_BUCKET }}"
+          LOCK_TABLE="${{ vars.TF_LOCK_TABLE_NAME }}"
+          BACKUP_BUCKET="${{ vars.TF_BACKUP_BUCKET_NAME }}"
+          AIRCRAFT_REFERENCE_BUCKET="${{ vars.TF_AIRCRAFT_REFERENCE_BUCKET_NAME }}"
+          DNS_ZONE_NAME="${{ vars.DNS_ZONE_NAME }}"
           ISSUE_TLS="${{ inputs.issue_tls }}"
-          TLS_DOMAIN="${{ inputs.tls_domain }}"
+          TLS_DOMAIN="${{ vars.TLS_DOMAIN }}"
+
+          missing_vars=()
+          [[ -z "${REGION}" ]] && missing_vars+=("AWS_REGION")
+          [[ -z "${STATE_BUCKET}" ]] && missing_vars+=("TF_STATE_BUCKET")
+          [[ -z "${LOCK_TABLE}" ]] && missing_vars+=("TF_LOCK_TABLE_NAME")
+
+          if (( ${#missing_vars[@]} > 0 )); then
+            echo "Missing required GitHub Action variables: ${missing_vars[*]}" >&2
+            exit 1
+          fi
 
           {
+            echo "REGION=${REGION}"
             echo "STATE_BUCKET=${STATE_BUCKET}"
             echo "LOCK_TABLE=${LOCK_TABLE}"
             echo "ISSUE_TLS=${ISSUE_TLS}"
             echo "TLS_DOMAIN=${TLS_DOMAIN}"
             echo "TF_VAR_state_bucket_name=${STATE_BUCKET}"
             echo "TF_VAR_lock_table_name=${LOCK_TABLE}"
-            echo "TF_VAR_region=${{ inputs.region || vars.AWS_REGION }}"
+            echo "TF_VAR_region=${REGION}"
           } >> "${GITHUB_ENV}"
 
           if [[ -n "${BACKUP_BUCKET}" ]]; then
@@ -156,7 +140,7 @@ jobs:
           DNS_ZONE_NAME="${DNS_ZONE_NAME:-}"
 
           APPLY_ARGS=(
-            "-var=region=${{ inputs.region || vars.AWS_REGION }}"
+            "-var=region=${REGION}"
             "-var=state_bucket_name=${STATE_BUCKET}"
             "-var=lock_table_name=${LOCK_TABLE}"
           )
@@ -184,7 +168,7 @@ jobs:
             exit 1
           fi
           if [[ -z "${DNS_ZONE_NAME:-}" ]]; then
-            echo "dns_zone_name (input or DNS_ZONE_NAME variable) is required when issue_tls=true" >&2
+            echo "DNS_ZONE_NAME variable is required when issue_tls=true" >&2
             exit 1
           fi
 

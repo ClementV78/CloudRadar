@@ -49,27 +49,23 @@ flowchart TB
 - AWS account bootstrap completed (OIDC provider + CI role).
 - Repo variables set (GitHub → Settings → Secrets and variables → Actions → Variables):
   - `AWS_TERRAFORM_ROLE_ARN`
-  - `AWS_REGION` (default for workflow)
-  - `TF_LOCK_TABLE_NAME` (default for workflow)
-  - `TF_BACKUP_BUCKET_NAME` (optional default for SQLite backups)
-  - `TF_AIRCRAFT_REFERENCE_BUCKET_NAME` (optional default for aircraft reference data artifacts)
-  - `DNS_ZONE_NAME` (optional, delegated subdomain hosted zone name; keep real values out of the repo)
+  - `AWS_REGION`
+  - `TF_STATE_BUCKET`
+  - `TF_LOCK_TABLE_NAME`
+  - `TF_BACKUP_BUCKET_NAME` (optional, SQLite backups bucket)
+  - `TF_AIRCRAFT_REFERENCE_BUCKET_NAME` (optional, aircraft reference bucket)
+  - `DNS_ZONE_NAME` (optional unless `issue_tls=true`)
+  - `TLS_DOMAIN` (required when `issue_tls=true`)
 
 ## Run
 1) In GitHub Actions, run **bootstrap-terraform-backend** workflow.
-2) Provide:
-   - `state_bucket_name` (globally unique)
-   - `lock_table_name` (prefilled from `TF_LOCK_TABLE_NAME`)
-   - `backup_bucket_name` (optional, SQLite backups bucket)
-   - `aircraft_reference_bucket_name` (optional, aircraft reference data bucket)
-   - `dns_zone_name` (optional, delegated subdomain hosted zone name)
-   - `issue_tls` (optional checkbox; default false)
-   - `tls_domain` (required if `issue_tls=true`, e.g. `cloudradar.example.com`)
-   - `region` (prefilled from `AWS_REGION`)
+2) Provide only:
+   - `issue_tls` (checkbox; default false)
 
 Important behavior:
 - If `issue_tls=false`, the workflow validates that a valid existing certificate is already present in SSM (`/cloudradar/edge/tls/fullchain_pem` + `/cloudradar/edge/tls/privkey_pem`).
 - If no valid existing certificate is found, the workflow fails fast.
+- If `issue_tls=true`, `TLS_DOMAIN` and `DNS_ZONE_NAME` variables must be set and consistent.
 
 Example bucket name:
 - `cloudradar-tfstate-<account-id>`
@@ -78,14 +74,7 @@ Example bucket name:
 ```bash
 gh workflow run bootstrap-terraform-backend \
   --ref main \
-  -f region=us-east-1 \
-  -f state_bucket_name=cloudradar-tfstate-<account-id> \
-  -f lock_table_name=cloudradar-tf-lock \
-  -f backup_bucket_name=cloudradar-dev-<account-id>-sqlite-backups \
-  -f aircraft_reference_bucket_name=cloudradar-dev-<account-id>-aircraft-db \
-  -f dns_zone_name=cloudradar.example.com \
-  -f issue_tls=true \
-  -f tls_domain=cloudradar.example.com
+  -f issue_tls=true
 ```
 
 ## Outputs
@@ -139,7 +128,7 @@ terraform -chdir=infra/aws/live/dev init -backend-config=backend.hcl
 - TLS issuance details:
   - Uses Let's Encrypt DNS-01 challenge through Route53.
   - Forces RSA key generation (`--key-type rsa --rsa-key-size 2048`) for edge compatibility.
-  - `tls_domain` must be inside `dns_zone_name`.
+  - `TLS_DOMAIN` must be inside `DNS_ZONE_NAME`.
   - SSM writes use `SecureString` Standard tier first, then Advanced tier fallback only if value size exceeds Standard limits.
 
 ## State Persistence (Recommended)
