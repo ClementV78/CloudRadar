@@ -31,6 +31,7 @@ jobs:
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
           DRY_RUN: ${{ github.event.inputs.dry_run || 'true' }}
           DAYS_OLD: ${{ github.event.inputs.days_old || '14' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -48,23 +49,73 @@ jobs:
           echo "Dry run: ${DRY_RUN}"
           echo "Exclude regex: ${exclude_regex}"
 
+          merged_prs_file="$(mktemp)"
+          # Use merged PR metadata so squash-merged branches are detected correctly.
+          gh pr list \
+            --state merged \
+            --base "${BASE_BRANCH}" \
+            --limit 1000 \
+            --json headRefName,mergedAt \
+            --jq '.[] | [.headRefName, .mergedAt] | @tsv' > "${merged_prs_file}"
+
+          if [[ ! -s "${merged_prs_file}" ]]; then
+            echo "No merged PR metadata found for base branch ${BASE_BRANCH}."
+            exit 0
+          fi
+
+          latest_merge_file="$(mktemp)"
+          # Keep only the latest merge timestamp per head branch.
+          awk -F'\t' '
+            NF >= 2 {
+              branch = $1
+              merged_at = $2
+              if (!(branch in latest) || merged_at > latest[branch]) {
+                latest[branch] = merged_at
+              }
+            }
+            END {
+              for (branch in latest) {
+                print branch "\t" latest[branch]
+              }
+            }
+          ' "${merged_prs_file}" > "${latest_merge_file}"
+
+          open_pr_heads_file="$(mktemp)"
+          gh pr list \
+            --state open \
+            --base "${BASE_BRANCH}" \
+            --limit 1000 \
+            --json headRefName \
+            --jq '.[].headRefName' > "${open_pr_heads_file}"
+
           while IFS= read -r ref; do
             if [[ "${ref}" =~ ${exclude_regex} ]]; then
               continue
             fi
 
-            if ! git merge-base --is-ancestor "${ref}" "${base_ref}"; then
+            branch_name="${ref#origin/}"
+            if grep -Fxq "${branch_name}" "${open_pr_heads_file}"; then
               continue
             fi
 
+            merged_at="$(awk -F'\t' -v b="${branch_name}" '$1==b{print $2; exit}' "${latest_merge_file}")"
+            if [[ -z "${merged_at}" ]]; then
+              continue
+            fi
+
+            merged_epoch="$(date -d "${merged_at}" +%s)"
             commit_epoch="$(git log -1 --format=%ct "${ref}")"
-            age_seconds=$((now_epoch - commit_epoch))
+            # If branch has newer commits than its latest merged PR, keep it.
+            if (( commit_epoch > merged_epoch )); then
+              continue
+            fi
+
+            age_seconds=$((now_epoch - merged_epoch))
 
             if (( age_seconds < cutoff_seconds )); then
               continue
             fi
 
-            branch_name="${ref#origin/}"
             if [[ "${DRY_RUN}" == "true" ]]; then
               echo "DRY RUN: would delete ${branch_name}"
             else
