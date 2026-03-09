@@ -1,235 +1,386 @@
-# CloudRadar — Flight Telemetry Analyzer (Budget MVP)
+# CloudRadar - Real-Time Flight Telemetry Platform on AWS & Kubernetes
 
-> **Queue-Driven Telemetry Processing** on AWS & Kubernetes (k3s).
+> End-to-end DevOps & Cloud Architecture portfolio: Terraform, k3s, GitOps, CI/CD, Observability. Designed, built, and operated solo.
+
+<p align="center">
+  <a href="https://cloudradar.iotx.fr">
+    <img src="https://img.shields.io/website?url=https%3A%2F%2Fcloudradar.iotx.fr%2Fhealthz&up_message=live&down_message=offline%20(cost-save)&style=for-the-badge&label=CloudRadar%20Live%20Demo&logo=googlechrome&logoColor=white" alt="CloudRadar Live Demo status" />
+  </a>
+  <a href="https://github.com/ClementV78">
+    <img src="https://img.shields.io/badge/GitHub-@ClementV78-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Profile" />
+  </a>
+</p>
 
 ![AWS](https://img.shields.io/badge/Cloud-AWS-232F3E?style=flat&logo=amazon-aws&logoColor=white)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-k3s-326CE5?style=flat&logo=kubernetes&logoColor=white)
 ![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?style=flat&logo=terraform&logoColor=white)
 ![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat&logo=github-actions&logoColor=white)
 ![GitOps](https://img.shields.io/badge/GitOps-ArgoCD-FE6A16?style=flat&logo=argo&logoColor=white)
-![FinOps](https://img.shields.io/badge/Cost%20Aware-Low%20Budget-2E7D32?style=flat)
+![Monitoring](https://img.shields.io/badge/Observability-Prometheus%20%2B%20Grafana-E6522C?style=flat&logo=prometheus&logoColor=white)
 [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=ClementV78_CloudRadar&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ClementV78_CloudRadar)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ClementV78_CloudRadar&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ClementV78_CloudRadar)
 
-**Key DevOps practices:** IaC (Terraform), GitOps (ArgoCD), CI/CD (GitHub Actions), FinOps (cost-aware infra), Security (OIDC + SSM).
+---
+
+## Why This Project Exists
+
+I built CloudRadar to demonstrate **hands-on cloud architecture**, not just design slides. The objective was to run a production-like platform end-to-end on AWS, with Terraform, Kubernetes, GitOps, observability, and security guardrails, under strict cost constraints.
+
+**CloudRadar** ingests live flight telemetry (ADS-B / OpenSky), processes events through a Redis-backed pipeline on k3s, and serves a real-time map. I own the full lifecycle: architecture decisions, infrastructure delivery, CI/CD, operations, troubleshooting, and documentation.
+
+The result is a reproducible MVP platform used as an interview artifact: deployable from code, observable by default, and continuously improved through ADRs and runbooks. v1.1 now focuses on frontend polish and data/persistence hardening.
 
 ---
 
-## 📌 Project Overview
-
-**CloudRadar** is a **DevOps & Cloud Architecture showcase**: a lightweight AWS platform that runs a **queue-driven telemetry pipeline** (ingester → Redis list → consumers) on a minimal k3s stack. It focuses on cost-efficient infrastructure choices, GitOps delivery, and operational readiness.
-
-**Functional Overview:** Ingest live flight telemetry from OpenSky, aggregate events, and expose data for a map dashboard with alertable zones.
-Live telemetry is enriched with a dual aircraft reference strategy: OpenSky open data aircraft dataset (primary) plus a secondary ADSB Exchange NDJSON export to improve coverage and metadata completeness (aircraft type/class, categories, military hint, owner/operator, year).
-
-**Technical Overview:** Terraform provisions AWS (k3s on EC2, IAM, S3, VPC). GitHub Actions runs infra CI; ArgoCD syncs `k8s/apps`. Prometheus/Grafana observability is implemented (GitOps-provisioned dashboards).
-
-**Project Management:**
-Issues and PRs are tracked in GitHub Projects (Kanban board) using lightweight agile practices adapted for solo development. Templates enforce metadata standards (assignees, labels, milestones, project), and an automated workflow ensures consistency and quality across all tickets and PRs.
-
-**Why this project exists:** provide a concrete, end-to-end DevOps/Cloud Architecture portfolio with real IaC, CI/CD, GitOps, and cost trade-offs.
-
-**Quick links:** [📚 Documentation Hub](docs/README.md) · [🚀 Runbooks](docs/runbooks/README.md) · [🏗️ Infra](docs/architecture/infrastructure.md) · [🎯 ADRs](docs/architecture/decisions/)
-
-## 🛠️ DevOps Tooling & Practices
-
-| Tool / Practice | Purpose | Value | Status |
-| --- | --- | --- | --- |
-| Terraform | Infrastructure as Code for AWS resources (VPC, EC2, IAM, S3) | Reproducible, reviewable infrastructure changes | Implemented |
-| GitHub Actions | CI for infra (`fmt/validate/plan`) + multi-image builds | Fast feedback and safer changes; parallel service builds | Implemented |
-| GitHub Container Registry (GHCR) | Container registry for app images | Centralized, versioned image distribution | Implemented (automated multi-image: ingester, processor, frontend, dashboard, health, admin-scale) |
-| Docker | Local image builds for services | Portable builds aligned with CI artifacts | Implemented (local/manual) |
-| ArgoCD (GitOps) | Sync `k8s/apps` to the cluster | Declarative deploys and drift control | Implemented |
-| Kustomize | Compose Kubernetes manifests | Reuse and consistency across apps | Implemented |
-| Helm | Manage charts via ArgoCD (e.g., EBS CSI) | Standard packaging for add-ons | Implemented (via ArgoCD) |
-| k3s | Lightweight Kubernetes on EC2 | Low-cost, production-like K8s | Implemented |
-| Prometheus + Grafana | Metrics collection and dashboards | Monitoring & observability by design | Implemented (7d retention, 5GB PVC, ~$0.50/month, auto-deployed via ArgoCD) |
-| CloudWatch (via Grafana) | AWS-native metrics and logs (VPC Flow Logs) | Infra visibility beyond Kubernetes | Implemented (read-only datasource + Flow Logs dashboards) |
-| SSM Parameter Store + IAM OIDC | Secure parameters and CI access | Fewer static creds, better auditability | Implemented |
-
-## 🧩 DevOps Skills Demonstrated
-
-| Skill | Evidence in this project |
-| --- | --- |
-| Infrastructure as Code | Terraform modules, remote state (S3 + DynamoDB) |
-| GitOps Delivery | ArgoCD syncs `k8s/apps` to the cluster |
-| CI for Infrastructure | GitHub Actions `fmt/validate/plan` with manual apply |
-| Secure CI Access | IAM OIDC (no static AWS keys) |
-| Cost Awareness | k3s on EC2 + NAT instance vs managed alternatives |
-| Operational Readiness | Runbooks for bootstrap, verification, and ops |
-
-This repository represents **Version 1 (MVP)** of the platform.
-
----
-
-## 🎯 Technical Objectives
-
-- Design a **budget-aware cloud architecture** on AWS
-- Run Kubernetes **without managed control plane (EKS)** using **k3s on EC2**
-- Implement a **queue-driven processing chain** (producer → Redis queue → consumers)
-- Automate infra checks and delivery with **GitHub Actions** (infra CI + app pipeline live)
-
----
-
-## 🏗️ High-Level Architecture (v1)
+## Architecture Overview
 
 ![CloudRadar Architecture](./docs/architecture/cloudradar-v1-high-level.png)
 
-**Key characteristics:**
-- AWS Region: **us-east-1**
-- Public Edge: **Nginx reverse proxy (EC2)** (dev implemented), **CloudFront** (planned)
-- Private compute: **k3s cluster (2 EC2 nodes: 1 control plane + 1 worker)**
-- Event buffering: **Redis**
-- Metadata enrichment: **dual aircraft datasets** (OpenSky + ADSB Exchange "World's largest source of unfiltered flight data")
-- MVP storage: **SQLite (PV / EBS)**
-- Observability: **Prometheus + Grafana** (7d retention, $0.50/month) + **CloudWatch datasource** (AWS-native metrics + VPC Flow Logs)
-- Backups (planned): **Daily SQLite to Amazon S3**
+
+## AI-Assisted Engineering
+
+This project is **built with AI assistance** (GitHub Copilot / Codex) and run as a **governed, auditable engineering practice**.
+
+| Aspect | How it works |
+|---|---|
+| **Governance** | A 250+ line [`AGENTS.md`](AGENTS.md) defines rules: scope limits, commit conventions, security guardrails, escalation triggers, merge policies |
+| **Human-in-the-loop** | AI proposes → I review before commit → I merge all PRs. Infra apply is always manual with confirmation |
+| **Traceability** | Every decision documented (20+ ADR records), every PR linked to an issue, every architectural choice reviewed and approved |
+| **Quality gates** | AI-generated changes go through the same CI pipeline: SonarCloud, Trivy, tfsec, unit tests |
+| **Scope control** | AI implements only requested scope; no speculative features or over-engineering. Changes are surgical and incremental |
+| **Knowledge transfer** | AI explains commands and decisions pedagogically; I learn and retain, not just accept |
+
+> **Why this matters:** This project demonstrates that AI can accelerate delivery while maintaining engineering rigor, with clear human accountability at every decision point.
+
+The result (snapshot, **2026-03-09**): **230+ issues, 300+ PRs, 20+ ADR records, 9 CI workflows**.
+
+<p align="center">
+  <a href="https://github.com/users/ClementV78/projects/1/">
+    <img src="https://img.shields.io/badge/View-GitHub%20Project%20Board-0969DA?style=for-the-badge&logo=github&logoColor=white" alt="Project board" />
+  </a>
+  <a href="https://github.com/ClementV78/CloudRadar/issues">
+    <img src="https://img.shields.io/badge/Track-Issues%20%26%20PRs-1F883D?style=for-the-badge&logo=github&logoColor=white" alt="Issues and pull requests" />
+  </a>
+</p>
+
+Evidence: [Decision records](docs/architecture/decisions/) · [Workflow gates](.github/workflows/)
 
 ---
 
-## ☁️ AWS Infrastructure
+## Screenshots
 
-High-level components (details in [docs/architecture/infrastructure.md](docs/architecture/infrastructure.md)):
+<table>
+  <thead>
+    <tr>
+      <th>App Dashboard</th>
+      <th>Grafana Observability</th>
+      <th>Grafana Ops Main Dashboard</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><a href="./docs/screenshots/dashboard.png"><img src="./docs/screenshots/dashboard.png" alt="Dashboard" width="520" /></a></td>
+      <td><a href="./docs/screenshots/grafana-ops.png"><img src="./docs/screenshots/grafana-ops.png" alt="Grafana Ops Main Dashboard" width="300" /></a></td>
+      <td><a href="./docs/screenshots/grafana-app-telemetry.png"><img src="./docs/screenshots/grafana-app-telemetry.png" alt="Grafana App Dashboard" width="300" /></a></td>
+    </tr>
+  </tbody>
+</table>
+
+---
+
+### Pipeline flow
+
+```mermaid
+flowchart LR
+  subgraph ING["Ingestion"]
+    A["OpenSky API"] --> B["Ingester<br/>Java 17"]
+  end
+
+  subgraph PROC["Processing"]
+    B --> C["Redis Queue"]
+    C --> D["Processor<br/>Java 17"]
+    D --> E["Redis Aggregates"]
+  end
+
+  subgraph SERVE["Serving"]
+    E --> F["Dashboard API"]
+    F --> G["Frontend<br/>React + Leaflet"]
+  end
+
+  classDef ext fill:#e3f2fd,stroke:#1e88e5,color:#0d47a1;
+  classDef app fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20;
+  classDef data fill:#fff3e0,stroke:#ef6c00,color:#e65100;
+  class A ext;
+  class B,D,F,G app;
+  class C,E data;
+```
+
+### Key Design Decisions
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| Kubernetes distribution | **k3s on EC2** (not EKS) | ~$180/yr savings, full control, production-like experience |
+| Event buffer | **Redis** (in-memory queue) | Simple, fast, sufficient for MVP throughput |
+| Backend language | **Java 17 / Spring Boot** | Type-safe, production-proven, rich ecosystem |
+| Frontend | **React 18 + Leaflet** | Interactive map, real-time updates |
+| Egress | **NAT instance** (not NAT Gateway) | ~$30/month savings vs managed NAT |
+| GitOps | **ArgoCD** | Declarative sync, drift detection, UI for visibility |
+| Observability | **Prometheus + Grafana** | 7-day retention, $0.50/month (PVC), auto-deployed via ArgoCD |
+| Aircraft enrichment | **Dual dataset** (OpenSky + ADSB Exchange) | Improved coverage: type, owner, military hint |
+| Infrastructure lifecycle | **Fully reproducible** (destroy / redeploy) | Only the Terraform state backend (S3 + DynamoDB) is permanent |
+
+> All significant decisions are documented as [ADRs](docs/architecture/decisions/) (20+ records).
+
+### Disposable Infrastructure
+
+The stack (VPC, EC2 nodes, k3s cluster, workloads) can be **destroyed and redeployed from code**. Application state is recovered from backups (RPO depends on backup cadence):
+
+- **IaC as source of truth:** `terraform destroy` + `terraform apply` rebuilds everything identically
+- **GitOps replay:** ArgoCD re-syncs all K8s workloads automatically from `k8s/apps` manifests
+- **Data continuity:** Redis data and SQLite are backed up to S3; restore scripts rebuild state after redeploy
+- **Only permanent resources:** the Terraform state bucket (S3) and lock table (DynamoDB), the strict minimum to bootstrap
+
+> **Why this matters:** This enforces reproducibility, reduces manual drift risk, and makes recovery drills practical in a low-cost MVP setup.
+
+---
+
+## Security Posture
+
+Security is treated as a **first-class concern**, not an afterthought:
+
+| Layer | Practice | Status |
+|---|---|---|
+| **CI Authentication** | IAM OIDC, no static AWS keys in pipelines | ✅ Implemented |
+| **Secrets Management** | AWS SSM Parameter Store + External Secrets Operator (ESO) | ✅ Implemented |
+| **Network Segmentation** | Public edge subnet + private k3s subnet, SG-level isolation | ✅ Implemented |
+| **Container Scanning** | Trivy CVE scan on every PR (image + filesystem) | ✅ Implemented |
+| **Secret Detection** | GitGuardian pre-commit + CI scan | ✅ Implemented |
+| **Code Quality** | SonarCloud quality gate (coverage, bugs, smells, security hotspots) | ✅ Implemented |
+| **IaC Security** | tfsec static analysis on Terraform PRs | ✅ Implemented |
+| **Dockerfile Quality** | Hadolint linting on every PR | ✅ Implemented |
+| **Edge Access** | Nginx + Basic Auth (dev), TLS | ✅ Implemented |
+| **Least Privilege** | IAM roles scoped per service, OIDC for CI | ✅ Implemented |
+| **Secrets Rotation** | Automated rotation via ESO + SSM | 📝 Planned |
+| **WAF / CloudFront** | Edge security + caching | 📝 Planned |
+
+---
+
+## DevOps Skills & Tooling
+
+| Category | Tools & Practices |
+|---|---|
+| **Infrastructure as Code** | Terraform modules, remote state (S3 + DynamoDB), environment-based layout |
+| **GitOps** | ArgoCD sync from `k8s/apps`, drift-aware declarative delivery |
+| **CI/CD Pipelines** | GitHub Actions with PR gates and manual deployment controls |
+| **Containers** | Docker multi-stage builds, GHCR publishing on merge |
+| **Kubernetes** | k3s, Kustomize, Helm via ArgoCD, persistent storage classes |
+| **Observability** | Prometheus + Grafana, CloudWatch datasource integration |
+| **Secret Management** | SSM Parameter Store, External Secrets Operator, IAM OIDC |
+| **Cost Engineering** | k3s over EKS, NAT instance over NAT Gateway, resource sizing discipline |
+| **Project Management** | GitHub Projects, issues, milestones, PR-linked execution |
+| **Documentation** | ADRs, runbooks, architecture and troubleshooting documentation |
+
+Proof links: [Project board](https://github.com/users/ClementV78/projects/1/) · [Workflows](.github/workflows/) · [ADRs](docs/architecture/decisions/) · [Troubleshooting journal](docs/runbooks/troubleshooting/issue-log.md)
+
+---
+
+## CI/CD Pipeline
+
+```mermaid
+flowchart LR
+  subgraph TRIG["1) Trigger Events"]
+    direction TB
+    PR["Pull Request"]
+    MERGE["Merge to main"]
+    MANUAL["workflow_dispatch (manual)"]
+    NIGHTLY["Nightly schedule"]
+  end
+
+  subgraph GATES["2) PR Quality Gates"]
+    direction TB
+    PR_CHECKS["ci-infra + build-and-push + ci-k8s + sonarcloud"]
+  end
+
+  subgraph OPS["3) Delivery and Operations"]
+    direction TB
+    BUILD_PUSH["build-and-push<br/>publish GHCR images"]
+    DEPLOY["ci-infra deploy<br/>infra + bootstrap + restore"]
+    SMOKE["smoke tests<br/>Internet + cluster"]
+    K6["k6 nightly baseline"]
+  end
+
+  PR --> PR_CHECKS
+  MERGE --> BUILD_PUSH
+  MANUAL --> DEPLOY --> SMOKE
+  NIGHTLY --> K6
+
+  classDef trigger fill:#fff8dc,stroke:#d97706,color:#7c2d12;
+  classDef gates fill:#e8f1ff,stroke:#2563eb,color:#1e3a8a;
+  classDef ops fill:#ecfdf3,stroke:#16a34a,color:#14532d;
+  class PR,MERGE,MANUAL,NIGHTLY trigger;
+  class PR_CHECKS gates;
+  class BUILD_PUSH,DEPLOY,SMOKE,K6 ops;
+```
+
+### PR Gates (blocking)
+
+| Workflow | What it validates |
+|---|---|
+| `ci-infra` | Terraform formatting, validation, plan, static security checks |
+| `build-and-push` | Java tests, frontend tests, Dockerfile lint, dependency CVE scan |
+| `ci-k8s` | Kubernetes manifest consistency and policy checks |
+| `sonarcloud` | Code quality gate (bugs, smells, security hotspots, coverage context) |
+
+### Controlled Operations
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| `ci-infra` | Manual (`workflow_dispatch`) | Validated infra deploy, app bootstrap, restore path, smoke verification |
+| `ci-infra-destroy` | Manual (`workflow_dispatch`) | Controlled teardown with safety confirmations and backup handling |
+| `k6-nightly-baseline` | Nightly schedule + manual | Performance baseline trend tracking |
+| `verify-issue-metadata` | Issue events | Enforces issue hygiene for project governance |
+
+---
+
+## Operational Signals (MVP)
+
+| Signal | How it is measured | Evidence |
+|---|---|---|
+| Service availability | Post-apply smoke tests validate `/healthz` from the Internet and in-cluster rollout status | [`ci-infra` workflow](.github/workflows/ci-infra.yml), [runbook](docs/runbooks/ci-cd/ci-infra.md) |
+| TLS health | CI validates SSM certificate/key artifacts and checks public certificate expiry (`>= 14 days`) | [`ci-infra` workflow](.github/workflows/ci-infra.yml), [issue log](docs/runbooks/troubleshooting/issue-log.md) |
+| Performance baseline | Nightly k6 run publishes check rate, failure rate, and p95 latency artifacts | [`k6-nightly-baseline` workflow](.github/workflows/k6-nightly-baseline.yml) |
+| Incident learning loop | Incidents are logged with root cause, resolution, and guardrails | [troubleshooting journal](docs/runbooks/troubleshooting/issue-log.md) |
+
+---
+
+## Microservices
+
+```mermaid
+flowchart LR
+    OpenSky["☁️ OpenSky API"] -->|fetch| Ingester["⚙️ Ingester<br/><i>Java 17</i>"]
+    Ingester -->|push| Redis[("🔴 Redis")]
+    Redis -->|consume| Processor["⚙️ Processor<br/><i>Java 17</i>"]
+    Processor -->|aggregates| Redis
+    Redis -->|read| Dashboard["📡 Dashboard API<br/><i>Java 17</i>"]
+    Dashboard -->|REST| Frontend["🗺️ Frontend<br/><i>React / Leaflet</i>"]
+    Edge["🌐 Nginx Edge"] -->|proxy| Frontend
+```
+
+| Service | Language | Role | Namespace |
+|---|---|---|---|
+| **ingester** | Java 17 / Spring Boot | Fetches flight data from OpenSky, pushes to Redis queue | `cloudradar` |
+| **processor** | Java 17 / Spring Boot | Consumes Redis events, builds aggregates | `cloudradar` |
+| **dashboard** | Java 17 / Spring Boot | REST API: flights, details, metrics | `cloudradar` |
+| **frontend** | React 18 / TypeScript | Interactive map (Leaflet), real-time aircraft display | `cloudradar` |
+| **health** | Python 3.11 | `/healthz` + `/readyz` probes for edge/load balancer | `cloudradar` |
+| **admin-scale** | Python 3.11 / boto3 | Ingester scaling API (K8s API) | `cloudradar` |
+| **redis** | Redis | Event buffer + aggregate store | `data` |
+
+All services expose `/healthz` (liveness) and `/metrics` (Prometheus scrape).
+
+---
+
+## AWS Infrastructure
 
 | Component | Role | Status |
-| --- | --- | --- |
-| VPC (public edge + private k3s) | Network segmentation and routing | Implemented |
-| EC2 (Public) | Nginx reverse proxy + basic auth | Dev implemented |
-| EC2 (Private) | k3s server + worker nodes | Implemented |
-| NAT Instance | Private subnet egress | Implemented |
-| CloudFront | Edge caching | Planned |
-| S3 | Backups (daily) | Planned |
-| VPC Endpoints (SSM, S3) | Private access to control/data plane | Dev implemented |
+|---|---|---|
+| **VPC** | Public edge subnet + private k3s subnet, SG isolation | ✅ |
+| **EC2 (edge)** | Nginx reverse proxy, TLS, Basic Auth | ✅ |
+| **EC2 (private)** | k3s control plane + worker | ✅ |
+| **NAT Instance** | Private subnet egress (cost-optimized) | ✅ |
+| **S3** | Terraform state + backup bucket | ✅ |
+| **SSM Parameter Store** | Runtime secrets + config | ✅ |
+| **IAM OIDC** | GitHub Actions ↔ AWS trust (zero static keys) | ✅ |
+| **VPC Endpoints** | Private access to SSM, S3 | ✅ |
+| **CloudFront** | Edge CDN + WAF | 📝 Planned |
 
-Infrastructure is provisioned with Terraform (networking, IAM, compute, storage).
-
----
-
-## 🔄 CI/CD — GitHub Actions
-
-Infra CI and app CI/CD are live. Application workloads on k3s are reconciled by ArgoCD (GitOps) from `k8s/apps`.
-
-1. A DevOps engineer pushes code or opens a pull request
-2. **GitHub Actions (hosted runners)** validate infra (fmt/validate/plan + tfsec)
-3. Infra changes are applied manually via workflow dispatch (controlled apply)
-4. Application pipeline builds Docker images (implemented)
-5. Images are published to **GitHub Container Registry (GHCR)** (implemented)
-6. ArgoCD syncs `k8s/apps` manifests to the k3s cluster (implemented)
-7. The k3s cluster pulls images and runs updated workloads (implemented)
+> Full details: [Infrastructure Architecture](docs/architecture/infrastructure.md)
 
 ---
 
-## 🧪 CI Guardrails (K8s)
+## Testing & Quality
 
-To prevent deployment regressions, a dedicated workflow validates Kubernetes manifests on every PR that touches `k8s/**`.
+Testing follows a **Shift-Left** approach: most checks run on PR, before merge.
 
-- Workflow: `ci-k8s`
-- Check: fail if any `ghcr.io/...` image reference contains uppercase characters (GHCR requires lowercase repository names).
+| Gate | Scope | Trigger |
+|---|---|---|
+| Unit tests (JUnit / pytest) | Business logic validation | Every PR |
+| SonarCloud quality gate | Coverage, bugs, code smells, security hotspots | Every PR |
+| Trivy CVE scan | Container images + filesystem | Every PR |
+| GitGuardian | Leaked secrets detection | Every PR |
+| tfsec | Terraform security best practices | Infra PRs |
+| Hadolint | Dockerfile quality | App PRs |
+| K8s manifest lint | GHCR lowercase, YAML validity | K8s PRs |
+| Smoke tests (`/healthz`) | Post-deploy service availability | Post-merge |
 
-Status: Implemented.
-
----
-
-## ☸️ Kubernetes Architecture (k3s)
-
-The k3s cluster runs a **control plane** and **worker node(s)** on EC2, hosting all application workloads and platform components. ArgoCD manages workloads declaratively via GitOps.
-
-### GitOps apps (`k8s/apps`)
-
-ArgoCD syncs everything under `k8s/apps` automatically.
-
-| App | Role | Namespace | Status |
-| --- | --- | --- | --- |
-| `health` | Minimal `/healthz` endpoint + `/readyz` probe | `cloudradar` | Implemented |
-| `redis` | Event buffer | `data` | Implemented |
-| `ingester` | OpenSky ingestion | `cloudradar` | Implemented |
-| `processor` | Redis aggregates | `cloudradar` | Implemented |
-| `admin-scale` | Ingester scaling API | `cloudradar` | Implemented |
-| `dashboard` | Java API (flights/details/metrics) | `cloudradar` | Implemented |
-| `frontend` | React/Leaflet dashboard UI | `cloudradar` | Implemented |
+> Snapshot (**2026-03-09**): **90+ automated test cases** across **20 test files** (Java + TypeScript), plus infra/security quality gates on PRs. Full details: [Testing & QA Overview](docs/testing-overview.md) ([English version](docs/testing-overview-en.md))
 
 ---
 
-## 📈 Project Progress (Estimates)
+## Known Limitations (MVP)
 
-| Release | Progress | Estimate |
-| --- | --- | --- |
-| v1-mvp | `##############------` | 70% |
-| v1.1 | `###-----------------` | 15% |
-| v2 | `#-------------------` | 5% |
-
-These are high-level estimates based on current scope.
-Detailed status is tracked in [docs/project-status.md](docs/project-status.md) and in the GitHub Project board.
-
-| Category | Progress | Notes |
-| --- | --- | --- |
-| Infra | ✅ Mostly done | k3s nodes, edge, IAM, Terraform backend |
-| Automation | ✅ Core done | infra CI + manual apply; app CI/CD in progress |
-| Application | 📝 In progress | ingestion → Redis → processor working; storage/API pending |
-| Monitoring | ✅ Implemented | Prometheus/Grafana (MVP) + CloudWatch (AWS signals), AlertManager (planned Sprint 2) |
-| UI | ✅ Implemented | React/Leaflet frontend + Dashboard API |
+- Single AWS region (`us-east-1`) with a small cluster footprint (edge + control plane + one worker): no multi-region HA.
+- Data layer is still MVP-grade: Redis storage resilience hardening is in progress.
+- Edge security is pragmatic for MVP (Nginx + Basic Auth + Let's Encrypt/SSM); managed edge hardening (CloudFront/WAF path) is planned.
+- Performance validation is baseline-level (nightly k6), not full-scale capacity modeling.
+- Some high-impact operations are intentionally manual-gated in CI/CD (apply/destroy) for safety and cost control.
 
 ---
 
-## � Where to Find Information
+## Roadmap
 
-**Documentation is organized in a hub model:**
+| Version | Focus | Target |
+|---|---|---|
+| **v1-mvp** | Core platform: IaC, GitOps, CI/CD, observability, 6 microservices | ✅ Completed |
+| **v1.1** | Frontend polish, alertable zones, SQLite persistence, S3 backups | 🔧 In progress |
+| **v2** | RDS migration, HPA autoscaling, CloudFront CDN, secrets rotation | 📝 Planned |
 
-### If you want to...
-
-| Goal | Start Here |
-| --- | --- |
-| **Understand the architecture** | [📚 Documentation Hub → Architecture](docs/README.md#️-understanding-the-architecture) |
-| **Deploy or operate something** | [🚀 Runbooks Execution Order](docs/runbooks/README.md) |
-| **Find a specific runbook** | [📚 Documentation Hub → Runbooks](docs/README.md#-getting-things-done-runbooks) |
-| **Check a technical decision** | [🎯 ADRs Index](docs/README.md#-adr-index) |
-| **Troubleshoot an issue** | [🚧 Issue Log](docs/runbooks/troubleshooting/issue-log.md) + [🎯 ADRs](docs/architecture/decisions/) |
-| **Understand k3s/infra** | [🏗️ Infrastructure Architecture](docs/architecture/infrastructure.md) |
-| **Understand microservices** | [🧩 Application Architecture](docs/architecture/application-architecture.md) |
-| **Review agent rules** | [AGENTS.md](AGENTS.md) (root) |
-
-**→ [Go to the Documentation Hub](docs/README.md) for the complete navigation guide.**
+Tracked in [GitHub Project](https://github.com/users/ClementV78/projects/1/) and [milestones](https://github.com/ClementV78/CloudRadar/milestones).
 
 ---
 
-## �🚀 Getting Started (Runbooks)
+## Documentation
 
-Start here if you are setting up the project from scratch.
-
-1. Follow the runbook order in [docs/runbooks/README.md](docs/runbooks/README.md).
-2. Complete each runbook step-by-step (bootstrap → backend → live env).
-
----
-
-## 🌿 Branching & Environments
-
-- `main` is the single source of truth (not tied to a specific environment).
-- Environment promotion uses IaC variables or `infra/live/*` layouts, not long-lived branches.
+| Topic | Link |
+|---|---|
+| Documentation Hub (start here) | [docs/README.md](docs/README.md) |
+| Infrastructure Architecture | [docs/architecture/infrastructure.md](docs/architecture/infrastructure.md) |
+| Application Architecture | [docs/architecture/application-architecture.md](docs/architecture/application-architecture.md) |
+| Architecture Decision Records (20+) | [docs/architecture/decisions/](docs/architecture/decisions/) |
+| Runbooks (bootstrap → ops) | [docs/runbooks/README.md](docs/runbooks/README.md) |
+| Testing & QA Overview | [docs/testing-overview.md](docs/testing-overview.md) |
+| Troubleshooting Log | [docs/runbooks/troubleshooting/issue-log.md](docs/runbooks/troubleshooting/issue-log.md) |
 
 ---
 
-## ✅ Commit Conventions
+## Quick Tour
 
-- Use `type(scope): message` (same as issues).
-- Link commits to issues with `Refs #<issue>` or `Fixes #<issue>`.
+```bash
+# Clone the repository
+git clone https://github.com/ClementV78/CloudRadar.git
+cd CloudRadar
 
----
+# Optional: open in your editor
+# code .
+```
 
-## 🚧 Roadmap
+In 10 minutes, you can review the project at the right level for a DevOps/Cloud interview:
 
-Planned future evolutions:
-
-- Migration from SQLite to **managed database (RDS)**
-- Advanced autoscaling scenarios (HPA, event-based scaling)
-- GitOps evolution (ArgoCD app expansion, health sync) — Flux optional (planned)
-- Improved security (secrets rotation)
-
----
-
-## 📄 License
-
-MIT License
+1. **Architecture first**: [Infrastructure Architecture](docs/architecture/infrastructure.md) and [Application Architecture](docs/architecture/application-architecture.md).
+2. **Delivery model**: [CI/CD runbook](docs/runbooks/ci-cd/ci-infra.md) and workflows in [`.github/workflows`](.github/workflows/).
+3. **Operational reality**: [Troubleshooting Journal](docs/runbooks/troubleshooting/issue-log.md) and [Testing & QA Overview](docs/testing-overview.md).
+4. **Execution order** (if you want to deploy): [Runbooks hub](docs/runbooks/README.md).
 
 ---
 
-*Project built as part of a DevOps & Cloud Architecture upskilling path.*
+## License
+
+[MIT License](LICENSE)
+© 2025-2026 Clément V.
+
+---
+
+<p align="center">
+  <i>Designed and operated solo as a DevOps & Cloud Architecture portfolio project.</i><br/>
+  <a href="https://github.com/ClementV78">GitHub Profile</a>
+</p>

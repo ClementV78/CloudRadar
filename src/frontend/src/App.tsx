@@ -968,6 +968,22 @@ export default function App(): JSX.Element {
     <main className="main-layout">
       <div className="background-grid" aria-hidden="true" />
 
+      <div className="layout-topbar">
+        <a
+          className="layout-readme-link"
+          href="https://github.com/ClementV78/CloudRadar#readme"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="View README on GitHub"
+        >
+          <img
+            className="brand-readme-badge"
+            src="https://img.shields.io/badge/GitHub-view%20README-238636?style=flat&logo=github&logoColor=white"
+            alt="GitHub: view README"
+          />
+        </a>
+      </div>
+
       <Header
         apiStatus={apiStatus}
         openSkyStatus={openSkyStatus}
