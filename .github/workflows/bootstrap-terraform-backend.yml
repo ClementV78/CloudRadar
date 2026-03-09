@@ -23,10 +23,29 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: Validate required GitHub variables
+        run: |
+          set -euo pipefail
+          BOOTSTRAP_ROLE_ARN="${{ vars.AWS_BOOTSTRAP_ROLE_ARN }}"
+          REGION="${{ vars.AWS_REGION }}"
+          STATE_BUCKET="${{ vars.TF_STATE_BUCKET }}"
+          LOCK_TABLE="${{ vars.TF_LOCK_TABLE_NAME }}"
+
+          missing_vars=()
+          [[ -z "${BOOTSTRAP_ROLE_ARN}" ]] && missing_vars+=("AWS_BOOTSTRAP_ROLE_ARN")
+          [[ -z "${REGION}" ]] && missing_vars+=("AWS_REGION")
+          [[ -z "${STATE_BUCKET}" ]] && missing_vars+=("TF_STATE_BUCKET")
+          [[ -z "${LOCK_TABLE}" ]] && missing_vars+=("TF_LOCK_TABLE_NAME")
+
+          if (( ${#missing_vars[@]} > 0 )); then
+            echo "Missing required GitHub Action variables: ${missing_vars[*]}" >&2
+            exit 1
+          fi
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_TERRAFORM_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_BOOTSTRAP_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Terraform init (local backend)

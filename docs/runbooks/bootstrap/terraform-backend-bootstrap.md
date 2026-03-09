@@ -24,7 +24,7 @@ flowchart TB
   end
 
   subgraph AWS["AWS"]
-    ROLE["OIDC IAM role\n(AWS_TERRAFORM_ROLE_ARN)"]
+    ROLE["OIDC IAM role\n(AWS_BOOTSTRAP_ROLE_ARN)"]
 
     S3["S3 bucket (Terraform state)"]
     DDB["DynamoDB lock table\n(lock_table_name / TF_LOCK_TABLE_NAME)"]
@@ -48,7 +48,8 @@ flowchart TB
 ## Prerequisites
 - AWS account bootstrap completed (OIDC provider + CI role).
 - Repo variables set (GitHub → Settings → Secrets and variables → Actions → Variables):
-  - `AWS_TERRAFORM_ROLE_ARN`
+  - `AWS_BOOTSTRAP_ROLE_ARN` (used by `bootstrap-terraform-backend`)
+  - `AWS_TERRAFORM_ROLE_ARN` (used by `ci-infra`)
   - `AWS_REGION`
   - `TF_STATE_BUCKET`
   - `TF_LOCK_TABLE_NAME`
