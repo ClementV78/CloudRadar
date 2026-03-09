@@ -156,7 +156,19 @@ flowchart TB
   - `/api/flights?limit=50&sort=lastSeen&order=desc` (status `200` + JSON body assertion `.items | type == "array"`)
   - If `run_smoke_tests=false`, the smoke-tests job emits an explicit skip reason in logs and summary.
 - The smoke test verifies edge Nginx via SSM (3 retries with 10s delay) before running the external `/healthz` curl.
-  - On failure, it prints `systemctl status nginx`, recent `journalctl` logs, and the 443 listen check to speed up diagnostics.
+  - Before the Nginx readiness check, it validates TLS artifacts in SSM:
+    - `/cloudradar/edge/tls/fullchain_pem` exists and is not expired
+    - `/cloudradar/edge/tls/privkey_pem` exists
+    - certificate/key modulus match
+  - It then runs an edge TLS preflight via SSM:
+    - `cloud-init status --wait` (best effort)
+    - `/etc/nginx/ssl/edge.crt` + `/etc/nginx/ssl/edge.key` presence
+    - certificate metadata (`enddate`, `subject`, `issuer`)
+    - cert/key modulus match on the edge host
+  - On TLS or preflight failure, the job emits explicit `::error` messages and collects dedicated edge diagnostics:
+    - `systemctl status nginx`, `journalctl -u nginx`
+    - `tail /var/log/cloud-init-output.log`
+    - `tail /tmp/ssm-tls-*.err` (when present)
 - The workflow now waits for **SSM PingStatus=Online** before sending commands, and retries `send-command` on transient `InvalidInstanceId` errors.
 - SSM retry logs are sent to stderr so only the command ID is parsed.
 
@@ -168,6 +180,9 @@ When `run_smoke_tests=true` (dev only), the workflow:
 - Waits for the `healthz` deployment rollout in the `cloudradar` namespace.
 - Fetches the edge public IP and Basic Auth settings from Terraform outputs.
 - Reads the Basic Auth password from SSM Parameter Store to validate edge endpoints externally, including a JSON contract check on `/api/flights`.
+  - Validates edge TLS SSM artifacts explicitly before Nginx and external endpoint checks.
+  - Validates public TLS with `openssl s_client` against edge IP:443 and enforces at least 14 days of remaining validity.
+  - When `dns_zone_name` is available, HTTP checks use the DNS name with `--resolve <dns_name>:443:<edge_ip>` (no `-k`); otherwise they fall back to `-k` with an explicit warning.
   - Uses bounded polling for SSM command status to avoid long Pending/InProgress waits.
 
 Success signals for `/api/flights` smoke:

@@ -41,8 +41,8 @@ flowchart TB
   TF --> BK
   TF --> AR
   TF --> R53
-  WF -->|issue cert (optional)| R53
-  WF -->|store fullchain+key (optional)| SSM
+  WF -->|issue cert optional| R53
+  WF -->|store fullchain and key optional| SSM
 ```
 
 ## Prerequisites
@@ -76,6 +76,68 @@ Example bucket name:
 gh workflow run bootstrap-terraform-backend \
   --ref main \
   -f issue_tls=true
+```
+
+## TLS issuance internals (`issue_tls=true`)
+
+This section explains the two workflow steps:
+- `Install certbot DNS Route53 plugin`
+- `Issue TLS certificate and store in SSM Parameter Store`
+
+### Step 1: Install certbot DNS Route53 plugin
+
+Purpose: prepare the runner to solve ACME DNS-01 challenges via Route53.
+
+Commands executed by the workflow:
+```bash
+sudo apt-get update
+sudo apt-get install -y certbot python3-certbot-dns-route53
+```
+
+Why this is needed:
+- `certbot` performs the Let's Encrypt certificate request.
+- `python3-certbot-dns-route53` lets certbot create `_acme-challenge` TXT records in Route53 automatically using the assumed AWS role.
+
+### Step 2: Issue TLS certificate and store in SSM Parameter Store
+
+Purpose: issue a public certificate for `TLS_DOMAIN` and persist artifacts outside Terraform state.
+
+Main actions:
+1. Create a temporary certbot working directory (`mktemp -d`).
+2. Run certificate issuance with DNS-01:
+   - `certbot certonly --dns-route53 -d "${TLS_DOMAIN}" --key-type rsa --rsa-key-size 2048`
+3. Verify generated files exist:
+   - `fullchain.pem`
+   - `privkey.pem`
+4. Store both files in SSM Parameter Store as `SecureString`:
+   - `/cloudradar/edge/tls/fullchain_pem`
+   - `/cloudradar/edge/tls/privkey_pem`
+5. If SSM Standard tier size is exceeded, retry as `Advanced` tier.
+6. Write non-sensitive metadata (`domain`, `not_after`, `fingerprint_sha256`, `issued_at`) to:
+   - `/cloudradar/edge/tls/metadata`
+
+Security and operational notes:
+- Private key material is never committed to Git and not stored in Terraform state.
+- The workflow uses ephemeral files on the runner and removes them at exit.
+- Edge strict TLS mode later reads these SSM parameters at boot.
+
+### TLS sequence (detailed)
+
+```mermaid
+sequenceDiagram
+  participant GH as GitHub runner
+  participant LE as Let's Encrypt
+  participant R53 as Route53 zone
+  participant SSM as SSM Parameter Store
+
+  GH->>GH: Install certbot and dns-route53 plugin
+  GH->>LE: Start ACME order for TLS_DOMAIN
+  LE-->>GH: DNS-01 challenge required
+  GH->>R53: Create TXT _acme-challenge
+  R53-->>LE: TXT record resolvable
+  LE-->>GH: Authorization valid, issue cert
+  GH->>SSM: Put fullchain and private key as SecureString
+  GH->>SSM: Put metadata as String
 ```
 
 ## Outputs

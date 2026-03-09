@@ -1903,10 +1903,13 @@ jobs:
         env:
           EDGE_INSTANCE_ID: ${{ needs.tf-outputs.outputs.edge_instance_id }}
           EDGE_PUBLIC_IP: ${{ needs.tf-outputs.outputs.edge_public_ip }}
+          EDGE_TLS_SERVER_NAME: ${{ needs.tf-outputs.outputs.dns_zone_name }}
           EDGE_BASIC_AUTH_USER: ${{ needs.tf-outputs.outputs.edge_basic_auth_user }}
           EDGE_BASIC_AUTH_SSM_PARAMETER_NAME: ${{ needs.tf-outputs.outputs.edge_basic_auth_ssm_parameter_name }}
           K3S_SERVER_INSTANCE_ID: ${{ needs.tf-outputs.outputs.k3s_server_instance_id }}
         run: |
+          set -euo pipefail
+
           wait_for_instance_ready() {
             local instance_id=$1
             local max_attempts=12
@@ -1980,6 +1983,167 @@ jobs:
 
           is_uuid() {
             echo "$1" | grep -Eq '^[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{12}$'
+          }
+
+          run_edge_diagnostics() {
+            local reason=${1:-unknown}
+            local edge_id="${EDGE_INSTANCE_ID:-}"
+
+            if [ -z "${edge_id}" ]; then
+              echo "EDGE_INSTANCE_ID not set; skipping edge diagnostics for ${reason}."
+              return 0
+            fi
+
+            if ! wait_for_instance_ready "${edge_id}"; then
+              echo "Edge instance not ready; skipping edge diagnostics for ${reason}."
+              return 0
+            fi
+
+            local diag_params
+            diag_params="$(jq -cn \
+              --arg c0 'set -euo pipefail' \
+              --arg c1 'echo "edge diagnostics reason='"${reason}"'"' \
+              --arg c2 'echo "cloud-init status:"; cloud-init status --long || true' \
+              --arg c3 'echo "TLS files:"; ls -l /etc/nginx/ssl/edge.crt /etc/nginx/ssl/edge.key || true' \
+              --arg c4 'echo "cloud-init-output tail:"; tail -n 200 /var/log/cloud-init-output.log || true' \
+              --arg c5 'echo "TLS loader stderr files:"; for f in /tmp/ssm-tls-*.err; do [ -f "$f" ] && { echo "--- ${f}"; tail -n 200 "$f"; }; done' \
+              --arg c6 'echo "nginx status:"; systemctl status nginx --no-pager -l || true' \
+              --arg c7 'echo "nginx journal tail:"; journalctl -u nginx --no-pager -n 200 || true' \
+              '{commands: [$c0, $c1, $c2, $c3, $c4, $c5, $c6, $c7]}')"
+
+            local diag_command_id
+            diag_command_id="$(send_ssm_command "${edge_id}" "${diag_params}" 300)"
+            if ! is_uuid "${diag_command_id}"; then
+              echo "Invalid SSM command id for edge diagnostics: ${diag_command_id:-empty}" >&2
+              return 0
+            fi
+
+            echo "::notice title=SMOKE-TESTS::collecting edge diagnostics (${reason})."
+            poll_ssm_command "${diag_command_id}" "${edge_id}" 300 || true
+          }
+
+          run_edge_tls_preflight_via_ssm() {
+            local edge_id=$1
+            local params
+            local command_id
+
+            params="$(jq -cn \
+              --arg c0 'set -euo pipefail' \
+              --arg c1 'cloud-init status --wait || true' \
+              --arg c2 'test -s /etc/nginx/ssl/edge.crt && test -s /etc/nginx/ssl/edge.key' \
+              --arg c3 'openssl x509 -in /etc/nginx/ssl/edge.crt -noout -enddate -subject -issuer' \
+              --arg c4 'cert_modulus_md5="$(openssl x509 -in /etc/nginx/ssl/edge.crt -noout -modulus | openssl md5)"; key_modulus_md5="$(openssl rsa -in /etc/nginx/ssl/edge.key -noout -modulus | openssl md5)"; [ "${cert_modulus_md5}" = "${key_modulus_md5}" ]' \
+              '{commands: [$c0, $c1, $c2, $c3, $c4]}')"
+
+            command_id="$(send_ssm_command "${edge_id}" "${params}" 180)"
+            if ! is_uuid "${command_id}"; then
+              echo "::error title=SMOKE-TESTS::invalid SSM command id while running edge TLS preflight."
+              return 1
+            fi
+
+            if ! poll_ssm_command "${command_id}" "${edge_id}" 180; then
+              echo "::error title=SMOKE-TESTS::edge TLS preflight failed (cloud-init/TLS files/cert-key match)."
+              run_edge_diagnostics "tls-preflight-failed"
+              return 1
+            fi
+
+            echo "::notice title=SMOKE-TESTS::edge TLS preflight via SSM passed."
+          }
+
+          check_public_tls_certificate() {
+            local ip=$1
+            local server_name=$2
+            local min_remaining_seconds=$((14 * 24 * 60 * 60))
+            local cert_file
+            cert_file="$(mktemp)"
+
+            if [ -z "${server_name}" ]; then
+              echo "::warning title=SMOKE-TESTS::EDGE_TLS_SERVER_NAME is empty; skipping strict TLS hostname validation and using -k for HTTP checks."
+              rm -f "${cert_file}"
+              return 0
+            fi
+
+            if ! openssl s_client \
+              -connect "${ip}:443" \
+              -servername "${server_name}" \
+              -verify_hostname "${server_name}" \
+              -showcerts </dev/null 2>/dev/null \
+              | awk '/BEGIN CERTIFICATE/{flag=1} flag{print} /END CERTIFICATE/{exit}' > "${cert_file}"; then
+              echo "::error title=SMOKE-TESTS::failed to fetch/verify public TLS certificate from ${server_name} (${ip}:443)."
+              rm -f "${cert_file}"
+              return 1
+            fi
+
+            if [ ! -s "${cert_file}" ]; then
+              echo "::error title=SMOKE-TESTS::no leaf certificate extracted from ${server_name} (${ip}:443)."
+              rm -f "${cert_file}"
+              return 1
+            fi
+
+            if ! openssl x509 -in "${cert_file}" -noout -checkend "${min_remaining_seconds}" >/dev/null 2>&1; then
+              echo "::error title=SMOKE-TESTS::public TLS certificate for ${server_name} expires in less than 14 days."
+              openssl x509 -in "${cert_file}" -noout -enddate -subject -issuer || true
+              rm -f "${cert_file}"
+              return 1
+            fi
+
+            local not_after
+            not_after="$(openssl x509 -in "${cert_file}" -noout -enddate | cut -d= -f2-)"
+            echo "::notice title=SMOKE-TESTS::public TLS certificate validated for ${server_name} (not_after=${not_after})."
+            rm -f "${cert_file}"
+          }
+
+          TLS_FULLCHAIN_PARAM="/cloudradar/edge/tls/fullchain_pem"
+          TLS_PRIVKEY_PARAM="/cloudradar/edge/tls/privkey_pem"
+
+          verify_tls_artifacts_in_ssm() {
+            local cert_file
+            local key_file
+            local cert_modulus_md5
+            local key_modulus_md5
+            local not_after
+
+            cert_file="$(mktemp)"
+            key_file="$(mktemp)"
+
+            if ! aws ssm get-parameter \
+              --name "${TLS_FULLCHAIN_PARAM}" \
+              --with-decryption \
+              --query "Parameter.Value" \
+              --output text > "${cert_file}"; then
+              echo "::error title=SMOKE-TESTS::TLS certificate parameter missing or unreadable (${TLS_FULLCHAIN_PARAM})."
+              rm -f "${cert_file}" "${key_file}"
+              return 1
+            fi
+
+            if ! aws ssm get-parameter \
+              --name "${TLS_PRIVKEY_PARAM}" \
+              --with-decryption \
+              --query "Parameter.Value" \
+              --output text > "${key_file}"; then
+              echo "::error title=SMOKE-TESTS::TLS private key parameter missing or unreadable (${TLS_PRIVKEY_PARAM})."
+              rm -f "${cert_file}" "${key_file}"
+              return 1
+            fi
+
+            if ! openssl x509 -in "${cert_file}" -noout -checkend 0 >/dev/null 2>&1; then
+              echo "::error title=SMOKE-TESTS::TLS certificate from ${TLS_FULLCHAIN_PARAM} is invalid or expired."
+              rm -f "${cert_file}" "${key_file}"
+              return 1
+            fi
+
+            cert_modulus_md5="$(openssl x509 -in "${cert_file}" -noout -modulus | openssl md5)"
+            key_modulus_md5="$(openssl rsa -in "${key_file}" -noout -modulus | openssl md5)"
+
+            if [ "${cert_modulus_md5}" != "${key_modulus_md5}" ]; then
+              echo "::error title=SMOKE-TESTS::TLS certificate and key mismatch (${TLS_FULLCHAIN_PARAM} vs ${TLS_PRIVKEY_PARAM})."
+              rm -f "${cert_file}" "${key_file}"
+              return 1
+            fi
+
+            not_after="$(openssl x509 -in "${cert_file}" -noout -enddate | cut -d= -f2-)"
+            echo "::notice title=SMOKE-TESTS::TLS artifacts validated in SSM (not_after=${not_after})."
+            rm -f "${cert_file}" "${key_file}"
           }
 
           params="$(jq -cn \
@@ -2083,7 +2247,19 @@ jobs:
             poll_ssm_command "${diag_command_id}" "${K3S_SERVER_INSTANCE_ID}" 300 || true
           }
 
+          verify_tls_artifacts_in_ssm
           wait_for_instance_ready "${EDGE_INSTANCE_ID}"
+          EDGE_TLS_SERVER_NAME="${EDGE_TLS_SERVER_NAME%.}"
+          run_edge_tls_preflight_via_ssm "${EDGE_INSTANCE_ID}"
+          check_public_tls_certificate "${EDGE_PUBLIC_IP}" "${EDGE_TLS_SERVER_NAME:-}"
+
+          EDGE_BASE_URL="https://${EDGE_PUBLIC_IP}"
+          CURL_TLS_ARGS=(-k)
+          if [ -n "${EDGE_TLS_SERVER_NAME:-}" ]; then
+            EDGE_BASE_URL="https://${EDGE_TLS_SERVER_NAME}"
+            CURL_TLS_ARGS=(--resolve "${EDGE_TLS_SERVER_NAME}:443:${EDGE_PUBLIC_IP}")
+          fi
+
           i=0
           while [ $i -lt 3 ]; do
             command_id="$(send_ssm_command "${EDGE_INSTANCE_ID}" "${params}" 120)"
@@ -2111,7 +2287,8 @@ jobs:
               echo "Edge nginx not ready, retrying in 10s..."
               sleep 10
             else
-              echo "Edge nginx not ready after 3 attempts."
+              echo "Edge nginx not ready after 3 attempts. Check nginx logs and edge cloud-init TLS loading."
+              run_edge_diagnostics "nginx-not-ready"
               exit 1
             fi
           done
@@ -2134,14 +2311,15 @@ jobs:
 
             while [ "${attempt}" -le "${max_attempts}" ]; do
               set +e
-              status_code="$(curl -k -sS -o /dev/null -w '%{http_code}' \
+              status_code="$(curl -sS -o /dev/null -w '%{http_code}' \
                 --connect-timeout 5 \
                 --max-time 10 \
                 --retry 2 \
                 --retry-delay 2 \
                 --retry-all-errors \
+                "${CURL_TLS_ARGS[@]}" \
                 -u "${EDGE_BASIC_AUTH_USER}:${edge_basic_auth_password}" \
-                "https://${EDGE_PUBLIC_IP}${path}")"
+                "${EDGE_BASE_URL}${path}")"
               curl_exit=$?
               set -e
 
@@ -2163,6 +2341,7 @@ jobs:
             done
 
             echo "Expected 200/301/302 from ${path}, got ${status_code}."
+            run_edge_diagnostics "http-path-failed-${path}"
             run_cluster_diagnostics "${path}"
             return 1
           }
@@ -2180,14 +2359,15 @@ jobs:
 
             while [ "${attempt}" -le "${max_attempts}" ]; do
               set +e
-              status_code="$(curl -k -sS -o "${body_file}" -w '%{http_code}' \
+              status_code="$(curl -sS -o "${body_file}" -w '%{http_code}' \
                 --connect-timeout 5 \
                 --max-time 15 \
                 --retry 2 \
                 --retry-delay 2 \
                 --retry-all-errors \
+                "${CURL_TLS_ARGS[@]}" \
                 -u "${EDGE_BASIC_AUTH_USER}:${edge_basic_auth_password}" \
-                "https://${EDGE_PUBLIC_IP}${path}")"
+                "${EDGE_BASE_URL}${path}")"
               curl_exit=$?
               set -e
 
@@ -2208,6 +2388,7 @@ jobs:
             done
 
             echo "Expected HTTP 200 + JSON assertion to pass for ${path}."
+            run_edge_diagnostics "http-json-failed-${path}"
             run_cluster_diagnostics "${path}"
             rm -f "${body_file}"
             return 1
