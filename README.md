@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://cloudradar.iotx.fr">
-    <img src="https://img.shields.io/website?url=https%3A%2F%2Fcloudradar.iotx.fr%2Fhealthz&up_message=live&down_message=offline%20(cost-save)&style=for-the-badge&label=CloudRadar%20Live%20Demo&logo=googlechrome&logoColor=white" alt="CloudRadar Live Demo status" />
+    <img src="https://img.shields.io/website?url=https%3A%2F%2Fcloudradar.iotx.fr%2Fstatusz&up_message=live&down_message=offline%20(cost-save)&style=for-the-badge&label=CloudRadar%20Live%20Demo&logo=googlechrome&logoColor=white" alt="CloudRadar Live Demo status" />
   </a>
   <a href="https://github.com/ClementV78">
     <img src="https://img.shields.io/badge/GitHub-@ClementV78-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Profile" />
@@ -85,6 +85,16 @@ Evidence: [Decision records](docs/architecture/decisions/) · [Workflow gates](.
     </tr>
   </tbody>
 </table>
+
+<p align="center">
+  <strong>Try the map interaction:</strong> click any aircraft marker to open its detail panel (callsign, altitude, speed, heading, origin country, and last update).
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/1-Open%20Live%20Demo-0A66C2?style=for-the-badge" alt="Step 1 Open Live Demo" />
+  <img src="https://img.shields.io/badge/2-Click%20an%20Aircraft-1F883D?style=for-the-badge" alt="Step 2 Click an Aircraft" />
+  <img src="https://img.shields.io/badge/3-View%20Flight%20Details-8957E5?style=for-the-badge" alt="Step 3 View Flight Details" />
+</p>
 
 ---
 

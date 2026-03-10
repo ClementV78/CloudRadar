@@ -381,6 +381,7 @@ export default function App(): JSX.Element {
   const [ingesterLoading, setIngesterLoading] = useState(false);
   const [ingesterPendingTarget, setIngesterPendingTarget] = useState<0 | 1 | null>(null);
   const [activeKpiTab, setActiveKpiTab] = useState<KpiTab>('traffic');
+  const [showMapHint, setShowMapHint] = useState(true);
   const lastBatchEpochRef = useRef<number | null>(null);
   const hasMetricsRef = useRef<boolean>(false);
   const missingSelectionCyclesRef = useRef<number>(0);
@@ -1008,6 +1009,26 @@ export default function App(): JSX.Element {
 
       <section className="map-shell glass-panel">
         {refreshError && <div className="refresh-error">{refreshError}</div>}
+        {showMapHint && (
+          <div className={`map-hint${refreshError ? ' has-error' : ''}`} role="note" aria-live="polite">
+            <span className="map-hint-text">
+              <span className="map-hint-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path d="M21 13v-2l-8-3V3.5a1.5 1.5 0 0 0-3 0V8l-7 3v2l7-1.5V16l-2 1.5V19l3.5-1 3.5 1v-1.5L13 16v-4.5z" />
+                </svg>
+              </span>
+              <span>Tip: click an aircraft to open flight details.</span>
+            </span>
+            <button
+              type="button"
+              className="map-hint-close"
+              aria-label="Dismiss map tip"
+              onClick={() => setShowMapHint(false)}
+            >
+              ×
+            </button>
+          </div>
+        )}
         {mapTheme === 'satellite' && <div className="map-dark-overlay" />}
 
         <MapContainer center={MAP_CENTER} zoom={8} maxBounds={MAX_BOUNDS} maxBoundsViscosity={1.0} zoomControl={false}>

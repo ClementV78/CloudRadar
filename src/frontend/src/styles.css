@@ -338,6 +338,72 @@ body,
   padding: 8px 10px;
 }
 
+.map-hint {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 500;
+  max-width: min(520px, calc(100% - 24px));
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 245, 255, 0.38);
+  background: rgba(6, 15, 26, 0.8);
+  color: #b9f6ff;
+  font-size: 0.86rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.map-hint span {
+  font-weight: 500;
+}
+
+.map-hint-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.map-hint-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 245, 255, 0.45);
+  background: rgba(0, 245, 255, 0.1);
+  flex: 0 0 auto;
+}
+
+.map-hint-icon svg {
+  width: 12px;
+  height: 12px;
+  fill: #9ef6ff;
+}
+
+.map-hint-close {
+  border: 0;
+  background: transparent;
+  color: #d5f9ff;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.map-hint-close:hover {
+  color: #ffffff;
+}
+
+.map-hint.has-error {
+  top: 52px;
+}
+
 .map-legend-shell {
   position: absolute;
   left: 12px;
@@ -1184,6 +1250,18 @@ body,
 }
 
 @media (max-width: 768px) {
+  .map-hint {
+    top: 8px;
+    left: 8px;
+    max-width: calc(100% - 16px);
+    font-size: 0.78rem;
+    padding: 6px 9px;
+  }
+
+  .map-hint.has-error {
+    top: 46px;
+  }
+
   .map-legend-shell {
     left: 8px;
     right: 8px;
