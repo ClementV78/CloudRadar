@@ -1,7 +1,6 @@
 # CloudRadar - Real-Time Flight Telemetry Platform on AWS & Kubernetes
 
-> End-to-end DevOps & Cloud Architecture portfolio: Terraform, k3s, GitOps, CI/CD, Observability. Designed, built, and operated solo.
-
+> End-to-end DevOps & Cloud Architecture portfolio: Terraform, k3s, GitOps, CI/CD, Observability.
 <p align="center">
   <a href="https://cloudradar.iotx.fr">
     <img src="https://img.shields.io/website?url=https%3A%2F%2Fcloudradar.iotx.fr%2Fstatusz&up_message=live&down_message=offline%20(cost-save)&style=for-the-badge&label=CloudRadar%20Live%20Demo&logo=googlechrome&logoColor=white" alt="CloudRadar Live Demo status" />
@@ -9,6 +8,7 @@
   <a href="https://github.com/ClementV78">
     <img src="https://img.shields.io/badge/GitHub-@ClementV78-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub Profile" />
   </a>
+  <br/><sub>Click the <strong>CloudRadar Live Demo</strong> badge to open the app.</sub>
 </p>
 
 ![AWS](https://img.shields.io/badge/Cloud-AWS-232F3E?style=flat&logo=amazon-aws&logoColor=white)
@@ -90,12 +90,6 @@ Evidence: [Decision records](docs/architecture/decisions/) · [Workflow gates](.
   <strong>Try the map interaction:</strong> click any aircraft marker to open its detail panel (callsign, altitude, speed, heading, origin country, and last update).
 </p>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/1-Open%20Live%20Demo-0A66C2?style=for-the-badge" alt="Step 1 Open Live Demo" />
-  <img src="https://img.shields.io/badge/2-Click%20an%20Aircraft-1F883D?style=for-the-badge" alt="Step 2 Click an Aircraft" />
-  <img src="https://img.shields.io/badge/3-View%20Flight%20Details-8957E5?style=for-the-badge" alt="Step 3 View Flight Details" />
-</p>
-
 ---
 
 ### Pipeline flow
@@ -103,26 +97,17 @@ Evidence: [Decision records](docs/architecture/decisions/) · [Workflow gates](.
 ```mermaid
 flowchart LR
   subgraph ING["Ingestion"]
-    A["OpenSky API"] --> B["Ingester<br/>Java 17"]
+    OS["OpenSky API"] --> IN["Ingester<br/>Java 17"]
   end
-
   subgraph PROC["Processing"]
-    B --> C["Redis Queue"]
-    C --> D["Processor<br/>Java 17"]
-    D --> E["Redis Aggregates"]
+    RQ["Redis Queue"] --> PR["Processor<br/>Java 17"] --> RA["Redis Aggregates"]
+  end
+  subgraph SERV["Serving"]
+    DA["Dashboard API"] --> FE["Frontend<br/>React + Leaflet"]
   end
 
-  subgraph SERVE["Serving"]
-    E --> F["Dashboard API"]
-    F --> G["Frontend<br/>React + Leaflet"]
-  end
-
-  classDef ext fill:#e3f2fd,stroke:#1e88e5,color:#0d47a1;
-  classDef app fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20;
-  classDef data fill:#fff3e0,stroke:#ef6c00,color:#e65100;
-  class A ext;
-  class B,D,F,G app;
-  class C,E data;
+  IN --> RQ
+  RA --> DA
 ```
 
 ### Key Design Decisions
