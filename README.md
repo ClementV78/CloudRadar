@@ -48,7 +48,7 @@ The result is a reproducible MVP platform used as an interview artifact: deploya
 
 ## AI-Assisted Engineering
 
-This project is **built with AI assistance** (GitHub Copilot / Codex) and run as a **governed, auditable engineering practice**.
+This project is **built with AI as a decision-support and implementation copilot under strict guardrails**, and is run as a **governed, auditable engineering practice**.
 
 <p align="center">
   <a href="./docs/process/ai-assisted-engineering.md">
@@ -59,16 +59,26 @@ This project is **built with AI assistance** (GitHub Copilot / Codex) and run as
   </a>
 </p>
 
-| Aspect | How it works |
-|---|---|
-| **Governance** | A 250+ line [`AGENTS.md`](AGENTS.md) defines rules: scope limits, commit conventions, security guardrails, escalation triggers, merge policies |
-| **Human-in-the-loop** | AI proposes → I review before commit → I merge all PRs. Infra apply is always manual with confirmation |
-| **Traceability** | Every decision documented (20+ ADR records), every PR linked to an issue, every architectural choice reviewed and approved |
-| **Quality gates** | AI-generated changes go through the same CI pipeline: SonarCloud, Trivy, tfsec, unit tests |
-| **Scope control** | AI implements only requested scope; no speculative features or over-engineering. Changes are surgical and incremental |
-| **Knowledge transfer** | AI explains commands and decisions pedagogically; I learn and retain, not just accept |
+AI is used across the full lifecycle (planning, architecture, implementation, testing, documentation, and operations), while I keep ownership of scope, decisions, validation, and merges.
 
-> **Why this matters:** This project demonstrates that AI can accelerate delivery while maintaining engineering rigor, with clear human accountability at every decision point.
+| Control model | How it works |
+|---|---|
+| **Governance** | [`AGENTS.md`](AGENTS.md) defines explicit guardrails: scope, security, merge policy, cost discipline, and documentation hygiene |
+| **Decision ownership** | AI proposes options and challenges assumptions; I make the final architecture and delivery decisions |
+| **Quality enforcement** | AI-generated changes pass the same CI quality gates as any other change (SonarCloud, Trivy, tfsec, tests) |
+| **Traceability** | Decisions are backed by ADRs, issues, PRs, runbooks, and workflow logs |
+
+| Phase | Human lead | AI assist |
+|---|---|---|
+| **Planning & scope** | Define goals, constraints, acceptance criteria | Break down work, suggest options, highlight trade-offs |
+| **Architecture** | Choose direction and approve compromises | Challenge design assumptions and compare alternatives |
+| **Implementation** | Review diffs and approve changes | Draft code/IaC/docs/workflows quickly |
+| **Testing & quality** | Validate critical behavior and production impact | Generate/refine tests and quality checks |
+| **Operations & docs** | Decide actions from metrics/incidents | Produce runbook updates, diagnostics, and documentation |
+
+This allows one person to reliably cover multiple roles: **project manager, architect, developer, tester, technical writer, quality/security reviewer, DevOps, and FinOps**.
+
+> **Why this matters:** AI is a governed accelerator here, not autopilot. It increases delivery speed and decision quality while keeping clear human accountability.
 
 The result (snapshot, **2026-03-09**): **230+ issues, 300+ PRs, 20+ ADR records, 9 CI workflows**.
 
