@@ -40,6 +40,13 @@ server {
   auth_basic "CloudRadar";
   auth_basic_user_file /etc/nginx/.htpasswd;
 
+  location = /statusz {
+    # Public synthetic status endpoint for README badge.
+    auth_basic off;
+    add_header Content-Type text/plain;
+    return 200 'ok';
+  }
+
   location = /healthz {
     # Route health checks to the private backend.
     proxy_pass http://health_upstream;
