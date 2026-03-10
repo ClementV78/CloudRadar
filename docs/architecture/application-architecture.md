@@ -1,16 +1,19 @@
 # CloudRadar Application Architecture
 
+**Last updated**: 2026-03-10
+
 This document describes the architecture and design of all microservices in the CloudRadar platform. Each service is containerized and deployed to k3s via ArgoCD.
 
 ## Overview
 
-CloudRadar consists of five main components:
+CloudRadar consists of six implemented application services:
 
 1. **Ingester** (Java 17) — Fetches flight data from OpenSky API and publishes to Redis
 2. **Processor** (Java 17) — Consumes Redis events and builds in-memory aggregates
-3. **Health** (Python) — Health check endpoint for load balancer / edge ingress
-4. **Admin-Scale** (Python) — Administrative API for scaling the ingester deployment
-5. **Dashboard** (React/Vite) — Frontend for visualization (in planning)
+3. **Dashboard API** (Java 17) — Read-only API for map payload, detail payload, metrics, and SSE refresh events
+4. **Frontend** (React/Vite + Leaflet) — Interactive map and flight detail UI
+5. **Health** (Python) — Health check endpoint for load balancer / edge ingress
+6. **Admin-Scale** (Python) — Administrative API for scaling the ingester deployment
 
 ```mermaid
 graph TB
@@ -22,7 +25,8 @@ graph TB
     Health["Health<br/>(Python)"]
     AdminScale["Admin-Scale<br/>(Python)"]
     Edge["Edge Nginx<br/>(load balancer)"]
-    Dashboard["Dashboard<br/>(React/Vite)<br/>[Planned v1.1]"]
+    DashboardAPI["Dashboard API<br/>(Java 17)"]
+    Frontend["Frontend<br/>(React/Vite + Leaflet)"]
     Prometheus["Prometheus<br/>(metrics collection)"]
     Grafana["Grafana<br/>(dashboards)"]
 
@@ -35,8 +39,9 @@ graph TB
     Ingester -->|metrics| Prometheus
     Processor -->|metrics| Prometheus
     Prometheus -->|visualize| Grafana
-    Dashboard -->|read aggregates| RedisAgg
-    Dashboard -->|embed dashboards| Grafana
+    DashboardAPI -->|read aggregates| RedisAgg
+    DashboardAPI -->|REST + SSE| Frontend
+    Frontend -->|embed dashboards| Grafana
     Grafana -->|query| Prometheus
 ```
 
@@ -171,7 +176,7 @@ Consumes events from the Redis queue (ingester output) and maintains real-time a
 ### Technology Stack
 - **Language**: Java 17
 - **Framework**: Spring Boot 3.x
-- **Event Loop**: Blocking Redis BLPOP with timeout
+- **Event Loop**: Blocking Redis pop with timeout (`RPUSH` producer + blocking `rightPop` consumer)
 - **Redis Client**: Lettuce (Spring Data Redis)
 - **Metrics**: Micrometer (Prometheus format)
 
@@ -180,7 +185,7 @@ Consumes events from the Redis queue (ingester output) and maintains real-time a
 ```mermaid
 flowchart LR
     Queue["Redis List<br/>(cloudradar:ingest:queue)"]
-    Processor["RedisAggregateProcessor<br/>(blocking BLPOP)"]
+    Processor["RedisAggregateProcessor<br/>(blocking rightPop)"]
     Parse["PositionEvent<br/>(JSON parse)"]
     Last["Redis Hash<br/>(cloudradar:aircraft:last)"]
     Track["Redis List<br/>(cloudradar:aircraft:track:*)"]
@@ -203,7 +208,7 @@ src/processor/
 ├── config/
 │   └── ProcessorProperties.java           # Configuration: bbox, Redis keys, poll timeout
 ├── service/
-│   ├── RedisAggregateProcessor.java       # Main processor loop (blocking BLPOP)
+│   ├── RedisAggregateProcessor.java       # Main processor loop (blocking rightPop)
 │   ├── PositionEvent.java                 # DTO for parsed OpenSky events
 │   └── AircraftAggregate.java             # In-memory aggregate state
 └── controller/
@@ -245,7 +250,7 @@ src/processor/
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `PROCESSOR_POLL_TIMEOUT_SECONDS` | 2 | Redis BLPOP timeout |
+| `PROCESSOR_POLL_TIMEOUT_SECONDS` | 2 | Redis blocking pop timeout |
 | `PROCESSOR_TRACK_LENGTH` | 180 | Max positions per aircraft track |
 | `PROCESSOR_REDIS_INPUT_KEY` | `cloudradar:ingest:queue` | Input Redis List |
 | `PROCESSOR_LAST_POSITIONS_KEY` | `cloudradar:aircraft:last` | Last positions hash |
@@ -263,7 +268,68 @@ src/processor/
 
 ---
 
-## 3. Health (Python)
+## 3. Dashboard API (Java 17 / Spring Boot)
+
+### Purpose
+Provides read-only endpoints consumed by the frontend:
+- map payload (`/api/flights`)
+- per-aircraft details (`/api/flights/{icao24}`)
+- KPI/summary payload (`/api/flights/metrics`)
+- SSE refresh stream (`/api/flights/stream`)
+
+### Technology Stack
+- **Language**: Java 17
+- **Framework**: Spring Boot 3.x
+- **Data Source**: Redis aggregates (required), aircraft SQLite metadata (optional)
+- **Streaming**: Server-Sent Events (SSE)
+- **Security**: Read-only API surface + in-memory rate limiting
+
+### Core Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/flights` | GET | Returns map list payload with filters/sort/limit |
+| `/api/flights/{icao24}` | GET | Returns enriched flight detail payload |
+| `/api/flights/metrics` | GET | Returns KPI aggregates for dashboard cards/charts |
+| `/api/flights/stream` | GET | SSE events: `connected`, `batch-update`, `heartbeat` |
+
+### Architecture
+
+```mermaid
+flowchart LR
+    FE["Frontend<br/>(React/Vite)"]
+    API["Dashboard API<br/>(Spring Boot)"]
+    REDIS["Redis Aggregates<br/>(last + tracks + indexes)"]
+    AIRDB["Aircraft DB<br/>(SQLite, optional)"]
+    SSE["SSE stream<br/>batch-update / heartbeat"]
+
+    FE -->|GET /api/flights*| API
+    API -->|read views| REDIS
+    API -.->|optional enrich| AIRDB
+    API -->|/api/flights/stream| SSE
+    SSE --> FE
+```
+
+### Code Organization
+
+```
+src/dashboard/
+├── DashboardApplication.java
+├── api/
+│   ├── DashboardController.java
+│   └── ApiExceptionHandler.java
+├── service/
+│   ├── FlightQueryService.java
+│   ├── FlightUpdateStreamService.java
+│   └── PlanespottersPhotoService.java
+└── aircraft/
+    ├── AircraftMetadataRepository.java
+    └── SqliteAircraftMetadataRepository.java
+```
+
+---
+
+## 4. Health (Python)
 
 ### Purpose
 Lightweight health check endpoint for the edge load balancer and general cluster health validation. Queries the k3s API server to ensure cluster connectivity.
@@ -311,7 +377,7 @@ src/health/
 
 ---
 
-## 4. Admin-Scale (Python)
+## 5. Admin-Scale (Python)
 
 ### Purpose
 Administrative API for scaling the ingester deployment replicas. Accepts HMAC-signed POST requests to scale from 0 to 2 replicas (configurable).
@@ -383,54 +449,46 @@ src/admin-scale/
 
 ---
 
-## 5. Dashboard (React / Vite)
+## 6. Frontend Dashboard (React / Vite)
 
-### ⚠️ Status: Not Yet Implemented
-**Planned for v1.1** — Currently in planning phase only. No code or deployment yet.
-
-Dependencies:
-- Processor aggregates finalized ✅
-- Redis schema stable ✅
-- Observability stack deployed ✅ (issue #10)
+### Status: Implemented (MVP)
+Frontend is deployed on k3s via ArgoCD (`k8s/apps/frontend`) and served through edge Nginx/Traefik.
 
 ### Purpose
-Frontend for visualizing aircraft positions, flight tracks, and cluster health. Will use Leaflet for map visualization and Grafana (via embedded iframes) for observability dashboards.
+Render live aircraft traffic on an interactive map, show per-flight details, and consume backend SSE events for refresh orchestration.
 
-### Technology Stack (Planned)
+### Technology Stack
 - **Language**: TypeScript / React 18
 - **Build Tool**: Vite
-- **Map**: Leaflet + Leaflet-Geosearch
-- **Styling**: TailwindCSS
-- **Observability**: Grafana (embedded dashboards from metrics stack)
-- **State**: Context API (minimal)
+- **Map**: Leaflet
+- **Runtime**: Nginx (containerized static frontend)
+- **Data/API**: Dashboard API (`/api/flights*` + `/api/flights/stream`)
 
-### Planned Architecture
+### Architecture
 
 ```mermaid
 graph TB
-    Dashboard["Dashboard<br/>(React/Vite)<br/>[Not Yet Implemented]"]
-    Leaflet["Leaflet Map<br/>(aircraft positions)"]
-    GeoSearch["Geosearch Plugin<br/>(location search)"]
-    Grafana["Grafana Embed<br/>(observability dashboards)"]
-    Prometheus["Prometheus<br/>(metrics source)"]
-    RedisAPI["REST API<br/>(aggregates proxy)<br/>[Future]"]
-    Redis["Redis Aggregates<br/>(aircraft:*, in_bbox)"]
-    
-    Dashboard -->|display| Leaflet
-    Dashboard -->|search| GeoSearch
-    Dashboard -->|embed dashboards| Grafana
-    Grafana -->|query metrics| Prometheus
-    Dashboard -->|fetch| RedisAPI
-    RedisAPI -->|read| Redis
+    Frontend["Frontend<br/>(React/Vite + Leaflet)"]
+    Api["Dashboard API<br/>(Spring Boot)"]
+    Sse["SSE stream<br/>batch-update / heartbeat"]
+    Grafana["Grafana Embed<br/>(optional observability views)"]
+
+    Frontend -->|GET /api/flights, /api/flights/{icao24}, /api/flights/metrics| Api
+    Frontend -->|EventSource /api/flights/stream| Sse
+    Frontend -->|optional embeds| Grafana
 ```
 
-### Planned Features (MVP)
+### Implemented MVP Features
 
-- **Aircraft Map**: Real-time position markers from `cloudradar:aircraft:in_bbox`
-- **Flight Tracks**: Historical paths from `cloudradar:aircraft:track:*`
-- **Search**: Geosearch to pan/zoom
-- **Health Metrics**: Embedded Grafana dashboard showing processor/ingester metrics
-- **Responsive UI**: Mobile-friendly design
+- Real-time aircraft markers and movement interpolation
+- Aircraft detail panel on marker click
+- SSE-driven refresh with polling watchdog fallback
+- UI health/status chips for dashboard API and ingestion signals
+- Flight density / defense activity / fleet breakdown cards
+
+### Current Scope Boundaries
+
+- Zone/alert business workflows are tracked separately and not finalized in this frontend scope (`#128`, `#424`).
 
 ---
 
@@ -445,25 +503,26 @@ sequenceDiagram
     participant Redis as Redis Queue
     participant Processor
     participant RedisAgg as Redis Aggregates
-    participant Dashboard
+    participant DashboardAPI as Dashboard API
+    participant Frontend
     participant Grafana
 
     OpenSky->>Ingester: state vector batch
     Ingester->>Ingester: parse FlightState
-    Ingester->>Redis: LPUSH cloudradar:ingest:queue<br/>{icao24, callsign, lat, lon, ...}
+    Ingester->>Redis: RPUSH cloudradar:ingest:queue<br/>{icao24, callsign, lat, lon, ...}
     
-    Processor->>Redis: BLPOP cloudradar:ingest:queue (timeout 2s)
+    Processor->>Redis: BRPOP cloudradar:ingest:queue (timeout 2s)
     Processor->>Processor: parse PositionEvent
     Processor->>RedisAgg: HSET cloudradar:aircraft:last<br/>icao24 {...}
     Processor->>RedisAgg: LPUSH cloudradar:aircraft:track:icao24<br/>{...}
     Processor->>RedisAgg: SADD cloudradar:aircraft:in_bbox<br/>icao24
     Processor->>Grafana: record metrics<br/>(processor_events_processed_total)
     
-    Dashboard->>RedisAgg: fetch aircraft:in_bbox
-    Dashboard->>RedisAgg: fetch aircraft:last for each
-    Dashboard->>Dashboard: render on map
-    Dashboard->>Grafana: embed observability dashboards<br/>(Grafana queries Prometheus)
-    Dashboard->>Grafana: display health/metrics
+    Frontend->>DashboardAPI: GET /api/flights*
+    DashboardAPI->>RedisAgg: fetch aircraft:in_bbox + aircraft:last + track data
+    DashboardAPI-->>Frontend: return map/detail/metrics payloads
+    Frontend->>Frontend: render map + detail panel
+    Frontend->>Grafana: optional embedded views
 ```
 
 ---
@@ -481,19 +540,29 @@ k8s/apps/
 │   └── kustomization.yaml         # Ingester app + config
 ├── processor/
 │   └── kustomization.yaml         # Processor app + config
+├── dashboard/
+│   └── kustomization.yaml         # Dashboard API service
+├── frontend/
+│   └── kustomization.yaml         # React/Leaflet frontend
 ├── health/
 │   └── kustomization.yaml         # Health endpoint
 ├── admin-scale/
 │   └── kustomization.yaml         # Admin-Scale API
+├── redis/
+│   └── kustomization.yaml         # Redis StatefulSet + exporter
 └── monitoring/
     └── (Prometheus + Grafana)     # Observability stack
 ```
 
-Each service:
-- Runs in the `cloudradar` namespace (by default)
-- Exposes `/healthz` for health checks; the health app also exposes `/readyz` for probes
-- Exposes `/metrics` or `/metrics/prometheus` for Prometheus scraping
-- Has defined resource requests/limits (CPU, memory)
+Namespace placement:
+- `cloudradar`: ingester, processor, dashboard API, frontend, health, admin-scale
+- `data`: redis stateful workloads
+- `monitoring`: prometheus/grafana and monitoring CRs
+
+Operational conventions:
+- backend services expose `/healthz`; health also exposes `/readyz`
+- Java services expose `/metrics/prometheus` for scraping
+- workloads include defined resource requests/limits (MVP baseline)
 
 ---
 
@@ -517,6 +586,20 @@ export REDIS_HOST=localhost
 mvn -q spring-boot:run
 ```
 
+**Dashboard API**:
+```bash
+cd src/dashboard
+export REDIS_HOST=localhost
+mvn -q spring-boot:run
+```
+
+**Frontend**:
+```bash
+cd src/frontend
+npm ci
+npm run dev
+```
+
 **Health**:
 ```bash
 cd src/health
@@ -533,15 +616,16 @@ python3 app.py
 
 ### Production Validation
 
-1. **Prometheus metrics**: `kubectl port-forward -n cloudradar <pod> 8080:8080`
-2. **Health endpoints**: `kubectl logs -n cloudradar <pod>`
-3. **Redis aggregates**: `redis-cli -n 0 HGETALL cloudradar:aircraft:last`
+1. **Dashboard API health**: `kubectl -n cloudradar get deploy dashboard`
+2. **Frontend health**: `kubectl -n cloudradar get deploy frontend`
+3. **Health endpoint**: `kubectl -n cloudradar get deploy healthz`
+4. **Redis aggregates**: `redis-cli -n 0 HGETALL cloudradar:aircraft:last`
 
 ---
 
 ## Future Work
 
-- **Dashboard MVP** (v1.1): React/Leaflet map + Grafana embeds
+- **Frontend v1.1 polish**: UX refinements, richer aircraft details, and map interaction improvements
 - **Persistence** (#165): SQLite for event history
 - **Alerting** (MVP implemented): Alertmanager baseline rules for platform/pipeline anomalies
 - **Loki** (v2): Log aggregation and analysis

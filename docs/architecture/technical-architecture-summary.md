@@ -1,23 +1,21 @@
 # CloudRadar — Technical Architecture Summary
 
 **Version**: v1-mvp  
-**Date**: 2026-02-13  
+**Date**: 2026-03-10  
 **Audience**: DevOps Engineers, Cloud Architects, Technical Recruiters  
 **Purpose**: Portfolio showcase demonstrating production-grade cloud architecture, GitOps practices, and infrastructure automation
 
 ---
 
-## 🇫🇷 Contexte & Enjeux du Projet
+## Project Context & Objectives
 
-CloudRadar est une plateforme que j’ai conçue pour reproduire un environnement DevOps et Cloud aligné avec des pratiques d’ingénierie utilisées en entreprise. L’objectif était de construire un système cohérent, structuré et exploitable en continu, pouvant être industrialisé.
+CloudRadar is a real-time flight telemetry cloud platform, designed to be operated end-to-end in production-like conditions. The application path is explicit and verifiable: OpenSky API -> Ingester -> Redis -> Processor -> Dashboard API -> Interactive frontend (React/Leaflet).
 
-L’architecture intègre de l’Infrastructure as Code, un modèle GitOps, des workloads Kubernetes stateful, une stack d’observabilité complète et des mécanismes de sécurité intégrés dès la conception. La segmentation réseau, la gestion fine des accès et l’automatisation des déploiements ont été pensés en respectant les bonnes pratiques et en mettant l’accent sur la reproductibilité et la maintenabilité.
+The architecture separates a mostly stateless application layer (Java services, frontend, utility APIs) from a stateful data layer (Redis StatefulSet + PVC). It follows production-oriented practices: Infrastructure as Code, pull-based GitOps, native observability, IAM access control, and security guardrails by design.
 
-L’ensemble de l’infrastructure AWS est provisionnée via Terraform. Les déploiements Kubernetes sont pilotés en GitOps (pull) via ArgoCD. La pipeline CI/CD est largement automatisée de bout en bout, avec des garde-fous manuels sur les étapes sensibles (merge PR, infra apply). Les secrets sont centralisés dans AWS SSM Parameter Store puis synchronisés vers Kubernetes via External Secrets Operator. Les rôles IAM sont définis selon le principe du moindre privilège.
+AWS infrastructure is provisioned with Terraform, Kubernetes deployments are reconciled by ArgoCD, and CI/CD orchestrates build, quality gates, and deployment with explicit checks before sensitive steps. Secrets are stored in AWS SSM and synchronized to Kubernetes through External Secrets Operator, with no static cloud credentials in pipelines.
 
-Les choix d’architecture ont également été guidés par une logique d’optimisation des coûts, dans une démarche FinOps, afin de maintenir un niveau de service réaliste tout en conservant une maîtrise des dépenses. L’architecture limite la dépendance aux services managés les plus coûteux, avec un runtime largement portable (k3s, ArgoCD, Redis, Prometheus/Grafana, services Java) mais des opérations volontairement AWS-anchored pour le MVP (IAM, SSM, VPC, CloudWatch).
-
-Chaque évolution, chaque arbitrage technique et chaque correction ont été tracés dans des issues GitHub, assurant une traçabilité complète.
+Technical choices follow an explicit FinOps strategy: maximize demonstration value while keeping operational cost low (k3s, NAT instance, OSS stack) and preserving architecture credibility for cloud architecture interviews. Key trade-offs and incidents are tracked in issues, PRs, ADRs, and runbooks to keep full decision traceability.
 
 ---
 
@@ -100,7 +98,7 @@ graph TB
 graph LR
     INTERNET((Internet))
     
-    subgraph VPC["VPC 10.0.0.0/16 (us-east-1a)"]
+    subgraph VPC["VPC 10.0.0.0/16 (dev, us-east-1a)"]
         IGW[IGW]
         
         direction TB
@@ -130,7 +128,7 @@ graph LR
 - **Single-AZ Design**: Cost-optimized for portfolio showcase (~$50/mo savings vs multi-AZ)
 - **Defense in Depth**: Public edge + private compute, security groups restrict all ingress except HTTPS (443)
 - **NAT Instance**: t3.nano saves $28/mo vs NAT Gateway, handles OpenSky egress traffic
-- **EBS-Backed**: gp3 volumes for k3s storage (133GB total), no EFS/S3 dependencies
+- **EBS-Backed (dev defaults)**: gp3 volumes for k3s storage (k3s server 40GB + worker 40GB + edge 40GB + NAT 8GB + Redis PVC 5Gi ≈ 133GB total), no EFS/S3 runtime dependency
 
 ### 2.2 Security & IAM Posture
 
@@ -181,7 +179,7 @@ graph TB
 | **IAM** | Least-privilege roles + OIDC for CI/CD (no long-lived CI secrets) | CloudTrail auditability, reduced credential sprawl |
 | **Encryption** | EBS encrypted at rest, TLS in transit (edge Nginx + in-cluster ingress) | Data protection at rest/transit |
 | **State** | Terraform backend in S3 (encrypted, versioned, DynamoDB lock) | Safe concurrent operations, rollback and audit history |
-| **Supply Chain** | GHCR with GitHub-issued `GITHUB_TOKEN`; image scanning planned in CI | No long-lived registry credentials, controlled artifact path |
+| **Supply Chain** | GHCR with GitHub-issued `GITHUB_TOKEN`; Hadolint + Trivy + SonarCloud checks in CI | No long-lived registry credentials, controlled artifact path with automated quality/security gates |
 
 **Zero-Trust Principles**: No SSH keys · OIDC for CI/CD · Secrets in SSM Parameter Store · Least-privilege IAM · Single ingress (443)
 
@@ -193,6 +191,7 @@ graph TB
         ING[Ingester<br/>default: 0 replica<br/>100m CPU, 256Mi RAM request]
         PROC[Processor<br/>1 replica<br/>50m CPU, 128Mi RAM request]
         DASH[Dashboard API<br/>1 replica<br/>50m CPU, 128Mi RAM request]
+        FE[Frontend<br/>1 replica<br/>50m CPU, 96Mi RAM request]
         HEALTH[Health + Admin-Scale<br/>Utility APIs]
     end
 
@@ -215,6 +214,7 @@ graph TB
     REDIS -->|Pull events| PROC
     PROC -->|Write aggregates| REDIS
     DASH -->|Read views| REDIS
+    DASH -->|REST/SSE| FE
     
     PROM -.->|Scrape /metrics/prometheus| ING
     PROM -.->|Scrape /metrics/prometheus| PROC
@@ -255,6 +255,8 @@ graph LR
 
 **Flow**: OpenSky (StateVector[]) → Ingester (parse) → Redis buffer (`cloudradar:ingest:queue`) → Processor (enrich + aggregates) → Dashboard API (`HSCAN` on `cloudradar:aircraft:last` + per-flight track lookup) → React/Leaflet UI
 
+**Ordering Semantics**: ingestion currently uses `RPUSH` + `BRPOP` on the same Redis list, which behaves as a LIFO buffer (freshness-first) rather than strict FIFO queue semantics.
+
 **Key Patterns**: Event buffer (Redis List push/blocking-pop operations) decouples ingestion/processing · Pre-computed aggregates (hash/list/set) for <5ms reads · Idempotent processing (processor restart-safe) · Read-only SQLite for aircraft metadata
 
 ### 3.2 Component Responsibilities
@@ -264,10 +266,12 @@ graph LR
 | **Ingester** | Poll OpenSky API, parse, push to Redis | Java 17 + Spring Boot 3.x | Manual/API-driven scale (default 0, typically 0→2 replicas) |
 | **Processor** | Enrich events, maintain aggregates | Java 17 + Spring Boot 3.x | Single consumer in MVP (parallelism planned in v2) |
 | **Dashboard API** | REST API for flight map + details | Java 17 + Spring Boot 3.x | Stateless; horizontal replicas possible (HPA planned) |
+| **Frontend** | Interactive map UI, marker details, SSE refresh loop | React 18 + TypeScript + Leaflet | Stateless; single replica in MVP (scale-out possible) |
 | **Redis** | Event buffer + aggregates | Redis 7.x (StatefulSet) | Vertical (no cluster mode in MVP) |
-| **Health Service** | Liveness probes for all components | Python 3.11 | Single replica (lightweight) |
+| **Health Service** | Cluster-aware `/healthz` + `/readyz` endpoint for edge/probes | Python 3.11 | Single replica (lightweight) |
+| **Admin-Scale** | HMAC-protected API to adjust ingester replicas | Python 3.11 + boto3 | Single replica (operational utility) |
 
-**Current Scale**: ~200-400 flights/poll, 10s interval → ~30-40 events/sec sustained (~100-120 events/sec burst)
+**Current Scale (observed snapshot, 2026-03-10)**: ingest/process around ~6.3 events/sec, with ~62-67 active aircraft in the monitored zone. Values vary by traffic window and OpenSky availability.
 
 ---
 
@@ -275,7 +279,7 @@ graph LR
 
 ### 4.1 Redis as Event Buffer + Aggregate Store
 
-**Design Pattern**: Redis serves dual purpose — event buffer (List push/blocking-pop) + pre-computed aggregates (hash/set/list structures) for near-zero latency reads.
+**Design Pattern**: Redis serves dual purpose — event buffer (LIFO list via `RPUSH/BRPOP`) + pre-computed aggregates (hash/set/list structures) for near-zero latency reads.
 
 ```mermaid
 graph TB
@@ -314,7 +318,7 @@ graph TB
 | Metric | Value | Why It Matters |
 |--------|-------|----------------|
 | **Read Latency** (dashboard) | <5ms p99 | All data in-memory, no database queries |
-| **Write Throughput** | ~100-120 events/sec | Single-threaded list writes, no disk I/O |
+| **Write Throughput** | ~6.3 events/sec (ingest/process observed), ~183 Redis ops/sec total commands | Distinguishes pipeline event rate from Redis aggregate read/write command volume |
 | **Memory Footprint** | ~200-400MB | 400 flights × ~1KB per aggregate |
 | **Data Retention** | No global TTL in MVP | Track history bounded via `LTRIM`, stale cleanup is application-managed |
 | **Backup Frequency** | Backup/restore automation on infra destroy/apply workflows | No daily scheduled backup in MVP |
@@ -325,7 +329,7 @@ graph TB
 graph LR
     A[OpenSky API]
     B[Ingester<br/>Parse + Validate]
-    C[Redis Queue<br/>RPUSH/BRPOP]
+    C[Redis Buffer<br/>LIFO RPUSH/BRPOP]
     D[Processor<br/>Enrich + Aggregate]
     E[Redis Aggregates<br/>HSET/LPUSH/SADD]
     F[Dashboard API<br/>HSCAN + LRANGE]
@@ -466,6 +470,17 @@ graph TB
 
 Additional specialized dashboards (Traefik, node exporter, Redis exporter, JVM, CloudWatch) remain available for deep-dive troubleshooting.
 
+### 6.2 Alerting Baseline (Implemented)
+
+Alerting is enabled in MVP with Prometheus rules + Alertmanager routing:
+
+- **Rules source**: `k8s/apps/monitoring/alerts/prometheusrule-cloudradar-mvp.yaml`
+- **Current rule set** (examples): scrape target down, processor stalled, Redis backlog high, ingester backoff active/disabled, OpenSky rate limiting
+- **Routing model**:
+  - Alertmanager config is generated from ESO/SSM (`k8s/apps/external-secrets/alertmanager-config.yaml`)
+  - notifications route to SNS when `/cloudradar/alerting/enabled=true`
+  - fallback receiver is `null` when alerting is disabled
+
 **Observability Best Practices** (SRE Principles):
 - **Instrumentation-First**: All services expose `/healthz` and Prometheus scrape endpoints before deployment (no blind spots)
 - **Golden Signals**: Latency, Traffic, Errors, Saturation tracked at every layer
@@ -503,6 +518,8 @@ pie
     "S3 + Data Transfer" : 1.08
 ```
 
+EBS sizing note (dev defaults): 40GB (k3s server) + 40GB (k3s worker) + 40GB (edge) + 8GB (NAT) + 5Gi (Redis PVC) ≈ 133GB.
+
 **FinOps Principles Demonstrated**:
 1. **Cost-Aware Architecture**: Every design choice evaluated for cost impact (documented in ADRs)
 2. **Right-Sizing**: Instance types match actual workload (no over-provisioning)
@@ -517,7 +534,17 @@ pie
 
 ---
 
-## 8. Reference Documentation
+## 8. Known Limitations & Deliberate Trade-offs
+
+- **Single-AZ deployment**: deliberate MVP cost choice; lower resilience than multi-AZ.
+- **Redis ingestion ordering**: `RPUSH/BRPOP` yields LIFO behavior (freshness bias over strict FIFO ordering).
+- **In-cluster traffic**: TLS terminates at edge Nginx; internal service-to-service traffic is HTTP in private subnets.
+- **Manual scaling controls**: HPA is intentionally deferred; ingester scaling is API/manual-driven in MVP.
+- **Backups cadence**: restore automation is implemented, but no continuous high-frequency backup pipeline yet.
+
+---
+
+## 9. Reference Documentation
 
 **For deeper technical details**:
 - [Full Technical Architecture Document](./technical-architecture-document.md) — Complete 28-diagram analysis (1000+ lines)
@@ -529,4 +556,4 @@ pie
 
 ---
 
-**Document Maintenance**: Update when major architectural changes are merged. Last updated: 2026-02-28.
+**Document Maintenance**: Update when major architectural changes are merged. Last updated: 2026-03-10.
