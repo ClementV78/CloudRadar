@@ -36,10 +36,28 @@ The result is a reproducible MVP platform used as an interview artifact: deploya
 
 ![CloudRadar Architecture](./docs/architecture/cloudradar-v1-high-level.png)
 
+<p align="center">
+  <a href="./docs/architecture/technical-architecture-summary.md">
+    <img src="https://img.shields.io/badge/Read-Technical%20Architecture%20Summary%20(EN)-0A66C2?style=for-the-badge&logo=bookstack&logoColor=white" alt="Technical Architecture Summary EN" />
+  </a>
+  <a href="./docs/architecture/technical-architecture-summary.fr.md">
+    <img src="https://img.shields.io/badge/Lire-Synth%C3%A8se%20Architecture%20(FR)-1D9A6C?style=for-the-badge&logo=bookstack&logoColor=white" alt="Synthèse Architecture FR" />
+  </a>
+</p>
+
 
 ## AI-Assisted Engineering
 
 This project is **built with AI assistance** (GitHub Copilot / Codex) and run as a **governed, auditable engineering practice**.
+
+<p align="center">
+  <a href="./docs/process/ai-assisted-engineering.md">
+    <img src="https://img.shields.io/badge/AI%20Process-English-0A66C2?style=flat-square&logo=bookstack&logoColor=white" alt="AI Process English" />
+  </a>
+  <a href="./docs/process/ai-assisted-engineering.fr.md">
+    <img src="https://img.shields.io/badge/Processus%20IA-Fran%C3%A7ais-1D9A6C?style=flat-square&logo=bookstack&logoColor=white" alt="Processus IA Français" />
+  </a>
+</p>
 
 | Aspect | How it works |
 |---|---|
