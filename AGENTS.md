@@ -3,11 +3,12 @@
 ## 1. Project Intent
 - Portfolio showcase focused on DevOps and cloud architecture, not application complexity.
 - Favor speed of delivery, clean structure, and minimal infrastructure cost.
-- Frontend should be simple but deliver a "wow" effect.
+- Frontend should be simple but deliver a "wow" effect; prioritize clarity and visual impact over feature depth.
 - This project supports a DevOps career transition and is used as an interview showcase; prioritize learning outcomes.
+- Out of scope: complex backend business logic, user authentication/role management (unless needed for IAM demo), advanced frontend state management (Redux, Zustand).
 
 ## 2. Stack Snapshot
-- Stack: Terraform · AWS · k3s · Prometheus/Grafana · React/Leaflet.
+- Stack: Terraform · AWS · k3s · Java 17 / Spring Boot · Redis · Prometheus/Grafana · React/Leaflet.
 - Focus: DevOps, Cloud Architecture, Observability, cost awareness, CI/CD.
 
 ## 3. Language Policy
@@ -21,8 +22,6 @@
 - At the start of each ticket, summarize expected outcomes and propose a plan before making changes.
 - Keep changes small, incremental, and easy to review.
 - If splitting changes into multiple commits improves clarity, do so; prefer clean scope separation when reasonable.
-- Simplicity self-check (heuristic): ask yourself, "Would a senior engineer call this overcomplicated for this scope?" If yes, simplify.
-- Ambiguity handling: if ambiguity is critical (correctness, security, cost, or architecture impact), stop and ask; otherwise proceed with explicit assumptions and report them clearly.
 - When workflows are hard to test before merge, validate the key steps locally (e.g., Terraform validate/plan).
 
 ### Engineering Guardrails (LLM)
@@ -75,7 +74,6 @@
 - Verify labels exist before applying; create if needed
 - Use `skill` type for skill updates (e.g., `skill(agents): harden auto-merge`)
 - Prefer testing workflows on a branch before merging to main.
-
 - Issues vs PRs semantic clarity:
   - Issues describe problems/requests in future tense with context and DoD; create issues before work starts.
   - PRs describe implemented solutions in past tense; keep 3-5 bullets focused on what changed and why, with issue link.
@@ -98,6 +96,7 @@
 ### 4.7 FinOps & Cost Awareness
 - Prefer free-tier usage for AWS and keep GitHub Actions within free minutes when possible.
 - Apply a FinOps mindset: default to free-tier or lowest-cost options, and justify any paid services or upgrades.
+- Document resource allocation and cost implications (e.g., PVC size, retention policies).
 
 ### 4.8 Scope & Merge Hygiene
 - Do not mix multiple issue scopes in a single branch; split work into separate branches if it happens.
@@ -118,10 +117,7 @@
 **Observability Endpoints**:
 - All services expose `/healthz` (liveness) and `/metrics` (Prometheus) for cluster visibility
 - Prometheus + Grafana configured end-to-end; use for debugging and capacity planning
-
-**Cost Awareness**:
-- Document resource allocation and cost implications (e.g., PVC size, retention policies)
-- Prefer free-tier and lowest-cost options; justify exceptions
+- PrometheusRules define baseline alerting for platform/pipeline anomalies
 
 ## 5. Decided Tech Stack (Decision Context)
 
@@ -133,7 +129,7 @@
 - **Observability**: Prometheus + Grafana (metrics-first, 7d retention; see ADR-0005)
 - **GitOps**: ArgoCD (declarative k8s deployments; see ADR-0013)
 
-**Frontend** (Planned v1.1):
+**Frontend** (Implemented):
 - React 18 + Vite + Leaflet (interactive map, real-time aircraft positions)
 - Grafana embeds for cluster health dashboards
 
@@ -150,22 +146,20 @@
 - Tooling issues do not require a milestone.
 - Sprint Goals live as draft items inside the GitHub Project.
 - GHCR image paths must be lowercase (Docker image refs do not allow uppercase in repository names).
-
-## 7. Commit Conventions
-- Use the same `type(scope): message` format as issues.
+- GHCR images are tagged with the `VERSION` file value on `main` builds, plus `latest`; semver tags are added on Git tag releases.
 - Link commits to issues in the body with `Refs #<issue>` or `Fixes #<issue>`.
 - Prefer one commit per logical change.
 
-## 8. Branching & Environments
+## 7. Branching & Environments
 - `main` is the single source of truth (not tied to a specific environment).
 - Branch per issue: `feat/1-vpc`, `fix/12-...`, `infra/32-...`.
 - Promotion between environments uses IaC variables or `infra/live/*`, not long-lived branches.
 
-## 9. Git & Contribution Workflow
+## 8. Git & Contribution Workflow
 
 **Core Rule:** ⛔ **No direct push to `main`.** All changes require a Pull Request.
 
-### 9.1 Agent vs User Responsibilities
+### 8.1 Agent vs User Responsibilities
 
 **Agent (Codex) Responsibilities**:
 - Create branches, write code/docs, commits
@@ -192,7 +186,7 @@
 - Merged PRs are treated as implicitly approved outcomes.
 - This does not override the "request user review before committing" rule above.
 
-### 9.2 AGENTS and Docs Meta Workflow
+### 8.2 AGENTS and Docs Meta Workflow
 - Contextual changes (`feat/...`): if an update is linked to a specific feature, modify `AGENTS.md` directly within that feature branch.
 - Isolated updates (`docs/...`): use a dedicated branch for general agent maintenance or global rule updates.
 - Meta issue for AGENTS.md: track AGENTS-only changes in https://github.com/ClementV78/CloudRadar/issues/55 (no separate issues). Each AGENTS.md PR must reference the meta issue and add a short changelog entry.
@@ -201,18 +195,17 @@
 - AGENTS update skill: use `cloudradar-agents-update` when asked to update `AGENTS.md`. Before running the skill, ensure `main` is up to date to avoid stash conflicts.
 - Branch cleanup: never delete branches unless explicitly requested by the user.
 
-## 10. Quality & CI
+## 9. Quality & CI
 - Keep tests lightweight but present.
 - Add minimal CI checks for infra and app when applicable.
 - Prefer lint/format + basic unit tests over heavy suites.
 - Continuously improve CI test coverage as the stack grows. When introducing new components or workflows, add or update minimal relevant checks to validate them.
-
-## 11. CI/CD Expectations
+- When adding or modifying a service feature, include or update at least one unit test covering the core logic path.
 - GitHub Actions for infra and app workflows.
 - Infra: `terraform fmt`, `validate`, and `plan` on PRs.
 - App: lint/format + minimal tests on PRs.
 
-## 12. Documentation Requirements
+## 10. Documentation Requirements
 - Keep `README.md`, GitHub issues, and `docs/architecture/` aligned with decisions.
 - Always reference `docs/architecture/infrastructure.md` for infra changes and keep it updated as infra evolves.
 - Update docs when architecture or infrastructure choices change.
@@ -222,40 +215,29 @@
 - Keep local-only configuration (real values) out of version control; commit example templates instead.
 - Ensure runbooks and ADRs link to related issues, and issues link back to those docs.
 
-## 13. Directory Structure
+## 11. Directory Structure
 - `infra/` Terraform IaC and modules.
 - `k8s/` Kubernetes manifests.
-- `src/` Application services (ingester/processor/dashboard).
+- `src/` Application services (ingester, processor, dashboard, frontend, health, admin-scale).
 - `docs/` Architecture, ADRs, and runbooks.
 
-## 14. Decision Records
+## 12. Decision Records
 - Store ADRs in `docs/architecture/decisions/`.
 - Add/update ADRs when a non-trivial technical choice is made.
 - Naming: `ADR-0001-YYYY-MM-DD-short-title.md` (incremental, zero-padded).
 - For each issue completed, check whether new ADRs are needed and add them.
 
-## 15. Secrets Management
+## 13. Security & Secrets
 - No plaintext secrets or credentials in code or state.
 - Use AWS SSM Parameter Store or Secrets Manager for runtime secrets.
 - Use Terraform `sensitive` outputs and backend encryption.
 - Configure `.gitignore` and `.gitattributes` to avoid secrets leakage.
-
-## 16. Security & Ops
-- No plaintext secrets; use least-privilege IAM.
+- Use least-privilege IAM.
 - Prefer secure defaults for networking, storage, and access.
 - For sensitive permissions, always revalidate with the user before applying changes.
 - Cost-awareness is a first-class requirement; justify any higher-cost choices.
 
-## 17. UX Direction
-- Frontend is minimal but should feel polished.
-- Prioritize clarity and visual impact over feature depth.
-
-## 18. Out of Scope
-- No complex backend business logic; only MVP-level ingestion or alerts if needed.
-- No user authentication or role management unless required to demonstrate IAM setup.
-- No advanced frontend state management (e.g., Redux, Zustand).
-
-## 19. Diagram Generation Rules
+## 14. Diagram Generation Rules
 
 When generating or updating diagrams (Mermaid or equivalent):
 - Prioritize clarity and readability over completeness; diagrams must be understandable in GitHub.
