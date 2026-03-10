@@ -85,6 +85,17 @@ The manual dispatch runs a chained set of jobs (visible in the Actions graph):
    - Logs explicit decision and reason (`RUN` / `SKIPPED`) in both logs and Step Summary.
    - Uses signal-focused annotations (decision/outcome) instead of internal `command_id` noise.
 
+### ArgoCD semantics in this workflow
+
+- `argocd-platform` and `argocd-apps` create/update **ArgoCD Application CRs** (controllers), not pod workloads directly.
+- ArgoCD then reconciles those Applications into runtime Kubernetes workloads (Deployments/StatefulSets/Services/Ingress/CRs).
+- In practice:
+  - `cloudradar-platform` (source `k8s/platform`) installs platform prerequisites (notably ESO operator/config chain).
+  - `cloudradar` (source `k8s/apps`) reconciles product/data/monitoring workloads and child Applications.
+
+Canonical mapping table (Application -> source -> target namespace -> workloads):  
+[`k8s/README.md`](../../../k8s/README.md#argocd-applications-vs-kubernetes-workloads)
+
 All manual-dispatch jobs now emit a short Step Summary block (status + key signal) to make run diagnostics scannable from the workflow page.
 
 ## Workflow diagram (Mermaid)

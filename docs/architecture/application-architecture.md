@@ -472,6 +472,9 @@ sequenceDiagram
 
 All services are deployed via ArgoCD Applications in `k8s/apps/`:
 
+Reference for GitOps object semantics (Application CR vs runtime workloads) and the canonical mapping table:  
+[`k8s/README.md#argocd-applications-vs-kubernetes-workloads`](../../k8s/README.md#argocd-applications-vs-kubernetes-workloads)
+
 ```
 k8s/apps/
 ├── ingester/

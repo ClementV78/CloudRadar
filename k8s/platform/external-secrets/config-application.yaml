@@ -13,7 +13,7 @@ spec:
     path: k8s/apps/external-secrets
   destination:
     server: https://kubernetes.default.svc
-    namespace: default
+    namespace: external-secrets
   syncPolicy:
     automated:
       prune: true
