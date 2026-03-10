@@ -70,12 +70,25 @@ flowchart LR
 
 | Phase | Human | AI |
 |---|---|---|
-| **Ideation** | Defines constraints (portfolio, cost, learning goals) | Proposes app concepts, refines architecture |
+| **Ideation** | **Drives architecture vision**; defines constraints (cost, learning value, production-readiness) | Proposes alternatives, surfaces trade-offs and limits for each option |
 | **Planning** | Validates EPICs, priorities, sprint scope | Decomposes EPICs into issues, creates templates, organizes dependencies on Kanban board |
 | **Implementation** | Reviews diffs, validates critical paths | Writes code, IaC, manifests, docs, CI workflows |
 | **Review** | Final approval; cross-audit on complex changes | Runs tests, lints, static analysis; second model for contradiction checks |
 | **Merge & Deploy** | Merges PRs; confirms `terraform apply` | Creates PRs with metadata, runs CI checks |
 | **Observe & Iterate** | Interprets metrics, decides next actions | Generates runbooks, updates issue-log, proposes fixes |
+
+### Architecture Decision-Making with AI
+
+Architecture is the primary driver of this project. Every significant technical choice went through a structured process:
+
+1. **Context framing** - I define the problem, constraints, and non-negotiable requirements.
+2. **Options exploration** - AI generates alternatives, drawing from industry patterns and trade-offs I might not have considered.
+3. **Structured evaluation** - For each option: advantages, disadvantages, limits, operational cost, alignment with project goals.
+4. **Decision & ADR** - The final choice is mine, recorded as an ADR with rationale, alternatives considered, and trade-offs accepted.
+
+This produced 20 ADRs covering infrastructure topology, Kubernetes distribution, observability, GitOps, data pipeline design, and more - each a deliberate, evaluated decision rather than a default.
+
+> The AI doesn't decide the architecture - it makes my decisions better by forcing me to defend them.
 
 ### Concrete Example: Cross-Model Audit ([#459](https://github.com/ClementV78/CloudRadar/issues/459))
 

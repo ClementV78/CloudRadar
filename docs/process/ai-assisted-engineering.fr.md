@@ -70,12 +70,25 @@ flowchart LR
 
 | Phase | Humain | IA |
 |---|---|---|
-| **Idéation** | Définit les contraintes (portfolio, coûts, apprentissage) | Propose des concepts d'app, affine l'architecture |
+| **Idéation** | **Pilote la vision architecturale** ; définit les contraintes (coûts, valeur d'apprentissage, production-readiness) | Propose des alternatives, met en lumière les compromis et limites de chaque option |
 | **Planification** | Valide les EPICs, priorités, scope sprint | Décompose les EPICs en issues, crée les templates, organise les dépendances sur le Kanban |
 | **Implémentation** | Relit les diffs, valide les chemins critiques | Écrit le code, l'IaC, les manifests, les docs, les workflows CI |
 | **Revue** | Approbation finale ; audit croisé sur les changements complexes | Lance les tests, lints, analyse statique ; second modèle pour la détection de contradictions |
 | **Merge & Déploiement** | Merge les PRs ; confirme `terraform apply` | Crée les PRs avec metadata, exécute les checks CI |
 | **Observation & Itération** | Interprète les métriques, décide des prochaines actions | Génère les runbooks, met à jour l'issue-log, propose des corrections |
+
+### Prise de Décision Architecturale avec l'IA
+
+L'architecture est le moteur principal de ce projet. Chaque choix technique significatif est passé par un processus structuré :
+
+1. **Cadrage** - Je définis le problème, les contraintes et les exigences non négociables.
+2. **Exploration des options** - L'IA génère des alternatives en s'appuyant sur les patterns de l'industrie et des compromis auxquels je n'aurais pas forcément pensé.
+3. **Évaluation structurée** - Pour chaque option : avantages, inconvénients, limites, coût opérationnel, alignement avec les objectifs.
+4. **Décision & ADR** - Le choix final est le mien, consigné dans un ADR avec justification, alternatives considérées et compromis acceptés.
+
+Ce processus a produit 20 ADRs couvrant topologie infra, distribution Kubernetes, observabilité, GitOps, design du pipeline de données, et plus - chacun une décision délibérée et évaluée plutôt qu'un choix par défaut.
+
+> L'IA ne décide pas de l'architecture - elle améliore mes décisions en me forçant à les défendre.
 
 ### Exemple Concret : Audit Multi-Modèle ([#459](https://github.com/ClementV78/CloudRadar/issues/459))
 
