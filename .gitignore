@@ -20,6 +20,7 @@ target/
 build/
 node_modules/
 dist/
+src/frontend/coverage/
 venv/
 __pycache__/
 *.class

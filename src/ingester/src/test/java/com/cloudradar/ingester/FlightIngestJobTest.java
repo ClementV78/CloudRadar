@@ -3,6 +3,8 @@ package com.cloudradar.ingester;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import com.cloudradar.ingester.config.IngesterProperties;
@@ -177,6 +179,53 @@ class FlightIngestJobTest {
     assertThat(invokeQuotaOrDefault(job)).isEqualTo(4000.0);
   }
 
+  @Test
+  void ingestAppliesProgressiveBackoffOnConsecutiveFailures() {
+    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
+    RedisPublisher redisPublisher = mock(RedisPublisher.class);
+    when(openSkyClient.fetchStates()).thenThrow(new RuntimeException("opensky down"));
+
+    FlightIngestJob job = new FlightIngestJob(
+        openSkyClient,
+        redisPublisher,
+        new SimpleMeterRegistry(),
+        buildProperties());
+
+    job.ingest();
+    assertThat(readAtomicLongField(job, "currentBackoffSeconds")).isEqualTo(1L);
+    assertThat(readBooleanField(job, "disabled")).isFalse();
+
+    forceNextCycle(job);
+    job.ingest();
+    assertThat(readAtomicLongField(job, "currentBackoffSeconds")).isEqualTo(2L);
+    assertThat(readBooleanField(job, "disabled")).isFalse();
+  }
+
+  @Test
+  void ingestDisablesAfterTooManyFailures() {
+    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
+    RedisPublisher redisPublisher = mock(RedisPublisher.class);
+    when(openSkyClient.fetchStates()).thenThrow(new RuntimeException("still down"));
+
+    FlightIngestJob job = new FlightIngestJob(
+        openSkyClient,
+        redisPublisher,
+        new SimpleMeterRegistry(),
+        buildProperties());
+
+    setAtomicIntField(job, "consecutiveFailures", 10);
+    forceNextCycle(job);
+    job.ingest();
+
+    assertThat(readBooleanField(job, "disabled")).isTrue();
+    assertThat(readAtomicLongField(job, "currentBackoffSeconds")).isZero();
+    assertThat(readLongField(job, "nextAllowedAtMs")).isEqualTo(Long.MAX_VALUE);
+
+    // Once disabled, ingest should return immediately.
+    job.ingest();
+    verify(openSkyClient, times(1)).fetchStates();
+  }
+
   private IngesterProperties buildProperties() {
     return buildPropertiesWithQuota(4000L);
   }
@@ -248,6 +297,26 @@ class FlightIngestJobTest {
       return field.getLong(target);
     } catch (ReflectiveOperationException ex) {
       throw new IllegalStateException("Unable to read test field: " + fieldName, ex);
+    }
+  }
+
+  private boolean readBooleanField(Object target, String fieldName) {
+    try {
+      Field field = FlightIngestJob.class.getDeclaredField(fieldName);
+      field.setAccessible(true);
+      return field.getBoolean(target);
+    } catch (ReflectiveOperationException ex) {
+      throw new IllegalStateException("Unable to read test field: " + fieldName, ex);
+    }
+  }
+
+  private void setAtomicIntField(Object target, String fieldName, int value) {
+    try {
+      Field field = FlightIngestJob.class.getDeclaredField(fieldName);
+      field.setAccessible(true);
+      ((java.util.concurrent.atomic.AtomicInteger) field.get(target)).set(value);
+    } catch (ReflectiveOperationException ex) {
+      throw new IllegalStateException("Unable to set test field: " + fieldName, ex);
     }
   }
 }
