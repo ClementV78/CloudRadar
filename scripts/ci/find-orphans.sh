@@ -171,6 +171,36 @@ if (( finding_count > 0 )); then
   status="FAIL"
 fi
 
+deleted_ebs_count=0
+skipped_ebs_count=0
+
+if [[ "${MODE}" == "post-destroy" && "${finding_count}" -gt 0 ]]; then
+  while IFS= read -r arn; do
+    case "${arn}" in
+      arn:aws:ec2:*:volume/*)
+        volume_id="${arn##*/}"
+        state="$(aws ec2 describe-volumes --volume-ids "${volume_id}" --query 'Volumes[0].State' --output text 2>/dev/null || echo "missing")"
+
+        if [[ "${state}" == "available" ]]; then
+          if aws ec2 delete-volume --volume-id "${volume_id}" >/dev/null 2>&1; then
+            echo "action: deleted orphan EBS volume ${volume_id}"
+            ((deleted_ebs_count+=1))
+          else
+            echo "warning: failed to delete orphan EBS volume ${volume_id}"
+            ((skipped_ebs_count+=1))
+          fi
+        else
+          echo "info: skip EBS volume ${volume_id} (state=${state})"
+          ((skipped_ebs_count+=1))
+        fi
+        ;;
+      *)
+        :
+        ;;
+    esac
+  done < "${findings_file}"
+fi
+
 echo "orphan-scan mode=${MODE} env=${ENVIRONMENT} status=${status}"
 echo "info: terraform_state_arn_count=${state_count}"
 echo "info: aws_tagged_arn_count=${tagged_count}"
@@ -190,6 +220,10 @@ if [[ -n "${SUMMARY_PATH}" ]]; then
     echo "- Terraform state ARNs: \`${state_count}\`"
     echo "- AWS tagged ARNs: \`${tagged_count}\`"
     echo "- Findings: \`${finding_count}\`"
+    if [[ "${MODE}" == "post-destroy" ]]; then
+      echo "- Deleted EBS volumes: \`${deleted_ebs_count}\`"
+      echo "- Skipped EBS volumes: \`${skipped_ebs_count}\`"
+    fi
     if (( finding_count == 0 )); then
       echo "- Result: no tagged-orphan resources detected."
     else
