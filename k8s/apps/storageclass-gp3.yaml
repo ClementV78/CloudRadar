@@ -12,3 +12,7 @@ parameters:
   type: gp3
   fsType: ext4
   encrypted: "true"
+  tagSpecification_1: "Project=cloudradar"
+  tagSpecification_2: "Environment=dev"
+  tagSpecification_3: "managed-by=terraform"
+  tagSpecification_4: "Component=k8s-ebs-csi"
