@@ -31,6 +31,9 @@ jobs:
   java-tests:
     name: Java tests (${{ matrix.service }})
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -54,6 +57,33 @@ jobs:
       - name: Run Java tests + quality checks
         working-directory: ./src/${{ matrix.service }}
         run: mvn -B verify
+
+      - name: Convert PMD / Checkstyle XML to SARIF
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 scripts/ci/quality-to-sarif.py pmd \
+            -o pmd-results.sarif \
+            src/${{ matrix.service }}/target/pmd.xml
+          python3 scripts/ci/quality-to-sarif.py checkstyle \
+            -o checkstyle-results.sarif \
+            src/${{ matrix.service }}/target/checkstyle-result.xml
+
+      - name: Upload PMD SARIF to Code Scanning
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: pmd-results.sarif
+          category: pmd-${{ matrix.service }}
+
+      - name: Upload Checkstyle SARIF to Code Scanning
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkstyle-results.sarif
+          category: checkstyle-${{ matrix.service }}
 
   frontend-tests:
     name: Frontend tests

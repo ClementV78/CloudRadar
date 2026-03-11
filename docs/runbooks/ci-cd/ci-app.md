@@ -115,7 +115,7 @@ Code quality trend and quality-gate status are validated in a dedicated workflow
     - `src/ingester/target/site/jacoco/jacoco.xml`
     - `src/processor/target/site/jacoco/jacoco.xml`
 
-Additionally, the SonarCloud workflow converts PMD and Checkstyle XML reports to SARIF and uploads them to **GitHub Code Scanning** (visible in the repository Security tab alongside Trivy CVE findings).
+Additionally, the `build-and-push` workflow converts PMD and Checkstyle XML reports to SARIF and uploads them to **GitHub Code Scanning** (visible in the repository Security tab alongside Trivy CVE findings). Each matrix service uploads its own SARIF with distinct categories (`pmd-<service>`, `checkstyle-<service>`).
 
 Expected signals:
 - SonarCloud scan step succeeds

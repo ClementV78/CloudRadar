@@ -8,9 +8,12 @@
 ## Table of Contents
 
 - [CloudRadar — Testing \& Quality Assurance Overview](#cloudradar--testing--quality-assurance-overview)
+  - [Table of Contents](#table-of-contents)
   - [1. Big Picture](#1-big-picture)
     - [Key Metrics](#key-metrics)
   - [2. Shift-Left Testing](#2-shift-left-testing)
+    - [The Concept](#the-concept)
+    - [What CloudRadar Implements](#what-cloudradar-implements)
   - [3. The 9 Test Categories](#3-the-9-test-categories)
     - [Category × Coverage Matrix](#category--coverage-matrix)
   - [4. CI/CD Pipelines](#4-cicd-pipelines)
@@ -34,7 +37,7 @@ block-beta
   C["📝 Contract<br>inter-service data format"]:1 Cd["JSON parsing · Redis keys"]:1
   S["🚀 Context Smoke<br>each service starts"]:1 Sd["@SpringBootTest · contextLoads"]:1
   U["🧪 Unit / Slice<br>isolated business logic"]:1 Ud["JUnit · Mockito · @WebMvcTest · Vitest"]:1
-  SA["🔍 Code Quality — PMD, Checkstyle, ArchUnit, Hadolint, SonarCloud"]:2
+  SA["🔍 Code Quality — PMD, Checkstyle, ArchUnit, Hadolint, SonarCloud, terraform fmt"]:2
   SC["🛡️ Dependency Security — Trivy CVE, GitGuardian secrets"]:2
 
   style P fill:#e1bee7,color:#000
@@ -288,7 +291,7 @@ This matrix cross-references the 6 workflows with the 9 test categories. It lets
 | 🌐 E2E | | | | | 🟢 | |
 | 🏔️ Perf | | | | | | 🟢 |
 
-> `build-and-push` carries **5/9 categories** (including PMD/Checkstyle/ArchUnit via `mvn verify`). All categories are covered by at least one workflow. PMD/Checkstyle results are also sent as SARIF to GitHub Code Scanning from the `sonarcloud` workflow.
+> `build-and-push` carries **5/9 categories** (including PMD/Checkstyle/ArchUnit via `mvn verify`). All categories are covered by at least one workflow. PMD/Checkstyle results are also sent as SARIF to GitHub Code Scanning from the `build-and-push` workflow.
 
 ---
 

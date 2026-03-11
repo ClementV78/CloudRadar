@@ -86,20 +86,9 @@ Custom profiles (e.g. activating `java:S6539` God Class) require a paid plan.
 SonarCloud still provides value for: coverage tracking, bug detection, security
 vulnerabilities, and duplication analysis — all included in "Sonar Way".
 
-## SARIF upload to GitHub Code Scanning
-
-The `sonarcloud.yml` workflow converts PMD and Checkstyle XML reports to SARIF
-format (`scripts/ci/quality-to-sarif.py`) and uploads them to **GitHub Code
-Scanning** via `github/codeql-action/upload-sarif@v3`.
-
-This makes PMD and Checkstyle findings visible in the repository **Security tab**
-alongside Trivy CVE alerts — no need to dig into CI logs.
-
-The SARIF steps run with `if: always()` + `continue-on-error: true` to never
-block the rest of the workflow.
-
-Note: `build-and-push.yml` also runs `mvn verify` (PMD/Checkstyle/ArchUnit) but
-does not upload SARIF — violations there fail the build directly.
+Note: PMD/Checkstyle SARIF upload to GitHub Code Scanning is handled by the
+`build-and-push` workflow (one upload per service in the `java-tests` matrix),
+not by this workflow. See `docs/runbooks/ci-cd/ci-app.md` for details.
 
 If the plan is upgraded later, follow these steps to create a custom profile:
 

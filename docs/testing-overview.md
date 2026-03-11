@@ -288,7 +288,7 @@ Cette matrice croise les 6 workflows avec les 9 catégories de tests. Elle perme
 | 🌐 E2E | | | | | 🟢 | |
 | 🏔️ Perf | | | | | | 🟢 |
 
-> `build-and-push` porte **5/9 catégories** (dont PMD/Checkstyle/ArchUnit via `mvn verify`). Toutes les catégories sont couvertes par au moins un workflow. Les résultats PMD/Checkstyle sont aussi envoyés en SARIF vers GitHub Code Scanning depuis le workflow `sonarcloud`.
+> `build-and-push` porte **5/9 catégories** (dont PMD/Checkstyle/ArchUnit via `mvn verify`). Toutes les catégories sont couvertes par au moins un workflow. Les résultats PMD/Checkstyle sont aussi envoyés en SARIF vers GitHub Code Scanning depuis le workflow `build-and-push`.
 
 ---
 
