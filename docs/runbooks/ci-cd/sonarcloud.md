@@ -73,6 +73,46 @@ Path filters:
 
 If your SonarCloud project key/org differs, update `sonar-project.properties` accordingly.
 
+## Custom quality profile "CloudRadar"
+
+The project uses a custom SonarCloud quality profile to catch god-class patterns
+that the default "Sonar Way" profile misses.
+
+### Setup (one-time, via SonarCloud UI)
+
+1. Go to **Quality Profiles** → Java → copy "Sonar Way" → name it `CloudRadar`
+2. Activate additional rules:
+   - `java:S6539` — **God Class** (default thresholds)
+   - `java:S1200` — Classes should not be coupled to too many other classes
+3. Adjust rule thresholds:
+   - `java:S3776` — Cognitive Complexity: lower threshold from 15 → **10**
+4. Set `CloudRadar` as the default profile for the project
+
+The `sonar-project.properties` file locks the profile reference:
+```properties
+sonar.qualityprofile=CloudRadar
+```
+
+### Export / Restore (IaC backup)
+
+Export the profile for version control:
+```bash
+# Export current profile to XML
+curl -s "https://sonarcloud.io/api/qualityprofiles/backup?qualityProfile=CloudRadar&language=java" \
+  -H "Authorization: Bearer $SONAR_TOKEN" \
+  > docs/quality/sonarcloud-profile-java.xml
+```
+
+Restore from backup (if org is recreated):
+```bash
+curl -s -X POST "https://sonarcloud.io/api/qualityprofiles/restore" \
+  -H "Authorization: Bearer $SONAR_TOKEN" \
+  -F "backup=@docs/quality/sonarcloud-profile-java.xml"
+```
+
+> **Note:** After restore, re-associate the profile with the project and
+> verify `sonar.qualityprofile=CloudRadar` in `sonar-project.properties`.
+
 ## Local validation before CI
 
 ```bash
