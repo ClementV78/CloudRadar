@@ -65,7 +65,7 @@ AI is used across the full lifecycle (planning, architecture, implementation, te
 |---|---|
 | **Governance** | [`AGENTS.md`](AGENTS.md) defines explicit guardrails: scope, security, merge policy, cost discipline, and documentation hygiene |
 | **Decision ownership** | AI proposes options and challenges assumptions; I make the final architecture and delivery decisions |
-| **Quality enforcement** | AI-generated changes pass the same CI quality gates as any other change (SonarCloud, Trivy, tfsec, tests) |
+| **Quality enforcement** | AI-generated changes pass the same CI quality gates as any other change (SonarCloud, PMD, Checkstyle, ArchUnit, Trivy, tfsec, tests) |
 | **Traceability** | Decisions are backed by ADRs, issues, PRs, runbooks, and workflow logs |
 
 | Phase | Human lead | AI assist |
@@ -178,7 +178,8 @@ Security is treated as a **first-class concern**, not an afterthought:
 | **Network Segmentation** | Public edge subnet + private k3s subnet, SG-level isolation | ✅ Implemented |
 | **Container Scanning** | Trivy CVE scan on every PR (image + filesystem) | ✅ Implemented |
 | **Secret Detection** | GitGuardian pre-commit + CI scan | ✅ Implemented |
-| **Code Quality** | SonarCloud quality gate (coverage, bugs, smells, security hotspots) | ✅ Implemented |
+| **Code Quality** | SonarCloud quality gate + PMD + Checkstyle + ArchUnit (design rules) | ✅ Implemented |
+| **GitHub Code Scanning** | SARIF upload for PMD, Checkstyle, and Trivy (unified Security tab) | ✅ Implemented |
 | **IaC Security** | tfsec static analysis on Terraform PRs | ✅ Implemented |
 | **Dockerfile Quality** | Hadolint linting on every PR | ✅ Implemented |
 | **Edge Access** | Nginx + Basic Auth (dev), TLS | ✅ Implemented |
@@ -250,7 +251,7 @@ flowchart LR
 | Workflow | What it validates |
 |---|---|
 | `ci-infra` | Terraform formatting, validation, plan, static security checks |
-| `build-and-push` | Java tests, frontend tests, Dockerfile lint, dependency CVE scan |
+| `build-and-push` | Java tests + PMD/Checkstyle/ArchUnit (`mvn verify`), frontend tests, Dockerfile lint, dependency CVE scan |
 | `ci-k8s` | Kubernetes manifest consistency and policy checks |
 | `sonarcloud` | Code quality gate (bugs, smells, security hotspots, coverage context) |
 
@@ -327,7 +328,8 @@ Testing follows a **Shift-Left** approach: most checks run on PR, before merge.
 
 | Gate | Scope | Trigger |
 |---|---|---|
-| Unit tests (JUnit / pytest) | Business logic validation | Every PR |
+| Unit + architecture tests (JUnit / ArchUnit) | Business logic + design rules validation | Every PR |
+| PMD + Checkstyle | Java static analysis (god class, complexity, coupling) | Every PR |
 | SonarCloud quality gate | Coverage, bugs, code smells, security hotspots | Every PR |
 | Trivy CVE scan | Container images + filesystem | Every PR |
 | GitGuardian | Leaked secrets detection | Every PR |

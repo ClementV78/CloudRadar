@@ -46,7 +46,7 @@ The workflow now exposes test and quality checks as **dedicated jobs** (visible 
 
 | Job | Scope | Command |
 | --- | --- | --- |
-| `java-tests` | `ingester`, `processor`, `dashboard` (matrix) | `mvn -B test` (unit + Redis Testcontainers integration contracts) |
+| `java-tests` | `ingester`, `processor`, `dashboard` (matrix) | `mvn -B verify` (unit + integration tests + PMD + Checkstyle + ArchUnit) |
 | `frontend-tests` | `frontend` | `npm ci && npm test -- --run` |
 | `dockerfile-lint` | all service Dockerfiles (matrix) | `hadolint` |
 | `dependency-security-scan` | dependencies under `src/` | `trivy fs` (`HIGH,CRITICAL`, `vuln-type=library`, `scanners=vuln`) |
@@ -115,9 +115,12 @@ Code quality trend and quality-gate status are validated in a dedicated workflow
     - `src/ingester/target/site/jacoco/jacoco.xml`
     - `src/processor/target/site/jacoco/jacoco.xml`
 
+Additionally, the SonarCloud workflow converts PMD and Checkstyle XML reports to SARIF and uploads them to **GitHub Code Scanning** (visible in the repository Security tab alongside Trivy CVE findings).
+
 Expected signals:
 - SonarCloud scan step succeeds
 - quality gate check is green on the PR checks tab
+- PMD / Checkstyle findings appear in the GitHub Security tab (Code Scanning alerts)
 
 Common failure:
 - `SONAR_TOKEN is not configured`

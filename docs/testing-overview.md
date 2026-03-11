@@ -34,7 +34,7 @@ block-beta
   C["📝 Contract<br>format d'échange entre services"]:1 Cd["JSON parsing · Redis keys"]:1
   S["🚀 Context Smoke<br>chaque service démarre"]:1 Sd["@SpringBootTest · contextLoads"]:1
   U["🧪 Unit / Slice<br>logique métier isolée"]:1 Ud["JUnit · Mockito · @WebMvcTest · Vitest"]:1
-  SA["🔍 Qualité du code — Hadolint, SonarCloud, terraform fmt"]:2
+  SA["🔍 Qualité du code — PMD, Checkstyle, ArchUnit, Hadolint, SonarCloud"]:2
   SC["🛡️ Sécurité des dépendances — Trivy CVE, GitGuardian secrets"]:2
 
   style P fill:#e1bee7,color:#000
@@ -70,7 +70,7 @@ block-beta
 
 | Indicateur | Valeur |
 |---|---|
-| Tests automatisés | **52 tests** (15 fichiers, 4 langages) |
+| Tests automatisés | **95+ tests** (20+ fichiers, 4 langages) |
 | Catégories de tests couvertes | **9** (unit, slice, integration, contract, smoke, security, quality, infra, perf) |
 | Workflows GitHub Actions | **9** (dont 5 liés aux tests/qualité) |
 | Services avec tests | **4/6** (ingester, processor, dashboard, frontend) |
@@ -131,7 +131,7 @@ flowchart LR
 
 | Gate PR (bloquant) | Ce qu'on vérifie | Temps |
 |---|---|---|
-| Tests Java (3 services) | Le code métier fonctionne | 1–4 min |
+| Tests Java (3 services) | Le code métier fonctionne + PMD/Checkstyle/ArchUnit | 1–4 min |
 | Tests Frontend (Vitest) | L'interface s'affiche correctement | 20–60s |
 | Hadolint (6 Dockerfiles) | Les images Docker suivent les bonnes pratiques | 20–60s |
 | Trivy (dépendances) | Aucune faille de sécurité connue (CVE) | 30–120s |
@@ -192,7 +192,7 @@ block-beta
 | 📝 **Contract** | JSON serialization, Redis key format | PR | `build-and-push` | ✅ Implémenté |
 | 🌐 **E2E / Smoke** | Health + data pipeline post-deploy | Dispatch | `ci-infra` | ✅ Implémenté |
 | 🔒 **Security** | Dépendances CVE, secrets, IaC | PR | `build-and-push` + `ci-infra` | ✅ Implémenté |
-| 📏 **Code Quality** | Smells, duplication, coverage trends | PR | `sonarcloud` + `build-and-push` | ✅ Implémenté |
+| 📏 **Code Quality** | Smells, duplication, coverage trends, design rules | PR | `sonarcloud` + `build-and-push` | ✅ Implémenté |
 | ⚙️ **Infra Validation** | Terraform + k8s manifest schemas | PR | `ci-infra` + `ci-k8s` | ✅ Implémenté |
 | 🏔️ **Performance** | Latence p95, taux d'erreur | Nightly / dispatch | `k6-nightly-baseline` | ✅ Implémenté |
 | 🖥️ **UI** | Render smoke composants React | PR | `build-and-push` | ✅ Implémenté |
@@ -262,11 +262,13 @@ block-beta
   style F1 fill:#f44336,color:#fff
 ```
 
-4 services sur 6 ont des tests automatisés (52 tests, 15 fichiers). Les 3 services Java couvrent les 3 niveaux de la pyramide : unitaire (Mockito, @WebMvcTest), intégration (Redis Testcontainers), et context smoke (@SpringBootTest). Le frontend couvre le rendu composant (Vitest + Testing Library).
+4 services sur 6 ont des tests automatisés (95+ tests, 20+ fichiers). Les 3 services Java couvrent les 3 niveaux de la pyramide : unitaire (Mockito, @WebMvcTest), intégration (Redis Testcontainers), et context smoke (@SpringBootTest). Le frontend couvre le rendu composant (Vitest + Testing Library).
 
 Les contrats inter-services (clés Redis, format JSON) sont validés par des tests Testcontainers dédiés dans chaque service — documentés dans `docs/events-schemas/redis-keys.md`.
 
 SonarCloud ingère la couverture Java (JaCoCo) et frontend (lcov) pour un suivi de tendance unifié.
+
+**Analyse statique Java** : PMD (design smells, god class), Checkstyle (complexité, taille), et ArchUnit (contraintes architecturales) s'exécutent dans `mvn verify` — dans `build-and-push` et `sonarcloud`. Les résultats PMD/Checkstyle sont aussi convertis en SARIF et envoyés vers GitHub Code Scanning (onglet Security).
 
 ---
 
@@ -281,12 +283,12 @@ Cette matrice croise les 6 workflows avec les 9 catégories de tests. Elle perme
 | 📝 Contract | 🟢 | | | | | |
 | 🖥️ UI | 🟢 | | | | | |
 | 🔒 Sécu | 🟢 | | | 🟢 | | |
-| 📏 Qualité | | 🟢 | | | | |
+| 📏 Qualité | 🟢 | 🟢 | | | | |
 | ⚙️ Infra | | | 🟢 | 🟢 | | |
 | 🌐 E2E | | | | | 🟢 | |
 | 🏔️ Perf | | | | | | 🟢 |
 
-> `build-and-push` porte **5/9 catégories**. Toutes les catégories sont couvertes par au moins un workflow.
+> `build-and-push` porte **5/9 catégories** (dont PMD/Checkstyle/ArchUnit via `mvn verify`). Toutes les catégories sont couvertes par au moins un workflow. Les résultats PMD/Checkstyle sont aussi envoyés en SARIF vers GitHub Code Scanning depuis le workflow `sonarcloud`.
 
 ---
 
@@ -299,7 +301,7 @@ quadrantChart
   y-axis "Impact faible" --> "Impact élevé"
 
   "Dependabot": [0.08, 0.80]
-  "SpotBugs": [0.15, 0.70]
+  "SpotBugs": [0.15, 0.50]
   "ESLint + Prettier": [0.15, 0.60]
   "Trivy image": [0.08, 0.65]
   "Tests Python": [0.35, 0.55]
@@ -314,7 +316,7 @@ quadrantChart
 | Priorité | Amélioration | Pourquoi | Effort |
 |---|---|---|---|
 | 🔴 Haute | **Dependabot** | PR automatiques de mise à jour dépendances (Maven, npm, Actions) | ~15 min |
-| 🔴 Haute | **SpotBugs** | Détection statique NPE, concurrence, anti-patterns Java | ~30 min |
+| 🔴 Haute | **SpotBugs** | Détection statique NPE, concurrence (complémentaire à PMD/Checkstyle déjà en place) | ~30 min |
 | 🔴 Haute | **ESLint + Prettier** | Aucun linting TypeScript/React en CI | ~30 min |
 | 🔴 Haute | **Trivy image** | Scan couches OS/runtime des images Docker (seul Trivy fs existe) | ~15 min |
 | 🟡 Moyenne | **Tests Python** | 2/6 services sans tests (health, admin-scale) | ~2h |
