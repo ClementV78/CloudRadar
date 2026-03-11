@@ -217,6 +217,7 @@
 - Use heuristics, not hard caps: method/class size thresholds are guidance for review, not automatic failures.
 - Integration tests are required for wiring/infra behavior, but they do not replace isolated unit tests for business logic.
 - When adding logic to an existing class, explicitly check responsibility drift and extract if needed.
+- When adding or modifying non-trivial business logic in a `@Service` / `@Component`, include at least one isolated unit test in the same PR.
 
 ## 10. Documentation Requirements
 - Keep `README.md`, GitHub issues, and `docs/architecture/` aligned with decisions.
