@@ -255,15 +255,6 @@ flowchart LR
 | `ci-k8s` | Kubernetes manifest consistency and policy checks |
 | `sonarcloud` | Code quality gate (bugs, smells, security hotspots, coverage context) |
 
-### Controlled Operations
-
-| Workflow | Trigger | Purpose |
-|---|---|---|
-| `ci-infra` | Manual (`workflow_dispatch`) | Validated infra deploy, app bootstrap, restore path, smoke verification |
-| `ci-infra-destroy` | Manual (`workflow_dispatch`) | Controlled teardown with safety confirmations and backup handling |
-| `k6-nightly-baseline` | Nightly schedule + manual | Performance baseline trend tracking |
-| `verify-issue-metadata` | Issue events | Enforces issue hygiene for project governance |
-
 ---
 
 ## Testing & Quality
