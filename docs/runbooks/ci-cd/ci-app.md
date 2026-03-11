@@ -58,6 +58,20 @@ Behavior:
 - On pull requests, image push remains disabled for all services (`push=false`).
 - A final summary job always runs and publishes gate/build status in `GITHUB_STEP_SUMMARY`.
 
+### Where to view quality and security reports
+
+| Report | Where to find it | Link |
+| --- | --- | --- |
+| **PMD findings** | GitHub → Security → Code Scanning | [Code Scanning (PMD)](https://github.com/ClementV78/CloudRadar/security/code-scanning?query=tool:PMD) |
+| **Checkstyle findings** | GitHub → Security → Code Scanning | [Code Scanning (Checkstyle)](https://github.com/ClementV78/CloudRadar/security/code-scanning?query=tool:Checkstyle) |
+| **Trivy CVE** | GitHub → Security → Code Scanning | [Code Scanning (Trivy)](https://github.com/ClementV78/CloudRadar/security/code-scanning?query=tool:Trivy) |
+| **SonarCloud dashboard** | SonarCloud web UI | [SonarCloud overview](https://sonarcloud.io/project/overview?id=ClementV78_CloudRadar) |
+| **SonarCloud PR decoration** | GitHub PR → Checks tab + PR comment | automatic on every PR |
+| **ArchUnit violations** | GitHub PR → Checks tab → `java-tests` job logs | test failure = build failure |
+| **JaCoCo coverage** | SonarCloud (ingested via `sonarcloud.yml`) | [SonarCloud coverage](https://sonarcloud.io/component_measures?id=ClementV78_CloudRadar&metric=coverage) |
+| **Hadolint** | GitHub PR → Checks tab → `dockerfile-lint` job logs | annotation on failure |
+| **CI summary** | GitHub PR → Checks tab → `ci-summary-report` | `GITHUB_STEP_SUMMARY` |
+
 Redis contract reference:
 - See [`docs/events-schemas/redis-keys.md`](/home/xclem/projetsperso/CloudRadar/docs/events-schemas/redis-keys.md) for key/payload conventions validated by integration tests.
 
