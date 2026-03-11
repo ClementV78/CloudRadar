@@ -297,13 +297,14 @@ This matrix cross-references the 6 workflows with the 9 test categories. It lets
 
 ## 7. Possible Improvements
 
+> ✅ **Dependabot is already enabled** on the repository (GitHub). The remaining improvements below exclude this item.
+
 ```mermaid
 quadrantChart
   title Effort / Impact ratio of improvements
   x-axis "Low effort" --> "High effort"
   y-axis "Low impact" --> "High impact"
 
-  "Dependabot": [0.08, 0.80]
   "SpotBugs": [0.15, 0.50]
   "ESLint + Prettier": [0.15, 0.60]
   "Trivy image": [0.08, 0.65]
@@ -318,7 +319,6 @@ quadrantChart
 
 | Priority | Improvement | Why | Effort |
 |---|---|---|---|
-| 🔴 High | **Dependabot** | Automatic dependency update PRs (Maven, npm, Actions) | ~15 min |
 | 🔴 High | **SpotBugs** | Static detection of NPE, concurrency (complementary to PMD/Checkstyle already in place) | ~30 min |
 | 🔴 High | **ESLint + Prettier** | No TypeScript/React linting in CI | ~30 min |
 | 🔴 High | **Trivy image** | Scan OS/runtime layers of Docker images (only Trivy fs exists) | ~15 min |
