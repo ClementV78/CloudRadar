@@ -73,7 +73,7 @@ block-beta
 
 | Metric | Value |
 |---|---|
-| Automated tests | **125+ tests** (31 files, 4 languages) |
+| Automated tests | **168+ tests** (35 files, 4 languages) |
 | Test categories covered | **9** (unit, slice, integration, contract, smoke, security, quality, infra, perf) |
 | GitHub Actions workflows | **9** (5 related to tests/quality) |
 | Services with tests | **4/6** (ingester, processor, dashboard, frontend) |
@@ -255,7 +255,7 @@ block-beta
   header["Test coverage by service"]:6
   space:6
   A["dashboard"] B["ingester"] C["processor"] D["frontend"] E["health"] F["admin-scale"]
-  A1["52 tests"] B1["28 tests"] C1["12 tests"] D1["31 tests"] E1["0 test"] F1["0 test"]
+  A1["52 tests"] B1["28 tests"] C1["57 tests"] D1["31 tests"] E1["0 test"] F1["0 test"]
 
   style A1 fill:#4caf50,color:#fff
   style B1 fill:#4caf50,color:#fff
@@ -265,7 +265,7 @@ block-beta
   style F1 fill:#f44336,color:#fff
 ```
 
-4 out of 6 services have automated tests (125+ tests, 31 files). The 3 Java services cover all 3 levels of the pyramid: unit (Mockito, @WebMvcTest), integration (Redis Testcontainers), and context smoke (@SpringBootTest). The frontend covers component rendering (Vitest + Testing Library).
+4 out of 6 services have automated tests (165+ tests, 31 files). The 3 Java services cover all 3 levels of the pyramid: unit (Mockito, @WebMvcTest), integration (Redis Testcontainers), and context smoke (@SpringBootTest). The frontend covers component rendering (Vitest + Testing Library).
 
 Inter-service contracts (Redis keys, JSON format) are validated by dedicated Testcontainers tests in each service — documented in `docs/events-schemas/redis-keys.md`.
 

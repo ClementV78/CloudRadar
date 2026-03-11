@@ -1,6 +1,6 @@
 # CloudRadar Application Architecture
 
-**Last updated**: 2026-03-10
+**Last updated**: 2026-03-11
 
 This document describes the architecture and design of all microservices in the CloudRadar platform. Each service is containerized and deployed to k3s via ArgoCD.
 
@@ -185,19 +185,31 @@ Consumes events from the Redis queue (ingester output) and maintains real-time a
 ```mermaid
 flowchart LR
     Queue["Redis List<br/>(cloudradar:ingest:queue)"]
-    Processor["RedisAggregateProcessor<br/>(blocking rightPop)"]
+    RAP["RedisAggregateProcessor<br/>(lifecycle: start/stop/poll)"]
+    EP["EventProcessor<br/>(pipeline orchestration)"]
     Parse["PositionEvent<br/>(JSON parse)"]
+    BBox["BboxClassifier<br/>(pure geo-fence)"]
+    Bucket["ActivityBucketKeyResolver<br/>(bucket math)"]
+    Metrics["ProcessorMetrics<br/>(counters / gauges)"]
     Last["Redis Hash<br/>(cloudradar:aircraft:last)"]
     Track["Redis List<br/>(cloudradar:aircraft:track:*)"]
-    Bbox["Redis Set<br/>(cloudradar:aircraft:in_bbox)"]
+    BboxSet["Redis Set<br/>(cloudradar:aircraft:in_bbox)"]
+    Activity["Redis Hash+HLL<br/>(cloudradar:activity:bucket:*)"]
+    AircraftDB["Aircraft DB<br/>(SQLite, optional)"]
     
-    Queue -->|blocking pop| Processor
-    Processor -->|parse JSON| Parse
+    Queue -->|blocking pop| RAP
+    RAP -->|delegate| EP
+    EP -->|parse JSON| Parse
+    EP -->|classify| BBox
+    EP -->|resolve keys| Bucket
+    EP -->|record| Metrics
+    EP -.->|enrich| AircraftDB
     Parse -->|update| Last
     Parse -->|append| Track
-    Parse -->|add/remove| Bbox
-    Processor -->|expose| Metrics["/metrics/prometheus"]
-    Processor -->|expose| Health["/healthz"]
+    BBox -->|add/remove| BboxSet
+    Bucket -->|write| Activity
+    Metrics -->|expose| PromEndpoint["/metrics/prometheus"]
+    RAP -->|expose| Health["/healthz"]
 ```
 
 ### Code Organization
@@ -205,14 +217,20 @@ flowchart LR
 ```
 src/processor/
 ├── ProcessorApplication.java              # Spring Boot entrypoint
+├── aircraft/
+│   ├── AircraftDbConfig.java              # SQLite DataSource bean (optional)
+│   ├── AircraftMetadata.java              # Immutable metadata record
+│   ├── AircraftMetadataRepository.java    # Lookup interface
+│   └── SqliteAircraftMetadataRepository.java # LRU-cached SQLite lookups
 ├── config/
 │   └── ProcessorProperties.java           # Configuration: bbox, Redis keys, poll timeout
-├── service/
-│   ├── RedisAggregateProcessor.java       # Main processor loop (blocking rightPop)
-│   ├── PositionEvent.java                 # DTO for parsed OpenSky events
-│   └── AircraftAggregate.java             # In-memory aggregate state
-└── controller/
-    └── MetricsController.java             # Prometheus metrics export
+└── service/
+    ├── RedisAggregateProcessor.java       # Lifecycle only: start/stop/poll loop (~100 lines)
+    ├── EventProcessor.java                # Pipeline orchestration: parse → validate → write → enrich
+    ├── BboxClassifier.java                # Pure domain: geo-fence classification (INSIDE/OUTSIDE/UNKNOWN)
+    ├── ActivityBucketKeyResolver.java     # Pure domain: bucket epoch math and key generation
+    ├── ProcessorMetrics.java              # Observability: all counters/gauges management
+    └── PositionEvent.java                 # DTO for parsed OpenSky events
 ```
 
 ### Flow
@@ -261,10 +279,19 @@ src/processor/
 
 ### Metrics Exposed
 
-- `processor_events_processed_total` — Total events consumed from Redis
-- `processor_events_errors_total` — Total parsing/processing errors
-- `processor_bbox_count` — Current count of aircraft in bbox
-- `processor_last_processed_epoch` — Unix timestamp of last processed event
+| Metric | Type | Purpose |
+|--------|------|---------|
+| `processor.events.processed` | Counter | Total events consumed from Redis |
+| `processor.events.errors` | Counter | Total parsing/processing errors |
+| `processor.bbox.count` | Gauge | Current count of aircraft in bbox |
+| `processor.last_processed_epoch` | Gauge | Unix timestamp of last processed event |
+| `processor.queue.depth` | Gauge | Current Redis queue depth |
+| `processor.aircraft_db.enabled` | Gauge | Whether aircraft metadata DB is enabled (0/1) |
+| `processor.aircraft.category.events` | Counter | Events per aircraft category (tag: `category`) |
+| `processor.aircraft.country.events` | Counter | Events per country (tag: `country`) |
+| `processor.aircraft.military.events` | Counter | Events by military status (tag: `military`) |
+| `processor.aircraft.military.typecode.events` | Counter | Military events by typecode (tag: `typecode`) |
+| `processor.aircraft.enrichment.events` | Counter | Enrichment field coverage (tags: `field`, `status`) |
 
 ---
 
@@ -516,7 +543,7 @@ sequenceDiagram
     Processor->>RedisAgg: HSET cloudradar:aircraft:last<br/>icao24 {...}
     Processor->>RedisAgg: LPUSH cloudradar:aircraft:track:icao24<br/>{...}
     Processor->>RedisAgg: SADD cloudradar:aircraft:in_bbox<br/>icao24
-    Processor->>Grafana: record metrics<br/>(processor_events_processed_total)
+    Processor->>Grafana: record metrics<br/>(processor.events.processed)
     
     Frontend->>DashboardAPI: GET /api/flights*
     DashboardAPI->>RedisAgg: fetch aircraft:in_bbox + aircraft:last + track data

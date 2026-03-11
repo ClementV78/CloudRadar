@@ -14,10 +14,8 @@
   <suppress checks="FileLength"
             files=".*Properties\.java"/>
 
-  <!-- ========== processor (#558) ========== -->
-  <!-- https://github.com/ClementV78/CloudRadar/issues/558 -->
-  <suppress checks="MethodCount|FileLength|ClassDataAbstractionCoupling|ClassFanOutComplexity|CyclomaticComplexity"
-            files="RedisAggregateProcessor\.java"/>
+  <!-- ========== processor (#558) — RESOLVED ========== -->
+  <!-- RedisAggregateProcessor refactored: suppressions removed -->
 
   <!-- ========== ingester (#559) ========== -->
   <!-- https://github.com/ClementV78/CloudRadar/issues/559 -->
