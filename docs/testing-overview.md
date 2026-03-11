@@ -73,7 +73,7 @@ block-beta
 
 | Indicateur | Valeur |
 |---|---|
-| Tests automatisés | **125+ tests** (31 fichiers, 4 langages) |
+| Tests automatisés | **168+ tests** (35 fichiers, 4 langages) |
 | Catégories de tests couvertes | **9** (unit, slice, integration, contract, smoke, security, quality, infra, perf) |
 | Workflows GitHub Actions | **9** (dont 5 liés aux tests/qualité) |
 | Services avec tests | **4/6** (ingester, processor, dashboard, frontend) |
@@ -255,7 +255,7 @@ block-beta
   header["Couverture tests par service"]:6
   space:6
   A["dashboard"] B["ingester"] C["processor"] D["frontend"] E["health"] F["admin-scale"]
-  A1["52 tests"] B1["28 tests"] C1["12 tests"] D1["31 tests"] E1["0 test"] F1["0 test"]
+  A1["52 tests"] B1["28 tests"] C1["57 tests"] D1["31 tests"] E1["0 test"] F1["0 test"]
 
   style A1 fill:#4caf50,color:#fff
   style B1 fill:#4caf50,color:#fff
@@ -265,7 +265,7 @@ block-beta
   style F1 fill:#f44336,color:#fff
 ```
 
-4 services sur 6 ont des tests automatisés (125+ tests, 31 fichiers). Les 3 services Java couvrent les 3 niveaux de la pyramide : unitaire (Mockito, @WebMvcTest), intégration (Redis Testcontainers), et context smoke (@SpringBootTest). Le frontend couvre le rendu composant (Vitest + Testing Library).
+4 services sur 6 ont des tests automatisés (165+ tests, 31 fichiers). Les 3 services Java couvrent les 3 niveaux de la pyramide : unitaire (Mockito, @WebMvcTest), intégration (Redis Testcontainers), et context smoke (@SpringBootTest). Le frontend couvre le rendu composant (Vitest + Testing Library).
 
 Les contrats inter-services (clés Redis, format JSON) sont validés par des tests Testcontainers dédiés dans chaque service — documentés dans `docs/events-schemas/redis-keys.md`.
 
@@ -297,13 +297,14 @@ Cette matrice croise les 6 workflows avec les 9 catégories de tests. Elle perme
 
 ## 7. Améliorations possibles
 
+> ✅ **Dependabot est déjà activé** sur le dépôt (GitHub). Les améliorations ci-dessous excluent ce point.
+
 ```mermaid
 quadrantChart
   title Rapport effort / impact des améliorations
   x-axis "Effort faible" --> "Effort élevé"
   y-axis "Impact faible" --> "Impact élevé"
 
-  "Dependabot": [0.08, 0.80]
   "SpotBugs": [0.15, 0.50]
   "ESLint + Prettier": [0.15, 0.60]
   "Trivy image": [0.08, 0.65]
@@ -318,7 +319,6 @@ quadrantChart
 
 | Priorité | Amélioration | Pourquoi | Effort |
 |---|---|---|---|
-| 🔴 Haute | **Dependabot** | PR automatiques de mise à jour dépendances (Maven, npm, Actions) | ~15 min |
 | 🔴 Haute | **SpotBugs** | Détection statique NPE, concurrence (complémentaire à PMD/Checkstyle déjà en place) | ~30 min |
 | 🔴 Haute | **ESLint + Prettier** | Aucun linting TypeScript/React en CI | ~30 min |
 | 🔴 Haute | **Trivy image** | Scan couches OS/runtime des images Docker (seul Trivy fs existe) | ~15 min |

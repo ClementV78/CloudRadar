@@ -12,8 +12,7 @@
 
   <!-- Known violations excluded until refactoring.
        Each exclusion links to a tracking issue. -->
-  <!-- #558: https://github.com/ClementV78/CloudRadar/issues/558 -->
-  <exclude-pattern>.*/RedisAggregateProcessor\.java</exclude-pattern>
+  <!-- #558: RESOLVED — RedisAggregateProcessor refactored, exclusion removed -->
   <!-- #559: https://github.com/ClementV78/CloudRadar/issues/559 -->
   <exclude-pattern>.*/FlightIngestJob\.java</exclude-pattern>
   <exclude-pattern>.*/OpenSkyTokenService\.java</exclude-pattern>

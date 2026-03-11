@@ -16,17 +16,14 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 @AnalyzeClasses(packages = "com.cloudradar.processor", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
 
-    // RedisAggregateProcessor uses ConcurrentHashMap for metric counters.
-    // Tracked: https://github.com/ClementV78/CloudRadar/issues/558
-    // Will be fixed by ProcessorMetrics extraction (PR 3 of refactoring plan).
+    // ConcurrentHashMap now lives in ProcessorMetrics (package-private, not a @Component).
+    // Ref: https://github.com/ClementV78/CloudRadar/issues/558
     @ArchTest
     static final ArchRule service_classes_should_not_use_concurrent_hash_map =
         noClasses()
             .that().resideInAPackage("..service..")
             .and().areAnnotatedWith(org.springframework.stereotype.Component.class)
-            .and().doNotHaveSimpleName("RedisAggregateProcessor")
             .should().accessClassesThat().haveFullyQualifiedName("java.util.concurrent.ConcurrentHashMap")
-            .allowEmptyShould(true)
             .because("@Component classes should delegate metric tracking to a dedicated collaborator (AGENTS.md §9)");
 
     @ArchTest

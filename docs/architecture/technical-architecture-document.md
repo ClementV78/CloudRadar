@@ -969,7 +969,7 @@ graph TB
 |----------|---------|----------|
 | Infrastructure Overview | Network, compute, storage | `docs/architecture/infrastructure.md` |
 | Application Architecture | Service details, data flow | `docs/architecture/application-architecture.md` |
-| Architecture Review | Quality assessment | `docs/code-reviews/architecture-review.md` |
+| Architecture Review (local-only) | Quality assessment notes | `docs/tmp/code-reviews/architecture-review.md` (ignored) |
 | ADRs (20 total) | Decision rationale | `docs/architecture/decisions/` |
 | Runbooks | Operational procedures | `docs/runbooks/` |
 | IAM Inventory | Roles, policies, access | `docs/iam/inventory.md` |
