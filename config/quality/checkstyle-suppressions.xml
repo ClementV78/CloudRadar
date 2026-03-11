@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<!DOCTYPE suppressions PUBLIC
+    "-//Checkstyle//DTD SuppressionFilter Configuration 1.2//EN"
+    "https://checkstyle.org/dtds/suppressions_1_2.dtd">
+
+<!-- Known violations suppressed until refactoring.
+     Each entry links to the issue that will fix it.
+     Ref: https://github.com/ClementV78/CloudRadar/issues/557 -->
+<suppressions>
+
+  <!-- Properties/config classes: getter/setter-heavy by nature, MethodCount is noise -->
+  <suppress checks="MethodCount"
+            files=".*Properties\.java"/>
+  <suppress checks="FileLength"
+            files=".*Properties\.java"/>
+
+  <!-- ========== processor (#558) ========== -->
+  <!-- https://github.com/ClementV78/CloudRadar/issues/558 -->
+  <suppress checks="MethodCount|FileLength|ClassDataAbstractionCoupling|ClassFanOutComplexity|CyclomaticComplexity"
+            files="RedisAggregateProcessor\.java"/>
+
+  <!-- ========== ingester (#559) ========== -->
+  <!-- https://github.com/ClementV78/CloudRadar/issues/559 -->
+  <suppress checks="MethodCount|FileLength|CyclomaticComplexity"
+            files="FlightIngestJob\.java"/>
+  <suppress checks="CyclomaticComplexity"
+            files="OpenSkyTokenService\.java"/>
+  <suppress checks="CyclomaticComplexity"
+            files="OpenSkyClient\.java"/>
+
+  <!-- ========== dashboard (#560) ========== -->
+  <!-- https://github.com/ClementV78/CloudRadar/issues/560 -->
+  <suppress checks="MethodCount|FileLength|ClassFanOutComplexity|CyclomaticComplexity"
+            files="FlightQueryService\.java"/>
+
+</suppressions>

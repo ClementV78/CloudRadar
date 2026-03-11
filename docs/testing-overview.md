@@ -12,11 +12,14 @@
   - [1. Big Picture](#1-big-picture)
     - [Chiffres clés](#chiffres-clés)
   - [2. Shift-Left Testing](#2-shift-left-testing)
+    - [Le concept](#le-concept)
+    - [Ce que CloudRadar applique](#ce-que-cloudradar-applique)
   - [3. Les 9 catégories de tests](#3-les-9-catégories-de-tests)
     - [Matrice catégorie × couverture](#matrice-catégorie--couverture)
   - [4. Pipelines CI/CD](#4-pipelines-cicd)
   - [5. Couverture par service](#5-couverture-par-service)
-  - [6. Améliorations possibles](#6-améliorations-possibles)
+  - [6. Workflow × catégorie : qui vérifie quoi ?](#6-workflow--catégorie--qui-vérifie-quoi-)
+  - [7. Améliorations possibles](#7-améliorations-possibles)
 
 ---
 
@@ -34,23 +37,23 @@ block-beta
   C["📝 Contract<br>format d'échange entre services"]:1 Cd["JSON parsing · Redis keys"]:1
   S["🚀 Context Smoke<br>chaque service démarre"]:1 Sd["@SpringBootTest · contextLoads"]:1
   U["🧪 Unit / Slice<br>logique métier isolée"]:1 Ud["JUnit · Mockito · @WebMvcTest · Vitest"]:1
-  SA["🔍 Qualité du code — Hadolint, SonarCloud, terraform fmt"]:2
+  SA["🔍 Qualité du code — PMD, Checkstyle, ArchUnit, Hadolint, SonarCloud"]:2
   SC["🛡️ Sécurité des dépendances — Trivy CVE, GitGuardian secrets"]:2
 
-  style P fill:#e1bee7,color:#000
-  style Pd fill:#f3e5f5,color:#000
-  style E fill:#ce93d8,color:#000
-  style Ed fill:#e1bee7,color:#000
-  style D fill:#ba68c8,color:#fff
-  style Dd fill:#ce93d8,color:#000
-  style C fill:#ab47bc,color:#fff
-  style Cd fill:#ba68c8,color:#fff
-  style S fill:#9c27b0,color:#fff
-  style Sd fill:#ab47bc,color:#fff
-  style U fill:#7b1fa2,color:#fff
-  style Ud fill:#9c27b0,color:#fff
-  style SA fill:#37474f,color:#fff
-  style SC fill:#263238,color:#fff
+  style P fill:#059669,color:#fff
+  style Pd fill:#a7f3d0,color:#000
+  style E fill:#0d9488,color:#fff
+  style Ed fill:#99f6e4,color:#000
+  style D fill:#0891b2,color:#fff
+  style Dd fill:#a5f3fc,color:#000
+  style C fill:#0284c7,color:#fff
+  style Cd fill:#bae6fd,color:#000
+  style S fill:#2563eb,color:#fff
+  style Sd fill:#bfdbfe,color:#000
+  style U fill:#4f46e5,color:#fff
+  style Ud fill:#c7d2fe,color:#000
+  style SA fill:#334155,color:#fff
+  style SC fill:#1e293b,color:#fff
 ```
 
 > Lecture de bas en haut. Les couches basses sont rapides (< 1 min) et nombreuses. Plus on monte, plus les tests sont lents et ciblés. Les deux barres sombres sont **transversales** : elles tournent en parallèle de tout le reste.
@@ -70,7 +73,7 @@ block-beta
 
 | Indicateur | Valeur |
 |---|---|
-| Tests automatisés | **52 tests** (15 fichiers, 4 langages) |
+| Tests automatisés | **125+ tests** (31 fichiers, 4 langages) |
 | Catégories de tests couvertes | **9** (unit, slice, integration, contract, smoke, security, quality, infra, perf) |
 | Workflows GitHub Actions | **9** (dont 5 liés aux tests/qualité) |
 | Services avec tests | **4/6** (ingester, processor, dashboard, frontend) |
@@ -131,7 +134,7 @@ flowchart LR
 
 | Gate PR (bloquant) | Ce qu'on vérifie | Temps |
 |---|---|---|
-| Tests Java (3 services) | Le code métier fonctionne | 1–4 min |
+| Tests Java (3 services) | Le code métier fonctionne + PMD/Checkstyle/ArchUnit | 1–4 min |
 | Tests Frontend (Vitest) | L'interface s'affiche correctement | 20–60s |
 | Hadolint (6 Dockerfiles) | Les images Docker suivent les bonnes pratiques | 20–60s |
 | Trivy (dépendances) | Aucune faille de sécurité connue (CVE) | 30–120s |
@@ -151,19 +154,19 @@ block-beta
   columns 3
 
   APP["🟢 Code applicatif"]:3
-  U["🧪 Unit / Slice<br>logique métier isolée"]:1
-  I["🔗 Integration<br>services + Redis réel"]:1
-  C["📝 Contract<br>format JSON entre services"]:1
+  U["🧪 Unit / Slice<br>70+ tests"]:1
+  I["🔗 Integration<br>9 tests × 3 svc"]:1
+  C["📝 Contract<br>clés Redis + JSON"]:1
 
   INFRA["🔵 Infrastructure & déploiement"]:3
-  IV["⚙️ Infra Validation<br>Terraform + manifests k8s"]:1
-  E["🌐 E2E / Smoke<br>santé post-déploiement"]:1
-  P["🏔️ Performance<br>tenue en charge (k6)"]:1
+  IV["⚙️ Infra Validation<br>40 .tf · 69 k8s"]:1
+  E["🌐 E2E / Smoke<br>3 endpoints"]:1
+  P["🏔️ Performance<br>10 VUs · p95 < 1.5s"]:1
 
   CROSS["🟠 Transversal (toutes les PR)"]:3
-  S["🔒 Sécurité<br>CVE · secrets · IaC"]:1
-  Q["📏 Qualité<br>lint · coverage · smells"]:1
-  UI["🖥️ UI<br>rendu composants React"]:1
+  S["🔒 Sécurité<br>Trivy · tfsec · Hadolint"]:1
+  Q["📏 Qualité<br>PMD · Checkstyle · ArchUnit"]:1
+  UI["🖥️ UI<br>31 tests Vitest"]:1
 
   style APP fill:#43a047,color:#fff
   style U fill:#e8f5e9,color:#000
@@ -185,17 +188,17 @@ block-beta
 
 ### Matrice catégorie × couverture
 
-| Catégorie | Quoi | Quand | Où | Statut |
-|---|---|---|---|---|
-| 🧪 **Unit / Slice** | Business logic, contrôleurs, parsing | PR | `build-and-push` | ✅ Implémenté |
-| 🔗 **Integration** | Context Spring Boot + data-path Redis | PR | `build-and-push` | ✅ Implémenté |
-| 📝 **Contract** | JSON serialization, Redis key format | PR | `build-and-push` | ✅ Implémenté |
-| 🌐 **E2E / Smoke** | Health + data pipeline post-deploy | Dispatch | `ci-infra` | ✅ Implémenté |
-| 🔒 **Security** | Dépendances CVE, secrets, IaC | PR | `build-and-push` + `ci-infra` | ✅ Implémenté |
-| 📏 **Code Quality** | Smells, duplication, coverage trends | PR | `sonarcloud` + `build-and-push` | ✅ Implémenté |
-| ⚙️ **Infra Validation** | Terraform + k8s manifest schemas | PR | `ci-infra` + `ci-k8s` | ✅ Implémenté |
-| 🏔️ **Performance** | Latence p95, taux d'erreur | Nightly / dispatch | `k6-nightly-baseline` | ✅ Implémenté |
-| 🖥️ **UI** | Render smoke composants React | PR | `build-and-push` | ✅ Implémenté |
+| Catégorie | Quoi | Preuve / KPI | Quand | Où | Statut |
+|---|---|---|---|---|---|
+| 🧪 **Unit / Slice** | Business logic, contrôleurs, parsing | 70+ tests, 4 fichiers `@WebMvcTest`/`@MockitoExtension` | PR | `build-and-push` | ✅ |
+| 🔗 **Integration** | Context Spring Boot + data-path Redis | 9 tests Testcontainers × 3 services | PR | `build-and-push` | ✅ |
+| 📝 **Contract** | JSON serialization, Redis key format | Parsing OpenSky + clés Redis validés dans tests integ | PR | `build-and-push` | ✅ |
+| 🌐 **E2E / Smoke** | Health + data pipeline post-deploy | 3 endpoints : `/healthz`, `/api/flights`, `/grafana` | Dispatch | `ci-infra` | ✅ |
+| 🔒 **Security** | Dépendances CVE, secrets, IaC | Trivy fs (6 services) + tfsec + Hadolint (6 Dockerfiles) | PR | `build-and-push` + `ci-infra` | ✅ |
+| 📏 **Code Quality** | Smells, duplication, coverage, design rules | PMD (5 règles) + Checkstyle (10 modules) + ArchUnit (6 tests) + SonarCloud gate → SARIF | PR | `sonarcloud` + `build-and-push` | ✅ |
+| ⚙️ **Infra Validation** | Terraform + k8s manifest schemas | 40 fichiers `.tf` (fmt/validate/plan) + 69 manifests k8s (kubeconform) | PR | `ci-infra` + `ci-k8s` | ✅ |
+| 🏔️ **Performance** | Latence p95, taux d'erreur | k6 : 10 VUs, p95 < 1500 ms, erreur < 5 %, checks > 95 % | Nightly | `k6-nightly-baseline` | ✅ |
+| 🖥️ **UI** | Render smoke composants React | 31 tests Vitest, 8 fichiers, 3 composants + utils | PR | `build-and-push` | ✅ |
 
 ---
 
@@ -231,7 +234,7 @@ block-beta
 
 | Workflow | Rôle en une phrase | Vérifie | Temps |
 |---|---|---|---|
-| **build-and-push** | Compiler et tester les 6 services | Tests Java ×3, React, lint Dockerfiles ×6, scan CVE | 2–5 min |
+| **build-and-push** | Compiler, tester et analyser les 6 services | Tests + qualité Java ×3, React, lint Dockerfiles ×6, scan CVE, SARIF upload | 2–5 min |
 | **sonarcloud** | Surveiller la dette technique | Quality gate, coverage, code smells, duplication | 2–4 min |
 | **ci-k8s** | Valider les fichiers Kubernetes | Schemas kubeconform, sync versions, noms d'images | < 1 min |
 | **ci-infra** (PR) | Vérifier l'infra avant déploiement | terraform fmt/validate/plan, tfsec sécurité | 1–3 min |
@@ -252,7 +255,7 @@ block-beta
   header["Couverture tests par service"]:6
   space:6
   A["dashboard"] B["ingester"] C["processor"] D["frontend"] E["health"] F["admin-scale"]
-  A1["37 tests"] B1["3 tests"] C1["7 tests"] D1["5 tests"] E1["0 test"] F1["0 test"]
+  A1["52 tests"] B1["28 tests"] C1["12 tests"] D1["31 tests"] E1["0 test"] F1["0 test"]
 
   style A1 fill:#4caf50,color:#fff
   style B1 fill:#4caf50,color:#fff
@@ -262,11 +265,13 @@ block-beta
   style F1 fill:#f44336,color:#fff
 ```
 
-4 services sur 6 ont des tests automatisés (52 tests, 15 fichiers). Les 3 services Java couvrent les 3 niveaux de la pyramide : unitaire (Mockito, @WebMvcTest), intégration (Redis Testcontainers), et context smoke (@SpringBootTest). Le frontend couvre le rendu composant (Vitest + Testing Library).
+4 services sur 6 ont des tests automatisés (125+ tests, 31 fichiers). Les 3 services Java couvrent les 3 niveaux de la pyramide : unitaire (Mockito, @WebMvcTest), intégration (Redis Testcontainers), et context smoke (@SpringBootTest). Le frontend couvre le rendu composant (Vitest + Testing Library).
 
 Les contrats inter-services (clés Redis, format JSON) sont validés par des tests Testcontainers dédiés dans chaque service — documentés dans `docs/events-schemas/redis-keys.md`.
 
 SonarCloud ingère la couverture Java (JaCoCo) et frontend (lcov) pour un suivi de tendance unifié.
+
+**Analyse statique Java** : PMD (design smells, god class), Checkstyle (complexité, taille), et ArchUnit (contraintes architecturales) s'exécutent dans `mvn verify` — dans `build-and-push` et `sonarcloud`. Les résultats PMD/Checkstyle sont aussi convertis en SARIF et envoyés vers GitHub Code Scanning (onglet Security).
 
 ---
 
@@ -281,12 +286,12 @@ Cette matrice croise les 6 workflows avec les 9 catégories de tests. Elle perme
 | 📝 Contract | 🟢 | | | | | |
 | 🖥️ UI | 🟢 | | | | | |
 | 🔒 Sécu | 🟢 | | | 🟢 | | |
-| 📏 Qualité | | 🟢 | | | | |
+| 📏 Qualité | 🟢 | 🟢 | | | | |
 | ⚙️ Infra | | | 🟢 | 🟢 | | |
 | 🌐 E2E | | | | | 🟢 | |
 | 🏔️ Perf | | | | | | 🟢 |
 
-> `build-and-push` porte **5/9 catégories**. Toutes les catégories sont couvertes par au moins un workflow.
+> `build-and-push` porte **5/9 catégories** (dont PMD/Checkstyle/ArchUnit via `mvn verify`). Toutes les catégories sont couvertes par au moins un workflow. Les résultats PMD/Checkstyle sont aussi envoyés en SARIF vers GitHub Code Scanning depuis le workflow `build-and-push`.
 
 ---
 
@@ -299,7 +304,7 @@ quadrantChart
   y-axis "Impact faible" --> "Impact élevé"
 
   "Dependabot": [0.08, 0.80]
-  "SpotBugs": [0.15, 0.70]
+  "SpotBugs": [0.15, 0.50]
   "ESLint + Prettier": [0.15, 0.60]
   "Trivy image": [0.08, 0.65]
   "Tests Python": [0.35, 0.55]
@@ -314,7 +319,7 @@ quadrantChart
 | Priorité | Amélioration | Pourquoi | Effort |
 |---|---|---|---|
 | 🔴 Haute | **Dependabot** | PR automatiques de mise à jour dépendances (Maven, npm, Actions) | ~15 min |
-| 🔴 Haute | **SpotBugs** | Détection statique NPE, concurrence, anti-patterns Java | ~30 min |
+| 🔴 Haute | **SpotBugs** | Détection statique NPE, concurrence (complémentaire à PMD/Checkstyle déjà en place) | ~30 min |
 | 🔴 Haute | **ESLint + Prettier** | Aucun linting TypeScript/React en CI | ~30 min |
 | 🔴 Haute | **Trivy image** | Scan couches OS/runtime des images Docker (seul Trivy fs existe) | ~15 min |
 | 🟡 Moyenne | **Tests Python** | 2/6 services sans tests (health, admin-scale) | ~2h |

@@ -46,7 +46,7 @@ The workflow now exposes test and quality checks as **dedicated jobs** (visible 
 
 | Job | Scope | Command |
 | --- | --- | --- |
-| `java-tests` | `ingester`, `processor`, `dashboard` (matrix) | `mvn -B test` (unit + Redis Testcontainers integration contracts) |
+| `java-tests` | `ingester`, `processor`, `dashboard` (matrix) | `mvn -B verify` (unit + integration tests + PMD + Checkstyle + ArchUnit) |
 | `frontend-tests` | `frontend` | `npm ci && npm test -- --run` |
 | `dockerfile-lint` | all service Dockerfiles (matrix) | `hadolint` |
 | `dependency-security-scan` | dependencies under `src/` | `trivy fs` (`HIGH,CRITICAL`, `vuln-type=library`, `scanners=vuln`) |
@@ -57,6 +57,20 @@ Behavior:
 - Docker build/push is skipped until all gates are green.
 - On pull requests, image push remains disabled for all services (`push=false`).
 - A final summary job always runs and publishes gate/build status in `GITHUB_STEP_SUMMARY`.
+
+### Where to view quality and security reports
+
+| Report | Where to find it | Link |
+| --- | --- | --- |
+| **PMD findings** | GitHub → Security → Code Scanning | [Code Scanning (PMD)](https://github.com/ClementV78/CloudRadar/security/code-scanning?query=tool:PMD) |
+| **Checkstyle findings** | GitHub → Security → Code Scanning | [Code Scanning (Checkstyle)](https://github.com/ClementV78/CloudRadar/security/code-scanning?query=tool:Checkstyle) |
+| **Trivy CVE** | GitHub → Security → Code Scanning | [Code Scanning (Trivy)](https://github.com/ClementV78/CloudRadar/security/code-scanning?query=tool:Trivy) |
+| **SonarCloud dashboard** | SonarCloud web UI | [SonarCloud overview](https://sonarcloud.io/project/overview?id=ClementV78_CloudRadar) |
+| **SonarCloud PR decoration** | GitHub PR → Checks tab + PR comment | automatic on every PR |
+| **ArchUnit violations** | GitHub PR → Checks tab → `java-tests` job logs | test failure = build failure |
+| **JaCoCo coverage** | SonarCloud (ingested via `sonarcloud.yml`) | [SonarCloud coverage](https://sonarcloud.io/component_measures?id=ClementV78_CloudRadar&metric=coverage) |
+| **Hadolint** | GitHub PR → Checks tab → `dockerfile-lint` job logs | annotation on failure |
+| **CI summary** | GitHub PR → Checks tab → `ci-summary-report` | `GITHUB_STEP_SUMMARY` |
 
 Redis contract reference:
 - See [`docs/events-schemas/redis-keys.md`](/home/xclem/projetsperso/CloudRadar/docs/events-schemas/redis-keys.md) for key/payload conventions validated by integration tests.
@@ -115,9 +129,12 @@ Code quality trend and quality-gate status are validated in a dedicated workflow
     - `src/ingester/target/site/jacoco/jacoco.xml`
     - `src/processor/target/site/jacoco/jacoco.xml`
 
+Additionally, the `build-and-push` workflow converts PMD and Checkstyle XML reports to SARIF and uploads them to **GitHub Code Scanning** (visible in the repository Security tab alongside Trivy CVE findings). Each matrix service uploads its own SARIF with distinct categories (`pmd-<service>`, `checkstyle-<service>`).
+
 Expected signals:
 - SonarCloud scan step succeeds
 - quality gate check is green on the PR checks tab
+- PMD / Checkstyle findings appear in the GitHub Security tab (Code Scanning alerts)
 
 Common failure:
 - `SONAR_TOKEN is not configured`

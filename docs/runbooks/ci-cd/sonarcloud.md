@@ -73,6 +73,36 @@ Path filters:
 
 If your SonarCloud project key/org differs, update `sonar-project.properties` accordingly.
 
+## Custom quality profile — not available on free plan
+
+SonarCloud free tier only allows the default "Sonar Way" profile and quality gate.
+Custom profiles (e.g. activating `java:S6539` God Class) require a paid plan.
+
+**Mitigation:** structural quality rules are enforced locally via Maven plugins:
+- **PMD** (`config/quality/pmd-ruleset.xml`): GodClass, TooManyMethods, CyclomaticComplexity, CouplingBetweenObjects
+- **Checkstyle** (`config/quality/checkstyle.xml`): FileLength, MethodCount, CyclomaticComplexity, ClassFanOutComplexity
+- **ArchUnit** (`ArchitectureTest.java` per service): no ConcurrentHashMap in @Component, config ↛ service
+
+SonarCloud still provides value for: coverage tracking, bug detection, security
+vulnerabilities, and duplication analysis — all included in "Sonar Way".
+
+Note: PMD/Checkstyle SARIF upload to GitHub Code Scanning is handled by the
+`build-and-push` workflow (one upload per service in the `java-tests` matrix),
+not by this workflow. See `docs/runbooks/ci-cd/ci-app.md` for details.
+
+If the plan is upgraded later, follow these steps to create a custom profile:
+
+1. Go to **Quality Profiles** → Java → copy "Sonar Way" → name it `CloudRadar`
+2. Activate: `java:S6539` (God Class), `java:S1200` (coupling)
+3. Lower `java:S3776` (Cognitive Complexity) threshold from 15 → 10
+4. Add `sonar.qualityprofile=CloudRadar` to `sonar-project.properties`
+5. Export profile XML for backup:
+   ```bash
+   curl -s "https://sonarcloud.io/api/qualityprofiles/backup?qualityProfile=CloudRadar&language=java" \
+     -H "Authorization: Bearer $SONAR_TOKEN" \
+     > docs/quality/sonarcloud-profile-java.xml
+   ```
+
 ## Local validation before CI
 
 ```bash

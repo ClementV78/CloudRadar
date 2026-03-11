@@ -65,7 +65,7 @@ AI is used across the full lifecycle (planning, architecture, implementation, te
 |---|---|
 | **Governance** | [`AGENTS.md`](AGENTS.md) defines explicit guardrails: scope, security, merge policy, cost discipline, and documentation hygiene |
 | **Decision ownership** | AI proposes options and challenges assumptions; I make the final architecture and delivery decisions |
-| **Quality enforcement** | AI-generated changes pass the same CI quality gates as any other change (SonarCloud, Trivy, tfsec, tests) |
+| **Quality enforcement** | AI-generated changes pass the same CI quality gates as any other change (SonarCloud, PMD, Checkstyle, ArchUnit, Trivy, tfsec, tests) |
 | **Traceability** | Decisions are backed by ADRs, issues, PRs, runbooks, and workflow logs |
 
 | Phase | Human lead | AI assist |
@@ -178,7 +178,8 @@ Security is treated as a **first-class concern**, not an afterthought:
 | **Network Segmentation** | Public edge subnet + private k3s subnet, SG-level isolation | ✅ Implemented |
 | **Container Scanning** | Trivy CVE scan on every PR (image + filesystem) | ✅ Implemented |
 | **Secret Detection** | GitGuardian pre-commit + CI scan | ✅ Implemented |
-| **Code Quality** | SonarCloud quality gate (coverage, bugs, smells, security hotspots) | ✅ Implemented |
+| **Code Quality** | SonarCloud quality gate + PMD + Checkstyle + ArchUnit (design rules) | ✅ Implemented |
+| **GitHub Code Scanning** | SARIF upload for PMD, Checkstyle, and Trivy (unified Security tab) | ✅ Implemented |
 | **IaC Security** | tfsec static analysis on Terraform PRs | ✅ Implemented |
 | **Dockerfile Quality** | Hadolint linting on every PR | ✅ Implemented |
 | **Edge Access** | Nginx + Basic Auth (dev), TLS | ✅ Implemented |
@@ -250,18 +251,53 @@ flowchart LR
 | Workflow | What it validates |
 |---|---|
 | `ci-infra` | Terraform formatting, validation, plan, static security checks |
-| `build-and-push` | Java tests, frontend tests, Dockerfile lint, dependency CVE scan |
+| `build-and-push` | Java tests + PMD/Checkstyle/ArchUnit (`mvn verify`), frontend tests, Dockerfile lint, dependency CVE scan |
 | `ci-k8s` | Kubernetes manifest consistency and policy checks |
 | `sonarcloud` | Code quality gate (bugs, smells, security hotspots, coverage context) |
 
-### Controlled Operations
+---
 
-| Workflow | Trigger | Purpose |
+## Testing & Quality
+
+Testing is not limited to application code — it **validates the full delivery chain**: business logic, infrastructure-as-code, Kubernetes manifests, container security, and architectural constraints. This Shift-Left approach means **80% of checks run on PR, before merge**, catching issues across all three layers.
+
+| Layer validated | What is tested | Tools |
 |---|---|---|
-| `ci-infra` | Manual (`workflow_dispatch`) | Validated infra deploy, app bootstrap, restore path, smoke verification |
-| `ci-infra-destroy` | Manual (`workflow_dispatch`) | Controlled teardown with safety confirmations and backup handling |
-| `k6-nightly-baseline` | Nightly schedule + manual | Performance baseline trend tracking |
-| `verify-issue-metadata` | Issue events | Enforces issue hygiene for project governance |
+| **Application** (Java + React) | Business logic, controllers, Redis data-path, component rendering | JUnit, Mockito, Testcontainers, Vitest |
+| **Infrastructure** (Terraform + K8s) | IaC correctness, security posture, manifest schemas | tfsec, `terraform plan`, kubeconform |
+| **Architecture & Quality** | Design rules, complexity, dependency vulnerabilities | ArchUnit, PMD, Checkstyle, SonarCloud, Trivy, Hadolint |
+
+| Metric | Value |
+|---|---|
+| Automated tests | **125+** (Java + TypeScript, 31 files) |
+| Test categories | **9** (unit, integration, contract, smoke, E2E, security, quality, infra, perf) |
+| PR quality gates | **8** blocking checks in parallel |
+| Static analysis rules | PMD (5) + Checkstyle (10) + ArchUnit (6) + SonarCloud |
+| Infra validation | 40 `.tf` files + 69 k8s manifests validated per PR |
+| Performance baseline | k6 nightly: 10 VUs, p95 < 1500 ms, error rate < 5% |
+
+| Gate | Scope | Trigger |
+|---|---|---|
+| Java tests + quality (`mvn verify`) | 92 tests + PMD/Checkstyle/ArchUnit | Every PR |
+| Frontend tests (Vitest) | 31 component + utility tests | Every PR |
+| SonarCloud quality gate | Coverage, bugs, code smells, security hotspots | Every PR |
+| Trivy CVE scan | Container images + filesystem (6 services) | Every PR |
+| GitGuardian | Leaked secrets detection | Every PR |
+| tfsec | Terraform security best practices | Infra PRs |
+| Hadolint | Dockerfile quality (6 Dockerfiles) | App PRs |
+| kubeconform | K8s manifest schemas + image naming | K8s PRs |
+| Smoke tests (`/healthz`) | Post-deploy service availability (3 endpoints) | Post-merge |
+
+PMD and Checkstyle results are uploaded as **SARIF to GitHub Code Scanning** (Security tab) for centralized visibility.
+
+<p align="center">
+  <a href="docs/testing-overview.md">
+    <img src="https://img.shields.io/badge/Testing%20%26%20QA-Overview%20(FR)-5865F2?style=for-the-badge&logo=vitest&logoColor=white" alt="Testing overview FR" />
+  </a>
+  <a href="docs/testing-overview-en.md">
+    <img src="https://img.shields.io/badge/Testing%20%26%20QA-Overview%20(EN)-5865F2?style=for-the-badge&logo=vitest&logoColor=white" alt="Testing overview EN" />
+  </a>
+</p>
 
 ---
 
@@ -318,25 +354,6 @@ All services expose `/healthz` (liveness) and `/metrics` (Prometheus scrape).
 | **CloudFront** | Edge CDN + WAF | 📝 Planned |
 
 > Full details: [Infrastructure Architecture](docs/architecture/infrastructure.md)
-
----
-
-## Testing & Quality
-
-Testing follows a **Shift-Left** approach: most checks run on PR, before merge.
-
-| Gate | Scope | Trigger |
-|---|---|---|
-| Unit tests (JUnit / pytest) | Business logic validation | Every PR |
-| SonarCloud quality gate | Coverage, bugs, code smells, security hotspots | Every PR |
-| Trivy CVE scan | Container images + filesystem | Every PR |
-| GitGuardian | Leaked secrets detection | Every PR |
-| tfsec | Terraform security best practices | Infra PRs |
-| Hadolint | Dockerfile quality | App PRs |
-| K8s manifest lint | GHCR lowercase, YAML validity | K8s PRs |
-| Smoke tests (`/healthz`) | Post-deploy service availability | Post-merge |
-
-> Snapshot (**2026-03-09**): **90+ automated test cases** across **20 test files** (Java + TypeScript), plus infra/security quality gates on PRs. Full details: [Testing & QA Overview](docs/testing-overview.md) ([English version](docs/testing-overview-en.md))
 
 ---
 
