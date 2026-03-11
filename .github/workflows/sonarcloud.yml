@@ -25,6 +25,7 @@ on:
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
   sonarcloud:
@@ -48,6 +49,37 @@ jobs:
           mvn -B -f src/dashboard/pom.xml verify
           mvn -B -f src/ingester/pom.xml verify
           mvn -B -f src/processor/pom.xml verify
+
+      - name: Convert PMD / Checkstyle XML to SARIF
+        if: always()
+        continue-on-error: true
+        run: |
+          python3 scripts/ci/quality-to-sarif.py pmd \
+            -o pmd-results.sarif \
+            src/dashboard/target/pmd.xml \
+            src/ingester/target/pmd.xml \
+            src/processor/target/pmd.xml
+          python3 scripts/ci/quality-to-sarif.py checkstyle \
+            -o checkstyle-results.sarif \
+            src/dashboard/target/checkstyle-result.xml \
+            src/ingester/target/checkstyle-result.xml \
+            src/processor/target/checkstyle-result.xml
+
+      - name: Upload PMD SARIF to Code Scanning
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: pmd-results.sarif
+          category: pmd
+
+      - name: Upload Checkstyle SARIF to Code Scanning
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkstyle-results.sarif
+          category: checkstyle
 
       - name: Prepare Java dependencies for Sonar type analysis
         run: |

@@ -51,9 +51,9 @@ jobs:
           cache: maven
           cache-dependency-path: src/${{ matrix.service }}/pom.xml
 
-      - name: Run Java tests
+      - name: Run Java tests + quality checks
         working-directory: ./src/${{ matrix.service }}
-        run: mvn -B test
+        run: mvn -B verify
 
   frontend-tests:
     name: Frontend tests
