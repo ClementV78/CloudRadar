@@ -205,6 +205,19 @@
 - Infra: `terraform fmt`, `validate`, and `plan` on PRs.
 - App: lint/format + minimal tests on PRs.
 
+### Code Design & Testability (Java / Spring)
+
+- Apply Single Responsibility Principle: each class should have one primary reason to change.
+  If a class grows beyond a reasonable scope (e.g., many non-trivial private methods), extract focused collaborators.
+- Keep Spring `@Service` / `@Component` classes orchestration-focused.
+  Put non-trivial business logic (classification, parsing, calculations, rate limits, decision rules) in testable domain classes.
+- Prefer designs that are unit-testable in isolation (without Redis/HTTP/DB dependencies) for core logic paths.
+- Treat private methods as implementation details.
+  If logic is complex enough to deserve dedicated assertions, extract it into a separate class and unit-test it directly.
+- Use heuristics, not hard caps: method/class size thresholds are guidance for review, not automatic failures.
+- Integration tests are required for wiring/infra behavior, but they do not replace isolated unit tests for business logic.
+- When adding logic to an existing class, explicitly check responsibility drift and extract if needed.
+
 ## 10. Documentation Requirements
 - Keep `README.md`, GitHub issues, and `docs/architecture/` aligned with decisions.
 - Always reference `docs/architecture/infrastructure.md` for infra changes and keep it updated as infra evolves.
