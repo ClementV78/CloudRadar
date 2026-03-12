@@ -27,7 +27,7 @@ See `docs/api/dashboard-api.md` for full request/response schemas and examples.
 
 ### 1. Map list (`GET /api/flights`)
 
-Implemented in `FlightQueryService#listFlights`.
+Orchestrated by `FlightQueryService` via `FlightListQueryHandler`.
 
 Pipeline:
 
@@ -51,7 +51,7 @@ Pipeline:
 
 ### 2. Detail (`GET /api/flights/{icao24}`)
 
-Implemented in `FlightQueryService#getFlightDetail`.
+Orchestrated by `FlightQueryService` via `FlightDetailQueryHandler`.
 
 Pipeline:
 
@@ -62,7 +62,7 @@ Pipeline:
 
 ### 3. Metrics (`GET /api/flights/metrics`)
 
-Implemented in `FlightQueryService#getFlightsMetrics`.
+Orchestrated by `FlightQueryService` via `FlightMetricsQueryHandler`.
 
 Pipeline:
 
@@ -81,6 +81,19 @@ Pipeline:
 3. Emit `batch-update` when epoch changes.
 4. Emit periodic `heartbeat` keepalive.
 5. Frontend subscribes with `EventSource` and refreshes on push.
+
+## Internal Architecture Notes
+
+- `FlightQueryService` is orchestration-only and delegates map/detail/metrics paths to dedicated handlers.
+- Snapshot loading responsibilities are split across focused collaborators:
+  - candidate collection from Redis,
+  - ICAO normalization + deduplication,
+  - optional metadata enrichment,
+  - track/event parsing.
+- Query parsing is split into dedicated parser helpers (`QueryBboxParser`, `QueryWindowParser`, `QueryCommonParser`) behind the `QueryParser` facade.
+- External integrations have dedicated helpers:
+  - Planespotters endpoint/payload/cache/rate-limit helpers,
+  - Prometheus request/response parser helpers.
 
 ## Data Sources
 
@@ -131,7 +144,10 @@ mvn -B test
 
 Current Java test baseline includes:
 - `DashboardApplicationTests.contextLoads()` for startup wiring regression detection.
-- Existing API/service tests (`DashboardControllerTest`, `FlightQueryServiceTest`, `FlightUpdateStreamServiceTest`, `PlanespottersPhotoServiceTest`, `QueryParserTest`).
+- API/controller tests (`DashboardControllerTest`).
+- Query orchestration and Redis contract tests (`FlightQueryServiceTest`, `FlightQueryServiceRedisIntegrationTest`).
+- Extracted logic unit tests (`FlightSnapshotReaderTest`, `FlightTaxonomyTest`, `FlightMetricsSupportTest`, `FlightDetailIncludeParserTest`).
+- Integration helper tests (`PlanespottersPhotoServiceTest`, `PlanespottersEndpointBuilderTest`, `PlanespottersPhotoPayloadParserTest`, `PrometheusMetricsServiceTest`, `PrometheusQueryRequestBuilderTest`, `PrometheusQueryResponseParserTest`, `QueryParserTest`).
 
 ## Related Docs
 

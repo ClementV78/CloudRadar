@@ -269,7 +269,7 @@ Testing is not limited to application code — it **validates the full delivery 
 
 | Metric | Value |
 |---|---|
-| Automated tests | **125+** (Java + TypeScript, 31 files) |
+| Automated tests | **205** (Java + TypeScript, 49 files) |
 | Test categories | **9** (unit, integration, contract, smoke, E2E, security, quality, infra, perf) |
 | PR quality gates | **8** blocking checks in parallel |
 | Static analysis rules | PMD (5) + Checkstyle (10) + ArchUnit (6) + SonarCloud |
@@ -278,7 +278,7 @@ Testing is not limited to application code — it **validates the full delivery 
 
 | Gate | Scope | Trigger |
 |---|---|---|
-| Java tests + quality (`mvn verify`) | 92 tests + PMD/Checkstyle/ArchUnit | Every PR |
+| Java tests + quality (`mvn verify`) | 174 tests + PMD/Checkstyle/ArchUnit | Every PR |
 | Frontend tests (Vitest) | 31 component + utility tests | Every PR |
 | SonarCloud quality gate | Coverage, bugs, code smells, security hotspots | Every PR |
 | Trivy CVE scan | Container images + filesystem (6 services) | Every PR |

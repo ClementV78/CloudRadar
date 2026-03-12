@@ -364,13 +364,32 @@ src/dashboard/
 │   ├── DashboardController.java
 │   └── ApiExceptionHandler.java
 ├── service/
-│   ├── FlightQueryService.java
+│   ├── FlightQueryService.java              # orchestration only
+│   ├── FlightListQueryHandler.java          # map list path
+│   ├── FlightDetailQueryHandler.java        # detail path
+│   ├── FlightMetricsQueryHandler.java       # metrics path
+│   ├── FlightSnapshotReader.java            # snapshot loading facade
+│   ├── FlightSnapshotCandidateCollector.java
+│   ├── FlightSnapshotDeduplicator.java
+│   ├── FlightSnapshotEnricher.java
+│   ├── FlightTaxonomy.java                  # typing/category heuristics
+│   ├── QueryParser.java                     # facade
+│   ├── QueryBboxParser.java
+│   ├── QueryWindowParser.java
+│   ├── QueryCommonParser.java
 │   ├── FlightUpdateStreamService.java
-│   └── PlanespottersPhotoService.java
+│   ├── PlanespottersPhotoService.java
+│   ├── PlanespottersEndpointBuilder.java
+│   ├── PlanespottersPhotoPayloadParser.java
+│   ├── PrometheusMetricsService.java
+│   ├── PrometheusQueryRequestBuilder.java
+│   └── PrometheusQueryResponseParser.java
 └── aircraft/
     ├── AircraftMetadataRepository.java
     └── SqliteAircraftMetadataRepository.java
 ```
+
+Design note: after issue #560, dashboard query logic was split into focused collaborators to keep `FlightQueryService` as an orchestrator and improve unit-testability.
 
 ---
 
