@@ -15,6 +15,12 @@ package com.cloudradar.dashboard.model;
  * @param airframeType inferred airframe type (`airplane|helicopter|unknown`)
  * @param fleetType inferred fleet profile (`commercial|military|rescue|private|unknown`)
  * @param aircraftSize inferred size profile (`small|medium|large|heavy|unknown`)
+ * @param prevLat previous latitude used for bootstrap motion (optional)
+ * @param prevLon previous longitude used for bootstrap motion (optional)
+ * @param prevHeading previous heading used for bootstrap motion (optional)
+ * @param prevSpeed previous speed used for bootstrap motion (optional)
+ * @param prevAltitude previous altitude used for bootstrap motion (optional)
+ * @param prevLastSeen previous last-contact epoch used for bootstrap motion (optional)
  */
 public record FlightMapItem(
     String icao24,
@@ -28,4 +34,10 @@ public record FlightMapItem(
     Boolean militaryHint,
     String airframeType,
     String fleetType,
-    String aircraftSize) {}
+    String aircraftSize,
+    Double prevLat,
+    Double prevLon,
+    Double prevHeading,
+    Double prevSpeed,
+    Double prevAltitude,
+    Long prevLastSeen) {}

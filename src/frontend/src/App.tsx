@@ -19,6 +19,7 @@ import { Header } from './components/Header';
 import { KpiStrip } from './components/KpiStrip';
 import type { KpiTab } from './components/KpiStrip';
 import { MapLegend } from './components/MapLegend';
+import { buildBootstrapMotionPlan } from './bootstrapMotion';
 import { createRefreshWatchdog, resolveSnapshotUpdateAction, shouldRefreshFromStreamEvent } from './mapRefresh';
 import { createMarkerIconResolver } from './markerIcons';
 import type {
@@ -545,6 +546,15 @@ export default function App(): JSX.Element {
       const batchEpoch = flightsResponse.latestOpenSkyBatchEpoch;
       const previousBatchEpoch = lastBatchEpochRef.current;
       const batchChanged = batchEpoch !== previousBatchEpoch;
+      const hasRenderedFlights = mapFlightsRef.current.length > 0;
+      const bootstrapMotionPlan = hasRenderedFlights
+        ? null
+        : buildBootstrapMotionPlan(
+          normalizedFlights,
+          REFRESH_INTERVAL_MS,
+          MIN_INTERPOLATION_DURATION_MS,
+          MAX_INTERPOLATION_DURATION_MS
+        );
 
       setFlights(normalizedFlights);
       // Recompute static markers only when a new batch arrives.
@@ -554,12 +564,18 @@ export default function App(): JSX.Element {
       }
 
       const snapshotAction = resolveSnapshotUpdateAction({
-        hasRenderedFlights: mapFlightsRef.current.length > 0,
+        hasRenderedFlights,
         batchChanged,
-        animationRunning: animationFrameRef.current !== null
+        animationRunning: animationFrameRef.current !== null,
+        bootstrapAnimationReady: bootstrapMotionPlan !== null
       });
 
-      if (snapshotAction === 'snap') {
+      if (snapshotAction === 'bootstrap-animate' && bootstrapMotionPlan) {
+        cancelMarkerAnimation();
+        mapFlightsRef.current = bootstrapMotionPlan.startFlights;
+        setMapFlights(bootstrapMotionPlan.startFlights);
+        animateMarkers(normalizedFlights, bootstrapMotionPlan.durationMs);
+      } else if (snapshotAction === 'snap') {
         cancelMarkerAnimation();
         mapFlightsRef.current = normalizedFlights;
         setMapFlights(normalizedFlights);

@@ -38,7 +38,10 @@ public class RedisAggregateProcessor {
     ProcessorMetrics metrics = new ProcessorMetrics(meterRegistry, properties);
     this.eventProcessor = new EventProcessor(
         redisTemplate, objectMapper, properties, metrics,
-        new BboxClassifier(), new ActivityBucketKeyResolver(), aircraftRepo);
+        new BboxClassifier(),
+        new ActivityBucketKeyResolver(),
+        aircraftRepo,
+        new LastPositionSnapshotWriter(redisTemplate, objectMapper, properties));
   }
 
   @jakarta.annotation.PostConstruct

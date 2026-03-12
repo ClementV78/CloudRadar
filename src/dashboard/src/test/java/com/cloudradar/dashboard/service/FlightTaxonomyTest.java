@@ -44,6 +44,43 @@ class FlightTaxonomyTest {
     assertTrue(item.lastSeen() > 0);
   }
 
+  @Test
+  void toMapItem_propagatesPreviousSnapshotFields() {
+    PositionEvent event =
+        new PositionEvent(
+            "abc123",
+            "CALL",
+            48.8566,
+            2.3522,
+            90.0,
+            120.0,
+            1000.0,
+            1000.0,
+            0.0,
+            false,
+            1L,
+            2L,
+            null,
+            10L,
+            48.80,
+            2.30,
+            88.0,
+            118.0,
+            980.0,
+            1L);
+    FlightSnapshot snapshot =
+        new FlightSnapshot("abc123", event, "Commercial", "France", "A320", false, "airplane", null);
+
+    FlightMapItem item = taxonomy.toMapItem(snapshot);
+
+    assertEquals(48.80, item.prevLat());
+    assertEquals(2.30, item.prevLon());
+    assertEquals(88.0, item.prevHeading());
+    assertEquals(118.0, item.prevSpeed());
+    assertEquals(980.0, item.prevAltitude());
+    assertEquals(1L, item.prevLastSeen());
+  }
+
   private FlightSnapshot snapshot(
       String icao24,
       String callsign,
@@ -66,7 +103,13 @@ class FlightTaxonomyTest {
             1L,
             2L,
             null,
-            10L);
+            10L,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
 
     return new FlightSnapshot(
         icao24,

@@ -29,6 +29,7 @@ class EventProcessor {
   private final BboxClassifier bboxClassifier;
   private final ActivityBucketKeyResolver bucketKeyResolver;
   private final Optional<AircraftMetadataRepository> aircraftRepo;
+  private final LastPositionSnapshotWriter snapshotWriter;
 
   EventProcessor(
       StringRedisTemplate redisTemplate,
@@ -37,7 +38,8 @@ class EventProcessor {
       ProcessorMetrics metrics,
       BboxClassifier bboxClassifier,
       ActivityBucketKeyResolver bucketKeyResolver,
-      Optional<AircraftMetadataRepository> aircraftRepo) {
+      Optional<AircraftMetadataRepository> aircraftRepo,
+      LastPositionSnapshotWriter snapshotWriter) {
     this.redisTemplate = redisTemplate;
     this.objectMapper = objectMapper;
     this.properties = properties;
@@ -45,6 +47,7 @@ class EventProcessor {
     this.bboxClassifier = bboxClassifier;
     this.bucketKeyResolver = bucketKeyResolver;
     this.aircraftRepo = aircraftRepo;
+    this.snapshotWriter = snapshotWriter;
   }
 
   /** Polls Redis for a payload and processes it if present. Also refreshes queue depth. */
@@ -83,7 +86,7 @@ class EventProcessor {
     }
 
     String redisIcao = event.icao24().trim();
-    redisTemplate.opsForHash().put(properties.getRedis().getLastPositionsKey(), redisIcao, payload);
+    snapshotWriter.writeLatest(redisIcao, payload);
 
     if (properties.getTrackLength() > 0) {
       String trackKey = properties.getRedis().getTrackKeyPrefix() + redisIcao;

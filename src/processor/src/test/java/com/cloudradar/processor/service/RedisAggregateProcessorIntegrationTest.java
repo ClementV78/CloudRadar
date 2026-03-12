@@ -83,7 +83,7 @@ class RedisAggregateProcessorIntegrationTest {
             new SimpleMeterRegistry(),
             Optional.empty());
 
-    Map<String, Object> event =
+    Map<String, Object> firstEvent =
         Map.ofEntries(
             Map.entry("icao24", "abc123"),
             Map.entry("callsign", "AFR123"),
@@ -99,12 +99,30 @@ class RedisAggregateProcessorIntegrationTest {
             Map.entry("ingested_at", "2026-02-24T10:00:00Z"),
             Map.entry("opensky_fetch_epoch", 1_706_000_000L));
 
-    String payload = objectMapper.writeValueAsString(event);
+    Map<String, Object> secondEvent =
+        Map.ofEntries(
+            Map.entry("icao24", "abc123"),
+            Map.entry("callsign", "AFR123"),
+            Map.entry("lat", 48.9066),
+            Map.entry("lon", 2.4022),
+            Map.entry("velocity", 220.0),
+            Map.entry("heading", 195.0),
+            Map.entry("geo_altitude", 1300.0),
+            Map.entry("baro_altitude", 1250.0),
+            Map.entry("on_ground", false),
+            Map.entry("time_position", 1_706_000_010L),
+            Map.entry("last_contact", 1_706_000_011L),
+            Map.entry("ingested_at", "2026-02-24T10:00:10Z"),
+            Map.entry("opensky_fetch_epoch", 1_706_000_010L));
+
+    String firstPayload = objectMapper.writeValueAsString(firstEvent);
+    String secondPayload = objectMapper.writeValueAsString(secondEvent);
 
     processor.start();
     try {
       LockSupport.parkNanos(Duration.ofMillis(1200).toNanos());
-      redisTemplate.opsForList().rightPush(properties.getRedis().getInputKey(), payload);
+      redisTemplate.opsForList().rightPush(properties.getRedis().getInputKey(), firstPayload);
+      redisTemplate.opsForList().rightPush(properties.getRedis().getInputKey(), secondPayload);
 
       waitUntil(
           () -> redisTemplate.opsForHash().hasKey(properties.getRedis().getLastPositionsKey(), "abc123"),
@@ -117,7 +135,13 @@ class RedisAggregateProcessorIntegrationTest {
 
       Map<String, Object> savedMap = objectMapper.readValue(savedPayload, new TypeReference<>() {});
       assertEquals("abc123", savedMap.get("icao24"));
-      assertEquals(1_706_000_000, ((Number) savedMap.get("opensky_fetch_epoch")).longValue());
+      assertEquals(1_706_000_010, ((Number) savedMap.get("opensky_fetch_epoch")).longValue());
+      assertEquals(48.8566, ((Number) savedMap.get("prev_lat")).doubleValue(), 0.0001);
+      assertEquals(2.3522, ((Number) savedMap.get("prev_lon")).doubleValue(), 0.0001);
+      assertEquals(190.0, ((Number) savedMap.get("prev_heading")).doubleValue(), 0.0001);
+      assertEquals(210.0, ((Number) savedMap.get("prev_velocity")).doubleValue(), 0.0001);
+      assertEquals(1200.0, ((Number) savedMap.get("prev_altitude")).doubleValue(), 0.0001);
+      assertEquals(1_706_000_001L, ((Number) savedMap.get("prev_last_contact")).longValue());
 
       String trackKey = properties.getRedis().getTrackKeyPrefix() + "abc123";
       waitUntil(
@@ -159,7 +183,7 @@ class RedisAggregateProcessorIntegrationTest {
 
       String bucketKey = bucketHashKeys.iterator().next();
       Object eventsTotal = redisTemplate.opsForHash().get(bucketKey, "events_total");
-      assertEquals("1", String.valueOf(eventsTotal));
+      assertEquals("2", String.valueOf(eventsTotal));
 
       Long uniqueAircraft = redisTemplate.opsForHyperLogLog().size(bucketKey + ":aircraft_hll");
       assertNotNull(uniqueAircraft);
