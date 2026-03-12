@@ -1,7 +1,7 @@
 # ADR-0021: Dashboard Bootstrap Motion via Write-Time Previous Snapshot
 
 Date: 2026-03-12
-Status: Proposed
+Status: Accepted
 
 ## Context
 

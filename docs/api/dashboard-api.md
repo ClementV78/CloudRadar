@@ -43,7 +43,13 @@ Example response:
       "militaryHint": false,
       "airframeType": "airplane",
       "fleetType": "commercial",
-      "aircraftSize": "large"
+      "aircraftSize": "large",
+      "prevLat": 48.84,
+      "prevLon": 2.30,
+      "prevHeading": 88.0,
+      "prevSpeed": 215.0,
+      "prevAltitude": 10480.0,
+      "prevLastSeen": 1759999990
     }
   ],
   "count": 1,
@@ -69,6 +75,9 @@ Classification semantics for map typing fields:
   4. `commercial` when metadata exists but no previous profile matched.
   5. `unknown` when metadata is unavailable.
 - `aircraftSize`: inferred from metadata category/typecode (`small|medium|large|heavy|unknown`).
+- `prevLat`, `prevLon`, `prevHeading`, `prevSpeed`, `prevAltitude`, `prevLastSeen`:
+  optional write-time previous snapshot fields used by frontend bootstrap animation.
+  They can be `null` when no previous snapshot exists yet for the aircraft.
 
 ## `GET /api/flights/{icao24}`
 
