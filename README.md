@@ -179,7 +179,7 @@ Security is treated as a **first-class concern**, not an afterthought:
 | **Container Scanning** | Trivy CVE scan on every PR (image + filesystem) | ✅ Implemented |
 | **Secret Detection** | GitGuardian pre-commit + CI scan | ✅ Implemented |
 | **Code Quality** | SonarCloud quality gate + PMD + Checkstyle + ArchUnit (design rules) | ✅ Implemented |
-| **GitHub Code Scanning** | SARIF upload for PMD, Checkstyle, and Trivy (unified Security tab) | ✅ Implemented |
+| **GitHub Code Scanning** | SARIF upload for PMD, Checkstyle, and ArchUnit (unified Security tab for static Java rules) | ✅ Implemented |
 | **IaC Security** | tfsec static analysis on Terraform PRs | ✅ Implemented |
 | **Dockerfile Quality** | Hadolint linting on every PR | ✅ Implemented |
 | **Edge Access** | Nginx + Basic Auth (dev), TLS | ✅ Implemented |
@@ -288,7 +288,10 @@ Testing is not limited to application code — it **validates the full delivery 
 | kubeconform | K8s manifest schemas + image naming | K8s PRs |
 | Smoke tests (`/healthz`) | Post-deploy service availability (3 endpoints) | Post-merge |
 
-PMD and Checkstyle results are uploaded as **SARIF to GitHub Code Scanning** (Security tab) for centralized visibility.
+PMD, Checkstyle, and ArchUnit results are uploaded as **SARIF to GitHub Code Scanning** (Security tab) for centralized visibility.
+For practical day-to-day review, `build-and-push` also publishes:
+- per-service artifacts (`quality-reports-<service>`) with raw XML + SARIF reports
+- a consolidated PMD/Checkstyle/ArchUnit table in `ci-summary-report` (`GITHUB_STEP_SUMMARY`)
 
 <p align="center">
   <a href="docs/testing-overview.md">

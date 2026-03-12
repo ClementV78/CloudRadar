@@ -64,13 +64,14 @@ Behavior:
 | --- | --- | --- |
 | **PMD findings** | GitHub → Security → Code Scanning | [Code Scanning (PMD)](https://github.com/ClementV78/CloudRadar/security/code-scanning?query=tool:PMD) |
 | **Checkstyle findings** | GitHub → Security → Code Scanning | [Code Scanning (Checkstyle)](https://github.com/ClementV78/CloudRadar/security/code-scanning?query=tool:Checkstyle) |
-| **Trivy CVE** | GitHub → Security → Code Scanning | [Code Scanning (Trivy)](https://github.com/ClementV78/CloudRadar/security/code-scanning?query=tool:Trivy) |
+| **ArchUnit findings** | GitHub → Security → Code Scanning | [Code Scanning (ArchUnit)](https://github.com/ClementV78/CloudRadar/security/code-scanning?query=tool:ArchUnit) |
+| **Trivy CVE** | GitHub PR/Run → Checks tab → `dependency-security-scan` job logs | `trivy fs` gate output (HIGH/CRITICAL) |
 | **SonarCloud dashboard** | SonarCloud web UI | [SonarCloud overview](https://sonarcloud.io/project/overview?id=ClementV78_CloudRadar) |
 | **SonarCloud PR decoration** | GitHub PR → Checks tab + PR comment | automatic on every PR |
-| **ArchUnit violations** | GitHub PR → Checks tab → `java-tests` job logs | test failure = build failure |
+| **Raw PMD/Checkstyle/ArchUnit reports** | GitHub Actions run → Artifacts `quality-reports-<service>` | XML + SARIF + counters per Java service |
 | **JaCoCo coverage** | SonarCloud (ingested via `sonarcloud.yml`) | [SonarCloud coverage](https://sonarcloud.io/component_measures?id=ClementV78_CloudRadar&metric=coverage) |
 | **Hadolint** | GitHub PR → Checks tab → `dockerfile-lint` job logs | annotation on failure |
-| **CI summary** | GitHub PR → Checks tab → `ci-summary-report` | `GITHUB_STEP_SUMMARY` |
+| **Consolidated static summary** | GitHub PR → Checks tab → `ci-summary-report` | `GITHUB_STEP_SUMMARY` includes PMD/Checkstyle/ArchUnit counts per service |
 
 Redis contract reference:
 - See [`docs/events-schemas/redis-keys.md`](/home/xclem/projetsperso/CloudRadar/docs/events-schemas/redis-keys.md) for key/payload conventions validated by integration tests.
@@ -129,12 +130,12 @@ Code quality trend and quality-gate status are validated in a dedicated workflow
     - `src/ingester/target/site/jacoco/jacoco.xml`
     - `src/processor/target/site/jacoco/jacoco.xml`
 
-Additionally, the `build-and-push` workflow converts PMD and Checkstyle XML reports to SARIF and uploads them to **GitHub Code Scanning** (visible in the repository Security tab alongside Trivy CVE findings). Each matrix service uploads its own SARIF with distinct categories (`pmd-<service>`, `checkstyle-<service>`).
+Additionally, the `build-and-push` workflow converts PMD, Checkstyle, and ArchUnit XML reports to SARIF and uploads them to **GitHub Code Scanning** (repository Security tab). Each matrix service uploads its own SARIF with distinct categories (`pmd-<service>`, `checkstyle-<service>`, `archunit-<service>`) and publishes raw XML/SARIF reports as run artifacts (`quality-reports-<service>`). Trivy CVE findings remain visible in the `dependency-security-scan` job logs.
 
 Expected signals:
 - SonarCloud scan step succeeds
 - quality gate check is green on the PR checks tab
-- PMD / Checkstyle findings appear in the GitHub Security tab (Code Scanning alerts)
+- PMD / Checkstyle / ArchUnit findings appear in the GitHub Security tab (Code Scanning alerts)
 
 Common failure:
 - `SONAR_TOKEN is not configured`

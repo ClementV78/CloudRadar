@@ -179,7 +179,7 @@ graph TB
 | **IAM** | Least-privilege roles + OIDC for CI/CD (no long-lived CI secrets) | CloudTrail auditability, reduced credential sprawl |
 | **Encryption** | EBS encrypted at rest, TLS in transit (edge Nginx + in-cluster ingress) | Data protection at rest/transit |
 | **State** | Terraform backend in S3 (encrypted, versioned, DynamoDB lock) | Safe concurrent operations, rollback and audit history |
-| **Supply Chain** | GHCR with GitHub-issued `GITHUB_TOKEN`; Hadolint + Trivy + PMD + Checkstyle + ArchUnit + SonarCloud checks in CI; PMD/Checkstyle/Trivy results in GitHub Code Scanning (SARIF) | No long-lived registry credentials, controlled artifact path with automated quality/security gates |
+| **Supply Chain** | GHCR with GitHub-issued `GITHUB_TOKEN`; Hadolint + Trivy + PMD + Checkstyle + ArchUnit + SonarCloud checks in CI; PMD/Checkstyle/ArchUnit results in GitHub Code Scanning (SARIF) | No long-lived registry credentials, controlled artifact path with automated quality/security gates |
 
 **Zero-Trust Principles**: No SSH keys · OIDC for CI/CD · Secrets in SSM Parameter Store · Least-privilege IAM · Single ingress (443)
 
