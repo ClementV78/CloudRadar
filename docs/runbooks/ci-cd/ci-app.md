@@ -57,6 +57,7 @@ Behavior:
 - Docker build/push is skipped until all gates are green.
 - On pull requests, image push remains disabled for all services (`push=false`).
 - A final summary job always runs and publishes gate/build status in `GITHUB_STEP_SUMMARY`.
+- On pull requests, the final summary job also upserts a sticky PR comment with static-analysis totals.
 
 ### Where to view quality and security reports
 
@@ -72,6 +73,7 @@ Behavior:
 | **JaCoCo coverage** | SonarCloud (ingested via `sonarcloud.yml`) | [SonarCloud coverage](https://sonarcloud.io/component_measures?id=ClementV78_CloudRadar&metric=coverage) |
 | **Hadolint** | GitHub PR → Checks tab → `dockerfile-lint` job logs | annotation on failure |
 | **Consolidated static summary** | GitHub PR → Checks tab → `ci-summary-report` | `GITHUB_STEP_SUMMARY` includes PMD/Checkstyle/ArchUnit counts per service |
+| **PR static-analysis snapshot** | GitHub PR conversation | sticky bot comment updated each run with the same summary table |
 
 Redis contract reference:
 - See [`docs/events-schemas/redis-keys.md`](/home/xclem/projetsperso/CloudRadar/docs/events-schemas/redis-keys.md) for key/payload conventions validated by integration tests.

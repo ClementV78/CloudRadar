@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -132,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -163,7 +163,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install hadolint binary
         run: |
@@ -182,7 +182,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Scan dependencies in src/
         uses: aquasecurity/trivy-action@master
@@ -224,7 +224,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Load VERSION
         run: |
@@ -282,6 +282,10 @@ jobs:
     name: CI summary report
     runs-on: ubuntu-latest
     if: always()
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
     needs:
       - java-tests
       - frontend-tests
@@ -290,7 +294,7 @@ jobs:
       - build-and-push
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Download static analysis artifacts
         if: always() && needs['java-tests'].result == 'success'
@@ -299,6 +303,22 @@ jobs:
           pattern: quality-reports-*
           merge-multiple: true
           path: quality-reports
+
+      - name: Build static analysis markdown report
+        if: always() && needs['java-tests'].result == 'success' && github.event_name == 'pull_request'
+        run: |
+          python3 scripts/ci/quality-summary.py \
+            --root quality-reports \
+            --title "## Static Analysis Snapshot" \
+            --output quality-pr-report.md
+
+      - name: Build static analysis summary snippet
+        if: always() && needs['java-tests'].result == 'success'
+        run: |
+          python3 scripts/ci/quality-summary.py \
+            --root quality-reports \
+            --title "### Static Analysis Snapshot" \
+            --output quality-summary.md
 
       - name: Publish run summary
         run: |
@@ -327,14 +347,51 @@ jobs:
               echo "✅ All quality gates passed."
             fi
 
-            echo ""
-            echo "### Static Analysis Snapshot"
-            if [ "${{ needs['java-tests'].result }}" = "success" ] && [ -d "quality-reports" ]; then
-              python3 scripts/ci/quality-summary.py --root quality-reports
+            if [ "${{ needs['java-tests'].result }}" = "success" ] && [ -f "quality-summary.md" ]; then
+              echo ""
+              cat quality-summary.md
               echo ""
               echo "Detailed XML/SARIF reports are attached as workflow artifacts: \`quality-reports-<service>\`."
             else
+              echo ""
+              echo "### Static Analysis Snapshot"
               echo "_Static analysis summary unavailable (java-tests failed before artifact generation)._"
             fi
             echo "- SonarCloud dashboard: https://sonarcloud.io/project/overview?id=ClementV78_CloudRadar"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upsert sticky PR static-analysis comment
+        if: always() && github.event_name == 'pull_request' && needs['java-tests'].result == 'success' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "quality-pr-report.md" ]; then
+            echo "quality-pr-report.md missing; skip comment update"
+            exit 0
+          fi
+
+          COMMENT_MARKER="<!-- cloudradar-static-analysis-report -->"
+          {
+            echo "${COMMENT_MARKER}"
+            echo ""
+            cat quality-pr-report.md
+            echo ""
+            echo "- Workflow run: ${RUN_URL}"
+            echo "- Artifacts: \`quality-reports-ingester\`, \`quality-reports-processor\`, \`quality-reports-dashboard\`"
+          } > quality-pr-comment.md
+
+          comment_id="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" \
+            --jq '.[] | select(.user.login=="github-actions[bot]" and (.body | contains("<!-- cloudradar-static-analysis-report -->"))) | .id' \
+            | head -n1)"
+
+          jq -n --rawfile body quality-pr-comment.md '{body: $body}' > comment-payload.json
+          if [ -n "${comment_id}" ]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${comment_id}" --input comment-payload.json >/dev/null
+            echo "Updated existing sticky comment (${comment_id})"
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" --input comment-payload.json >/dev/null
+            echo "Created sticky comment"
+          fi
