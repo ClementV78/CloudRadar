@@ -86,9 +86,12 @@ Custom profiles (e.g. activating `java:S6539` God Class) require a paid plan.
 SonarCloud still provides value for: coverage tracking, bug detection, security
 vulnerabilities, and duplication analysis — all included in "Sonar Way".
 
-Note: PMD/Checkstyle SARIF upload to GitHub Code Scanning is handled by the
-`build-and-push` workflow (one upload per service in the `java-tests` matrix),
-not by this workflow. See `docs/runbooks/ci-cd/ci-app.md` for details.
+Note: PMD/Checkstyle/ArchUnit SARIF upload to GitHub Code Scanning is handled
+by the `build-and-push` workflow (one upload per service in the `java-tests`
+matrix), not by this workflow. The same workflow also publishes raw
+PMD/Checkstyle/ArchUnit XML + SARIF artifacts (`quality-reports-<service>`) and
+a consolidated static-analysis summary in `ci-summary-report`.
+See `docs/runbooks/ci-cd/ci-app.md` for details.
 
 If the plan is upgraded later, follow these steps to create a custom profile:
 

@@ -271,7 +271,7 @@ Inter-service contracts (Redis keys, JSON format) are validated by dedicated Tes
 
 SonarCloud ingests Java coverage (JaCoCo) and frontend coverage (lcov) for unified trend tracking.
 
-**Java static analysis**: PMD (design smells, god class), Checkstyle (complexity, size), and ArchUnit (architectural constraints) run during `mvn verify` — in both `build-and-push` and `sonarcloud`. PMD/Checkstyle results are also converted to SARIF and uploaded to GitHub Code Scanning (Security tab).
+**Java static analysis**: PMD (design smells, god class), Checkstyle (complexity, size), and ArchUnit (architectural constraints) run during `mvn verify` — in both `build-and-push` and `sonarcloud`. PMD/Checkstyle/ArchUnit results are converted to SARIF and uploaded to GitHub Code Scanning (Security tab). The workflow also publishes per-service raw artifacts (`quality-reports-<service>`) and a consolidated static-analysis summary in `ci-summary-report`.
 
 ---
 
@@ -291,7 +291,7 @@ This matrix cross-references the 6 workflows with the 9 test categories. It lets
 | 🌐 E2E | | | | | 🟢 | |
 | 🏔️ Perf | | | | | | 🟢 |
 
-> `build-and-push` carries **5/9 categories** (including PMD/Checkstyle/ArchUnit via `mvn verify`). All categories are covered by at least one workflow. PMD/Checkstyle results are also sent as SARIF to GitHub Code Scanning from the `build-and-push` workflow.
+> `build-and-push` carries **5/9 categories** (including PMD/Checkstyle/ArchUnit via `mvn verify`). All categories are covered by at least one workflow. PMD/Checkstyle/ArchUnit results are sent as SARIF to GitHub Code Scanning, with raw per-service artifacts (`quality-reports-<service>`) and a consolidated summary (`ci-summary-report`).
 
 ---
 
