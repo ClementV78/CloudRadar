@@ -3,48 +3,31 @@ package com.cloudradar.dashboard.service;
 import com.cloudradar.dashboard.config.DashboardProperties;
 import com.cloudradar.dashboard.model.FlightPhoto;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Metrics;
 import java.io.IOException;
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.Locale;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-/**
- * Resolves aircraft photos from Planespotters API with Redis-backed caching and global rate
- * limiting.
- */
 @Service
 public class PlanespottersPhotoService {
   private static final Logger log = LoggerFactory.getLogger(PlanespottersPhotoService.class);
-  private static final String PHOTOS_FIELD = "photos";
-  private static final String THUMBNAIL_FIELD = "thumbnail";
-  private static final String THUMBNAIL_LARGE_FIELD = "thumbnail_large";
-  private static final Set<String> TRUSTED_HOSTS = Set.of(
-      "t.plnspttrs.net",
-      "cdn.planespotters.net",
-      "www.planespotters.net",
-      "planespotters.net");
 
-  private final StringRedisTemplate redisTemplate;
-  private final ObjectMapper objectMapper;
   private final DashboardProperties.Planespotters properties;
   private final HttpClient httpClient;
+  private final PlanespottersEndpointBuilder endpointBuilder;
+  private final PlanespottersPhotoPayloadParser payloadParser;
+  private final PlanespottersPhotoCache cache;
+  private final PlanespottersGlobalRateLimiter rateLimiter;
   private final Counter cacheHitCounter;
   private final Counter cacheMissCounter;
   private final Counter limiterRejectCounter;
@@ -58,9 +41,15 @@ public class PlanespottersPhotoService {
       StringRedisTemplate redisTemplate,
       ObjectMapper objectMapper,
       DashboardProperties dashboardProperties) {
-    this(redisTemplate, objectMapper, dashboardProperties, HttpClient.newBuilder()
-        .connectTimeout(Duration.ofMillis(Math.max(300, dashboardProperties.getPlanespotters().getTimeoutMs())))
-        .build());
+    this(
+        redisTemplate,
+        objectMapper,
+        dashboardProperties,
+        HttpClient.newBuilder()
+            .connectTimeout(
+                Duration.ofMillis(
+                    Math.max(300, dashboardProperties.getPlanespotters().getTimeoutMs())))
+            .build());
   }
 
   PlanespottersPhotoService(
@@ -68,78 +57,91 @@ public class PlanespottersPhotoService {
       ObjectMapper objectMapper,
       DashboardProperties dashboardProperties,
       HttpClient httpClient) {
-    this.redisTemplate = redisTemplate;
-    this.objectMapper = objectMapper;
     this.properties = dashboardProperties.getPlanespotters();
     this.httpClient = httpClient;
+    this.endpointBuilder = new PlanespottersEndpointBuilder(properties.getBaseUrl());
+    this.payloadParser = new PlanespottersPhotoPayloadParser(objectMapper);
+    this.cache = new PlanespottersPhotoCache(redisTemplate, objectMapper, properties);
+    this.rateLimiter =
+        new PlanespottersGlobalRateLimiter(
+            redisTemplate, properties.getRedisKeyPrefix(), properties.getGlobalRps());
     this.cacheHitCounter = counter("dashboard.planespotters.cache.hit.total", "Cache hits");
     this.cacheMissCounter = counter("dashboard.planespotters.cache.miss.total", "Cache misses");
-    this.limiterRejectCounter = counter("dashboard.planespotters.limiter.reject.total", "Global limiter rejects");
-    this.upstreamSuccessCounter = counter("dashboard.planespotters.upstream.success.total", "Upstream success");
-    this.upstreamNotFoundCounter = counter("dashboard.planespotters.upstream.not_found.total", "Upstream not found");
-    this.upstreamErrorCounter = counter("dashboard.planespotters.upstream.error.total", "Upstream errors");
+    this.limiterRejectCounter =
+        counter("dashboard.planespotters.limiter.reject.total", "Global limiter rejects");
+    this.upstreamSuccessCounter =
+        counter("dashboard.planespotters.upstream.success.total", "Upstream success");
+    this.upstreamNotFoundCounter =
+        counter("dashboard.planespotters.upstream.not_found.total", "Upstream not found");
+    this.upstreamErrorCounter =
+        counter("dashboard.planespotters.upstream.error.total", "Upstream errors");
     this.upstreamRateLimitedCounter =
         counter("dashboard.planespotters.upstream.rate_limited.total", "Upstream rate limited");
   }
 
-  /**
-   * Resolves photo metadata for one aircraft.
-   *
-   * @param icao24 normalized ICAO24 identifier
-   * @param registration optional registration fallback
-   * @return resolved photo metadata (available/not_found/rate_limited/error), or null when
-   *     integration is disabled
-   */
   public FlightPhoto resolvePhoto(String icao24, String registration) {
     if (!properties.isEnabled()) {
       log.debug("Planespotters disabled, skipping photo lookup for icao24={}", icao24);
       return null;
     }
 
-    String cacheKey = cacheKeyForIcao(icao24);
-    FlightPhoto cached = readCached(cacheKey);
+    String cacheKey = cache.cacheKeyForIcao(icao24);
+    FlightPhoto cached = cache.read(cacheKey);
     if (cached != null) {
       cacheHitCounter.increment();
       log.debug("Planespotters cache hit key={} status={}", cacheKey, cached.status());
       return cached;
     }
+
     cacheMissCounter.increment();
     log.debug("Planespotters cache miss key={}", cacheKey);
 
     FlightPhoto resolved = fetchPhotoWithFallback(icao24, registration);
-    cache(cacheKey, resolved);
+    if (!cache.write(cacheKey, resolved)) {
+      log.warn("Failed to serialize Planespotters cache payload (key={})", cacheKey);
+    } else {
+      log.debug(
+          "Planespotters cache write key={} status={}",
+          cacheKey,
+          resolved == null ? null : resolved.status());
+    }
     return resolved;
   }
 
   private FlightPhoto fetchPhotoWithFallback(String icao24, String registration) {
-    FlightPhoto fromHex = fetchFromEndpoint("hex/" + urlEncode(icao24));
+    FlightPhoto fromHex = fetchFromEndpoint(endpointBuilder.byHexPath(icao24));
     if (!"not_found".equals(fromHex.status())) {
       return fromHex;
     }
 
-    String normalizedRegistration = normalizeRegistration(registration);
+    String normalizedRegistration = endpointBuilder.normalizeRegistration(registration);
     if (normalizedRegistration == null) {
       return fromHex;
     }
 
-    return fetchFromEndpoint("reg/" + urlEncode(normalizedRegistration));
+    return fetchFromEndpoint(endpointBuilder.byRegistrationPath(normalizedRegistration));
   }
 
   private FlightPhoto fetchFromEndpoint(String path) {
-    if (!acquireGlobalToken()) {
+    if (!rateLimiter.tryAcquire()) {
       limiterRejectCounter.increment();
-      log.warn("Planespotters lookup rejected by global limiter (path={}, limitRps={})", path, properties.getGlobalRps());
+      log.warn(
+          "Planespotters lookup rejected by global limiter (path={}, limitRps={})",
+          path,
+          rateLimiter.limitRps());
       return FlightPhoto.rateLimited();
     }
 
-    String url = stripTrailingSlashes(properties.getBaseUrl()) + "/" + path;
+    String url = endpointBuilder.buildUrl(path);
     log.debug("Planespotters upstream request GET {}", url);
-    HttpRequest request = HttpRequest.newBuilder()
-        .GET()
-        .uri(URI.create(url))
-        .timeout(Duration.ofMillis(Math.max(300, properties.getTimeoutMs())))
-        .header("Accept", "application/json")
-        .build();
+
+    HttpRequest request =
+        HttpRequest.newBuilder()
+            .GET()
+            .uri(URI.create(url))
+            .timeout(Duration.ofMillis(Math.max(300, properties.getTimeoutMs())))
+            .header("Accept", "application/json")
+            .build();
 
     try {
       HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -160,11 +162,16 @@ public class PlanespottersPhotoService {
         log.warn("Planespotters upstream error status={} (path={})", status, path);
         return FlightPhoto.error();
       }
-      return parsePhotoResponse(response.body());
-    } catch (IOException | InterruptedException | RuntimeException ex) {
-      if (ex instanceof InterruptedException) {
-        Thread.currentThread().interrupt();
-      }
+
+      FlightPhoto photo = payloadParser.parse(response.body());
+      registerParsedPayloadOutcome(path, photo);
+      return photo;
+    } catch (InterruptedException ex) {
+      Thread.currentThread().interrupt();
+      upstreamErrorCounter.increment();
+      log.warn("Planespotters upstream request failed (path={})", path, ex);
+      return FlightPhoto.error();
+    } catch (IOException | RuntimeException ex) {
       upstreamErrorCounter.increment();
       if (ex instanceof JsonProcessingException) {
         log.warn("Planespotters upstream response parse failed (path={})", path);
@@ -176,146 +183,18 @@ public class PlanespottersPhotoService {
     }
   }
 
-  private FlightPhoto parsePhotoResponse(String body) throws IOException {
-    JsonNode root = objectMapper.readTree(body);
-    if (root.path("error").isTextual()) {
-      upstreamErrorCounter.increment();
-      log.warn("Planespotters payload returned error field");
-      return FlightPhoto.error();
-    }
-
-    JsonNode photos = root.path(PHOTOS_FIELD);
-    if (!photos.isArray() || photos.isEmpty()) {
-      upstreamNotFoundCounter.increment();
-      log.debug("Planespotters payload returned no photos");
-      return FlightPhoto.notFound();
-    }
-
-    JsonNode first = photos.get(0);
-    String thumbSrc = sanitizeUrl(first.path(THUMBNAIL_FIELD).path("src").asText(null));
-    String thumbLargeSrc = sanitizeUrl(first.path(THUMBNAIL_LARGE_FIELD).path("src").asText(null));
-    String sourceLink = sanitizeUrl(first.path("link").asText(null));
-
-    if (thumbSrc == null || thumbLargeSrc == null || sourceLink == null) {
-      upstreamErrorCounter.increment();
-      log.warn("Planespotters payload rejected due to missing/untrusted thumbnail or source URL");
-      return FlightPhoto.error();
-    }
-
-    upstreamSuccessCounter.increment();
-    return FlightPhoto.available(
-        thumbSrc,
-        toNullableInt(first.path(THUMBNAIL_FIELD).path("size").path("width")),
-        toNullableInt(first.path(THUMBNAIL_FIELD).path("size").path("height")),
-        thumbLargeSrc,
-        toNullableInt(first.path(THUMBNAIL_LARGE_FIELD).path("size").path("width")),
-        toNullableInt(first.path(THUMBNAIL_LARGE_FIELD).path("size").path("height")),
-        trimToNull(first.path("photographer").asText(null)),
-        sourceLink);
-  }
-
-  private FlightPhoto readCached(String cacheKey) {
-    String payload = redisTemplate.opsForValue().get(cacheKey);
-    if (payload == null || payload.isBlank()) {
-      return null;
-    }
-    try {
-      return objectMapper.readValue(payload, FlightPhoto.class);
-    } catch (IOException ex) {
-      log.warn("Failed to deserialize Planespotters cache payload (key={})", cacheKey, ex);
-      return null;
-    }
-  }
-
-  private void cache(String cacheKey, FlightPhoto photo) {
-    if (photo == null) {
+  private void registerParsedPayloadOutcome(String path, FlightPhoto photo) {
+    if ("available".equals(photo.status())) {
+      upstreamSuccessCounter.increment();
       return;
     }
-    long ttl = switch (photo.status()) {
-      case "available" -> Math.max(60L, properties.getCacheTtlSeconds());
-      case "not_found" -> Math.max(30L, properties.getNegativeCacheTtlSeconds());
-      case "rate_limited" -> Math.max(1L, properties.getRateLimitedCacheTtlSeconds());
-      default -> Math.max(5L, properties.getErrorCacheTtlSeconds());
-    };
-    try {
-      String payload = objectMapper.writeValueAsString(photo);
-      redisTemplate.opsForValue().set(cacheKey, payload, ttl, TimeUnit.SECONDS);
-      log.debug("Planespotters cache write key={} status={} ttl={}s", cacheKey, photo.status(), ttl);
-    } catch (IOException ignored) {
-      // Non-blocking: photo integration must never fail core detail payload.
-      log.warn("Failed to serialize Planespotters cache payload (key={})", cacheKey, ignored);
+    if ("not_found".equals(photo.status())) {
+      upstreamNotFoundCounter.increment();
+      log.debug("Planespotters payload returned no photos (path={})", path);
+      return;
     }
-  }
-
-  private boolean acquireGlobalToken() {
-    int limit = Math.max(1, properties.getGlobalRps());
-    long epochSecond = Instant.now().getEpochSecond();
-    String key = properties.getRedisKeyPrefix() + "ratelimit:sec:" + epochSecond;
-    Long count = redisTemplate.opsForValue().increment(key);
-    if (count != null && count == 1L) {
-      redisTemplate.expire(key, Duration.ofSeconds(2));
-    }
-    return count != null && count <= limit;
-  }
-
-  private String cacheKeyForIcao(String icao24) {
-    return properties.getRedisKeyPrefix() + "icao24:" + icao24.toLowerCase(Locale.ROOT);
-  }
-
-  private static String normalizeRegistration(String registration) {
-    if (registration == null) {
-      return null;
-    }
-    String trimmed = registration.trim();
-    return trimmed.isEmpty() ? null : trimmed.toUpperCase(Locale.ROOT);
-  }
-
-  private static String stripTrailingSlashes(String value) {
-    if (value == null || value.isEmpty()) {
-      return "";
-    }
-    int end = value.length();
-    while (end > 0 && value.charAt(end - 1) == '/') {
-      end--;
-    }
-    return value.substring(0, end);
-  }
-
-  private static String urlEncode(String value) {
-    return URLEncoder.encode(value, StandardCharsets.UTF_8);
-  }
-
-  private static String sanitizeUrl(String value) {
-    String trimmed = trimToNull(value);
-    if (trimmed == null) {
-      return null;
-    }
-    try {
-      URI uri = URI.create(trimmed);
-      if (!"https".equalsIgnoreCase(uri.getScheme())) {
-        return null;
-      }
-      String host = uri.getHost();
-      if (host == null) {
-        return null;
-      }
-      String normalizedHost = host.toLowerCase(Locale.ROOT);
-      return TRUSTED_HOSTS.contains(normalizedHost) ? uri.toString() : null;
-    } catch (RuntimeException ex) {
-      return null;
-    }
-  }
-
-  private static Integer toNullableInt(JsonNode node) {
-    return node != null && node.isNumber() ? node.asInt() : null;
-  }
-
-  private static String trimToNull(String value) {
-    if (value == null) {
-      return null;
-    }
-    String trimmed = value.trim();
-    return trimmed.isEmpty() ? null : trimmed;
+    upstreamErrorCounter.increment();
+    log.warn("Planespotters payload rejected due to missing/untrusted thumbnail or source URL");
   }
 
   private static Counter counter(String name, String description) {

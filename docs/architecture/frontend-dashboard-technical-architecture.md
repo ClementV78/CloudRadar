@@ -16,12 +16,18 @@ flowchart LR
 
   subgraph DASH["Dashboard read path"]
     CTRL["DashboardController"]
-    QUERY["FlightQueryService"]
+    QUERY["FlightQueryService<br/>(orchestrator)"]
+    LIST["FlightListQueryHandler"]
+    DETAIL["FlightDetailQueryHandler"]
+    METRICS["FlightMetricsQueryHandler"]
     STREAM["FlightUpdateStreamService"]
   end
 
   AGG --> QUERY
   AGG --> STREAM
+  QUERY --> LIST
+  QUERY --> DETAIL
+  QUERY --> METRICS
   QUERY --> CTRL
 
   subgraph FE["Frontend browser"]
@@ -45,7 +51,11 @@ flowchart LR
 
   subgraph API["Dashboard Service (Spring Boot)"]
     CTRL["DashboardController"]
-    QUERY["FlightQueryService"]
+    QUERY["FlightQueryService<br/>(orchestrator)"]
+    LIST["FlightListQueryHandler"]
+    DETAIL["FlightDetailQueryHandler"]
+    METRICS["FlightMetricsQueryHandler"]
+    SNAP["FlightSnapshotReader + collaborators"]
     STREAM["FlightUpdateStreamService"]
     META["SqliteAircraftMetadataRepository"]
     PHOTO["PlanespottersPhotoService"]
@@ -62,16 +72,22 @@ flowchart LR
   UI -->|"SSE /api/flights/stream"| STREAM
 
   CTRL --> QUERY
-  QUERY --> REDIS
-  QUERY --> META
+  QUERY --> LIST
+  QUERY --> DETAIL
+  QUERY --> METRICS
+  LIST --> SNAP
+  DETAIL --> SNAP
+  METRICS --> SNAP
+  SNAP --> REDIS
+  SNAP --> META
   META --> SQLITE
-  QUERY --> PHOTO
+  DETAIL --> PHOTO
   PHOTO --> REDIS_PHOTO
   PHOTO --> PS
   STREAM --> REDIS
 ```
 
-This flow describes the dashboard runtime topology: `DashboardController` centralizes REST routes, `FlightQueryService` reads the Redis snapshot, and `FlightUpdateStreamService` monitors batch changes for SSE.
+This flow describes the dashboard runtime topology: `DashboardController` centralizes REST routes, `FlightQueryService` orchestrates dedicated query handlers, and `FlightUpdateStreamService` monitors batch changes for SSE.
 SQLite enrichment stays optional and does not impact the minimal map/refresh path.
 Photo lookup is also optional and resilient: dashboard reads photo metadata from Redis cache first, then calls Planespotters only on cache miss.
 
@@ -80,7 +96,11 @@ Photo lookup is also optional and resilient: dashboard reads photo metadata from
 - `DashboardController`
   - HTTP routes under `/api/flights`.
 - `FlightQueryService`
-  - map/detail/metrics query orchestration.
+  - map/detail/metrics orchestration only.
+- `FlightListQueryHandler` / `FlightDetailQueryHandler` / `FlightMetricsQueryHandler`
+  - endpoint-specific query logic.
+- `FlightSnapshotReader` + collaborators
+  - candidate collection, normalization/deduplication, enrichment, track reads.
 - `FlightUpdateStreamService`
   - SSE emitter management and batch-change detection.
 - `SqliteAircraftMetadataRepository` (optional bean)
@@ -204,7 +224,7 @@ Map marker visuals are derived from backend typing fields in `FlightMapItem`:
 
 The frontend does not re-infer business typing from raw telemetry. It only renders what the API provides.
 
-Typing precedence in `FlightQueryService`:
+Typing precedence in `FlightTaxonomy`:
 1. `military` if `militaryHint=true`.
 2. `rescue` if rescue heuristics match metadata or callsign (`samu`, `rescue`, `hems`, `medevac`, `lifeguard`, `dragon`, ...).
 3. `private` for private/business/general aviation hints.
