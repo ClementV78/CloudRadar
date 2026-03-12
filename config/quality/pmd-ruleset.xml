@@ -14,15 +14,8 @@
        Each exclusion links to a tracking issue. -->
   <!-- #558: RESOLVED — RedisAggregateProcessor refactored, exclusion removed -->
   <!-- #559: RESOLVED — ingester god-class/cyclomatic refactor completed -->
-  <!-- #560: https://github.com/ClementV78/CloudRadar/issues/560 -->
-  <exclude-pattern>.*/FlightQueryService\.java</exclude-pattern>
   <!-- Properties classes are getter/setter POJOs, not design-smell targets -->
   <exclude-pattern>.*Properties\.java</exclude-pattern>
-  <!-- TODO: QueryParser has high cyclomatic complexity in parsing methods -->
-  <exclude-pattern>.*/QueryParser\.java</exclude-pattern>
-  <!-- TODO: review coupling in photo + metrics services -->
-  <exclude-pattern>.*/PlanespottersPhotoService\.java</exclude-pattern>
-  <exclude-pattern>.*/PrometheusMetricsService\.java</exclude-pattern>
 
   <!-- God Class: high WMC + ATFD + TCC thresholds -->
   <rule ref="category/java/design.xml/GodClass"/>

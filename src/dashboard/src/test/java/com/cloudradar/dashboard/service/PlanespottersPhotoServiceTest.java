@@ -15,7 +15,6 @@ import com.cloudradar.dashboard.config.DashboardProperties;
 import com.cloudradar.dashboard.model.FlightPhoto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
-import java.lang.reflect.Method;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -256,24 +255,20 @@ class PlanespottersPhotoServiceTest {
   }
 
   @Test
-  void stripTrailingSlashes_handlesNullEmptyAndTrailingSeparators() throws Exception {
-    assertEquals("", invokeStripTrailingSlashes(null));
-    assertEquals("", invokeStripTrailingSlashes(""));
+  void stripTrailingSlashes_handlesNullEmptyAndTrailingSeparators() {
+    assertEquals("", PlanespottersEndpointBuilder.trimTrailingSlashes(null));
+    assertEquals("", PlanespottersEndpointBuilder.trimTrailingSlashes(""));
     assertEquals(
         "https://api.planespotters.net/pub/photos",
-        invokeStripTrailingSlashes("https://api.planespotters.net/pub/photos///"));
+        PlanespottersEndpointBuilder.trimTrailingSlashes(
+            "https://api.planespotters.net/pub/photos///"));
   }
 
   @Test
-  void stripTrailingSlashes_preservesValueWithoutTrailingSlash() throws Exception {
+  void stripTrailingSlashes_preservesValueWithoutTrailingSlash() {
     assertEquals(
         "https://api.planespotters.net/pub/photos",
-        invokeStripTrailingSlashes("https://api.planespotters.net/pub/photos"));
-  }
-
-  private static String invokeStripTrailingSlashes(String value) throws Exception {
-    Method method = PlanespottersPhotoService.class.getDeclaredMethod("stripTrailingSlashes", String.class);
-    method.setAccessible(true);
-    return (String) method.invoke(null, value);
+        PlanespottersEndpointBuilder.trimTrailingSlashes(
+            "https://api.planespotters.net/pub/photos"));
   }
 }

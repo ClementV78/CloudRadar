@@ -20,9 +20,4 @@
   <!-- ========== ingester (#559) — RESOLVED ========== -->
   <!-- FlightIngestJob/OpenSkyClient/OpenSkyTokenService refactored: suppressions removed -->
 
-  <!-- ========== dashboard (#560) ========== -->
-  <!-- https://github.com/ClementV78/CloudRadar/issues/560 -->
-  <suppress checks="MethodCount|FileLength|ClassFanOutComplexity|CyclomaticComplexity"
-            files="FlightQueryService\.java"/>
-
 </suppressions>
