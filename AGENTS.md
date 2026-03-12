@@ -147,6 +147,7 @@
 - Sprint Goals live as draft items inside the GitHub Project.
 - GHCR image paths must be lowercase (Docker image refs do not allow uppercase in repository names).
 - GHCR images are tagged with the `VERSION` file value on `main` builds, plus `latest`; semver tags are added on Git tag releases.
+- `SKIP_VERSION_GUARD=1` is allowed only when changes under `src/**` are non-deployable (for example docs/comments/test-only config updates). Do not bypass the guard for runtime code changes; in that case, bump `VERSION` in the same PR.
 - Link commits to issues in the body with `Refs #<issue>` or `Fixes #<issue>`.
 - Prefer one commit per logical change.
 
