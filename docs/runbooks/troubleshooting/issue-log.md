@@ -2,6 +2,21 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-03-12
+
+### [frontend/map] First-load aircraft freeze before initial movement (missing previous snapshot at bootstrap)
+- **Severity:** Medium
+- **Impact:** Dashboard map can show static aircraft for ~10-15 seconds on page load before movement begins, degrading first impression and perceived realtime quality.
+- **Signal:** Users observe markers motionless until the next batch refresh; movement starts only after a second snapshot is available.
+- **Analysis:** Current frontend animation model requires two snapshots (`N-1 -> N`). Initial `GET /api/flights` returns only latest per-ICAO state (`N`), so first render uses snap-only behavior.
+- **Resolution (planned):**
+  1. Model previous snapshot at write-time in processor (`current + previous` per ICAO in `cloudradar:aircraft:last`).
+  2. Expose optional `prev_*` fields in dashboard map payload.
+  3. Animate immediately on first frontend load using `previous -> current` when previous fields exist.
+  4. Keep current batch-update interpolation behavior for subsequent cycles.
+- **Guardrail:** Prefer deterministic write-time state modeling over synthetic frontend extrapolation for realtime motion bootstrap.
+- **Refs:** issue #570, ADR-0021
+
 ## 2026-03-09
 
 ### [ci/infra] Edge TLS failure surfaced as generic `nginx inactive` in smoke tests
