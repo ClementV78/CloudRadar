@@ -43,7 +43,11 @@ class OpenSkyTokenServiceTest {
 
     OpenSkyTokenService service =
         new OpenSkyTokenService(
-            endpointProvider, properties, new SimpleMeterRegistry(), httpClient, new ObjectMapper());
+            endpointProvider,
+            properties,
+            httpClient,
+            new ObjectMapper(),
+            new OpenSkyTokenHttpMetrics(new SimpleMeterRegistry()));
 
     assertThatThrownBy(service::getToken)
         .isInstanceOf(OpenSkyTokenService.TokenRefreshException.class)
@@ -80,7 +84,11 @@ class OpenSkyTokenServiceTest {
 
     OpenSkyTokenService service =
         new OpenSkyTokenService(
-            endpointProvider, properties, new SimpleMeterRegistry(), httpClient, new ObjectMapper());
+            endpointProvider,
+            properties,
+            httpClient,
+            new ObjectMapper(),
+            new OpenSkyTokenHttpMetrics(new SimpleMeterRegistry()));
 
     String token = service.getToken();
 
@@ -122,7 +130,11 @@ class OpenSkyTokenServiceTest {
 
     OpenSkyTokenService service =
         new OpenSkyTokenService(
-            endpointProvider, properties, new SimpleMeterRegistry(), httpClient, new ObjectMapper());
+            endpointProvider,
+            properties,
+            httpClient,
+            new ObjectMapper(),
+            new OpenSkyTokenHttpMetrics(new SimpleMeterRegistry()));
 
     assertThat(service.getToken()).isEqualTo("cached");
     assertThat(service.getToken()).isEqualTo("cached");
@@ -157,7 +169,11 @@ class OpenSkyTokenServiceTest {
 
     OpenSkyTokenService service =
         new OpenSkyTokenService(
-            endpointProvider, properties, new SimpleMeterRegistry(), httpClient, new ObjectMapper());
+            endpointProvider,
+            properties,
+            httpClient,
+            new ObjectMapper(),
+            new OpenSkyTokenHttpMetrics(new SimpleMeterRegistry()));
 
     assertThatThrownBy(service::getToken)
         .isInstanceOf(OpenSkyTokenService.TokenRefreshException.class)

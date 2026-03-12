@@ -13,10 +13,7 @@
   <!-- Known violations excluded until refactoring.
        Each exclusion links to a tracking issue. -->
   <!-- #558: RESOLVED — RedisAggregateProcessor refactored, exclusion removed -->
-  <!-- #559: https://github.com/ClementV78/CloudRadar/issues/559 -->
-  <exclude-pattern>.*/FlightIngestJob\.java</exclude-pattern>
-  <exclude-pattern>.*/OpenSkyTokenService\.java</exclude-pattern>
-  <exclude-pattern>.*/OpenSkyClient\.java</exclude-pattern>
+  <!-- #559: RESOLVED — ingester god-class/cyclomatic refactor completed -->
   <!-- #560: https://github.com/ClementV78/CloudRadar/issues/560 -->
   <exclude-pattern>.*/FlightQueryService\.java</exclude-pattern>
   <!-- Properties classes are getter/setter POJOs, not design-smell targets -->

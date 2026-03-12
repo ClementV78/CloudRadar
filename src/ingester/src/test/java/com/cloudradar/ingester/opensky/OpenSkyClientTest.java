@@ -64,12 +64,11 @@ class OpenSkyClientTest {
 
     OpenSkyClient client = new OpenSkyClient(
         endpointProvider,
-        properties,
-        redisTemplate,
         tokenService,
-        new SimpleMeterRegistry(),
         httpClient,
-        new ObjectMapper());
+        new OpenSkyBboxResolver(properties, redisTemplate),
+        new OpenSkyResponseParser(new ObjectMapper()),
+        new OpenSkyStatesHttpMetrics(new SimpleMeterRegistry()));
 
     long beforeCallEpoch = System.currentTimeMillis() / 1000;
     FetchResult result = client.fetchStates();
@@ -126,12 +125,11 @@ class OpenSkyClientTest {
 
     OpenSkyClient client = new OpenSkyClient(
         endpointProvider,
-        properties,
-        redisTemplate,
         tokenService,
-        new SimpleMeterRegistry(),
         httpClient,
-        new ObjectMapper());
+        new OpenSkyBboxResolver(properties, redisTemplate),
+        new OpenSkyResponseParser(new ObjectMapper()),
+        new OpenSkyStatesHttpMetrics(new SimpleMeterRegistry()));
 
     FetchResult result = client.fetchStates();
 
@@ -176,12 +174,11 @@ class OpenSkyClientTest {
 
     OpenSkyClient client = new OpenSkyClient(
         endpointProvider,
-        properties,
-        redisTemplate,
         tokenService,
-        new SimpleMeterRegistry(),
         httpClient,
-        new ObjectMapper());
+        new OpenSkyBboxResolver(properties, redisTemplate),
+        new OpenSkyResponseParser(new ObjectMapper()),
+        new OpenSkyStatesHttpMetrics(new SimpleMeterRegistry()));
 
     FetchResult result = client.fetchStates();
 
@@ -225,12 +222,11 @@ class OpenSkyClientTest {
 
     OpenSkyClient client = new OpenSkyClient(
         endpointProvider,
-        properties,
-        redisTemplate,
         tokenService,
-        new SimpleMeterRegistry(),
         httpClient,
-        new ObjectMapper());
+        new OpenSkyBboxResolver(properties, redisTemplate),
+        new OpenSkyResponseParser(new ObjectMapper()),
+        new OpenSkyStatesHttpMetrics(new SimpleMeterRegistry()));
 
     client.fetchStates();
 
