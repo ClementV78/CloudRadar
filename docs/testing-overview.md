@@ -73,7 +73,7 @@ block-beta
 
 | Indicateur | Valeur |
 |---|---|
-| Tests automatisés | **205 tests** (49 fichiers de tests Java/TypeScript) |
+| Tests automatisés | **214 tests** (54 fichiers de tests Java/TypeScript) |
 | Catégories de tests couvertes | **9** (unit, slice, integration, contract, smoke, security, quality, infra, perf) |
 | Workflows GitHub Actions | **9** (dont 5 liés aux tests/qualité) |
 | Services avec tests | **4/6** (ingester, processor, dashboard, frontend) |
@@ -166,7 +166,7 @@ block-beta
   CROSS["🟠 Transversal (toutes les PR)"]:3
   S["🔒 Sécurité<br>Trivy · tfsec · Hadolint"]:1
   Q["📏 Qualité<br>PMD · Checkstyle · ArchUnit"]:1
-  UI["🖥️ UI<br>31 tests Vitest"]:1
+  UI["🖥️ UI<br>35 tests Vitest"]:1
 
   style APP fill:#43a047,color:#fff
   style U fill:#e8f5e9,color:#000
@@ -198,7 +198,7 @@ block-beta
 | 📏 **Code Quality** | Smells, duplication, coverage, design rules | PMD (5 règles) + Checkstyle (10 modules) + ArchUnit (6 tests) + SonarCloud gate → SARIF | PR | `sonarcloud` + `build-and-push` | ✅ |
 | ⚙️ **Infra Validation** | Terraform + k8s manifest schemas | 40 fichiers `.tf` (fmt/validate/plan) + 69 manifests k8s (kubeconform) | PR | `ci-infra` + `ci-k8s` | ✅ |
 | 🏔️ **Performance** | Latence p95, taux d'erreur | k6 : 10 VUs, p95 < 1500 ms, erreur < 5 %, checks > 95 % | Nightly | `k6-nightly-baseline` | ✅ |
-| 🖥️ **UI** | Render smoke composants React | 31 tests Vitest, 8 fichiers, 3 composants + utils | PR | `build-and-push` | ✅ |
+| 🖥️ **UI** | Render smoke composants React | 35 tests Vitest, 9 fichiers, 3 composants + utils | PR | `build-and-push` | ✅ |
 
 ---
 
@@ -255,7 +255,7 @@ block-beta
   header["Couverture tests par service"]:6
   space:6
   A["dashboard"] B["ingester"] C["processor"] D["frontend"] E["health"] F["admin-scale"]
-  A1["74 tests"] B1["43 tests"] C1["57 tests"] D1["31 tests"] E1["0 test"] F1["0 test"]
+  A1["75 tests"] B1["43 tests"] C1["61 tests"] D1["35 tests"] E1["0 test"] F1["0 test"]
 
   style A1 fill:#4caf50,color:#fff
   style B1 fill:#4caf50,color:#fff
@@ -265,7 +265,7 @@ block-beta
   style F1 fill:#f44336,color:#fff
 ```
 
-4 services sur 6 ont des tests automatisés (205 tests, 49 fichiers). Les 3 services Java couvrent les 3 niveaux de la pyramide : unitaire (Mockito, @WebMvcTest), intégration (Redis Testcontainers), et context smoke (@SpringBootTest). Le frontend couvre le rendu composant (Vitest + Testing Library).
+4 services sur 6 ont des tests automatisés (214 tests, 54 fichiers). Les 3 services Java couvrent les 3 niveaux de la pyramide : unitaire (Mockito, @WebMvcTest), intégration (Redis Testcontainers), et context smoke (@SpringBootTest). Le frontend couvre le rendu composant (Vitest + Testing Library).
 
 Les contrats inter-services (clés Redis, format JSON) sont validés par des tests Testcontainers dédiés dans chaque service — documentés dans `docs/events-schemas/redis-keys.md`.
 

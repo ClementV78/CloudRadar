@@ -85,7 +85,13 @@ class FlightQueryServiceRedisIntegrationTest {
             Map.entry("time_position", 1_706_000_010L),
             Map.entry("last_contact", 1_706_000_020L),
             Map.entry("ingested_at", "2026-02-24T10:00:00Z"),
-            Map.entry("opensky_fetch_epoch", 1_706_000_000L));
+            Map.entry("opensky_fetch_epoch", 1_706_000_000L),
+            Map.entry("prev_lat", 48.8500),
+            Map.entry("prev_lon", 2.3400),
+            Map.entry("prev_heading", 180.0),
+            Map.entry("prev_velocity", 200.0),
+            Map.entry("prev_altitude", 3000.0),
+            Map.entry("prev_last_contact", 1_705_999_990L));
 
     String latestPayload = objectMapper.writeValueAsString(latestEvent);
     redisTemplate.opsForHash().put(properties.getRedis().getLastPositionsKey(), "abc123", latestPayload);
@@ -110,6 +116,12 @@ class FlightQueryServiceRedisIntegrationTest {
     assertEquals(1, list.totalMatched());
     assertEquals(1_706_000_000L, list.latestOpenSkyBatchEpoch());
     assertEquals("abc123", list.items().get(0).icao24());
+    assertEquals(48.8500, list.items().get(0).prevLat());
+    assertEquals(2.3400, list.items().get(0).prevLon());
+    assertEquals(180.0, list.items().get(0).prevHeading());
+    assertEquals(200.0, list.items().get(0).prevSpeed());
+    assertEquals(3000.0, list.items().get(0).prevAltitude());
+    assertEquals(1_705_999_990L, list.items().get(0).prevLastSeen());
 
     FlightDetailResponse detail = service.getFlightDetail("abc123", "track");
     assertEquals("abc123", detail.icao24());

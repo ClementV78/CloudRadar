@@ -18,6 +18,12 @@ export interface FlightMapItem {
   airframeType: 'airplane' | 'helicopter' | 'unknown' | null;
   fleetType: 'commercial' | 'military' | 'rescue' | 'private' | 'unknown' | null;
   aircraftSize: 'small' | 'medium' | 'large' | 'heavy' | 'unknown' | null;
+  prevLat?: number | null;
+  prevLon?: number | null;
+  prevHeading?: number | null;
+  prevSpeed?: number | null;
+  prevAltitude?: number | null;
+  prevLastSeen?: number | null;
 }
 
 export interface FlightListResponse {

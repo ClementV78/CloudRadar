@@ -47,7 +47,8 @@ Pipeline:
      4. `commercial`,
      5. `unknown`.
    - rotorcraft-aware airframe inference for helicopter signatures (`H2*` category codes, `EC*/AS*/AW*...` typecodes).
-6. Filter/sort/limit and return frontend payload.
+6. Read optional write-time previous snapshot fields (`prev_*`) from Redis payload.
+7. Filter/sort/limit and return frontend payload.
 
 ### 2. Detail (`GET /api/flights/{icao24}`)
 
@@ -146,6 +147,7 @@ Current Java test baseline includes:
 - `DashboardApplicationTests.contextLoads()` for startup wiring regression detection.
 - API/controller tests (`DashboardControllerTest`).
 - Query orchestration and Redis contract tests (`FlightQueryServiceTest`, `FlightQueryServiceRedisIntegrationTest`).
+- Bootstrap previous-snapshot exposure tests (`FlightTaxonomyTest`, `FlightQueryServiceRedisIntegrationTest`).
 - Extracted logic unit tests (`FlightSnapshotReaderTest`, `FlightTaxonomyTest`, `FlightMetricsSupportTest`, `FlightDetailIncludeParserTest`).
 - Integration helper tests (`PlanespottersPhotoServiceTest`, `PlanespottersEndpointBuilderTest`, `PlanespottersPhotoPayloadParserTest`, `PrometheusMetricsServiceTest`, `PrometheusQueryRequestBuilderTest`, `PrometheusQueryResponseParserTest`, `QueryParserTest`).
 

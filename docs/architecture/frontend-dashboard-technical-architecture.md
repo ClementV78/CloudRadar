@@ -118,7 +118,8 @@ Redis keys:
 - `cloudradar:photo:v1:icao24:<icao24>` (String/JSON): cached Planespotters photo metadata for detail panel.
 - `cloudradar:photo:v1:ratelimit:sec:<epochSecond>` (String/increment): distributed global limiter counter (2 rps default).
 
-Telemetry payload includes `opensky_fetch_epoch`, used as batch boundary for map refresh.
+Telemetry payload includes `opensky_fetch_epoch` plus optional write-time previous snapshot fields (`prev_lat`, `prev_lon`, `prev_heading`, `prev_velocity`, `prev_altitude`, `prev_last_contact`).
+`opensky_fetch_epoch` is used as batch boundary for map refresh.
 KPI activity trends are built from bucketed processor writes (events + unique aircraft), not from snapshot distribution in `aircraft:last`.
 
 ## 4. Map Endpoint Internals (`GET /api/flights`)
@@ -195,6 +196,7 @@ This diagram shows the batch-driven refresh loop: a `batch-update` event trigger
 If no batch changes, the SSE connection stays alive (heartbeat) without forcing a heavy refresh cycle.
 
 Frontend keeps a low-frequency polling watchdog fallback and reschedules it when relevant SSE events trigger a refresh.
+On first page load, when `prev_*` fields are present, frontend animates immediately from previous -> current snapshot instead of waiting for the next batch.
 On each batch update, marker positions are interpolated from `N-1` to `N` over the measured batch interval to avoid teleport effects.
 Detail requests (`GET /api/flights/{icao24}`) are handled asynchronously and must not block the global refresh loop.
 Ingester toggles use a write-then-read reconciliation pattern: `POST /admin/ingester/scale` followed by short `GET /admin/ingester/scale` polling until target replicas converge.
@@ -252,7 +254,7 @@ This backend-driven model keeps legend, map markers, detail panel, and KPI fleet
 - SSE stream is process-local (single instance friendly; multi-instance needs sticky sessions or pub/sub coordination for strict ordering).
 - Snapshot consistency depends on processor update timeliness.
 - Continuity window is intentionally limited to latest + two previous OpenSky batches.
-- Smooth marker animation uses a short client-side buffering strategy, so displayed motion can lag by about one batch interval.
+- Aircraft without `prev_*` still use snap-on-bootstrap behavior until their next update cycle.
 - Rescue detection is heuristic-based; false positives/negatives are possible without a curated allowlist.
 
 ## 13. Related References

@@ -66,7 +66,8 @@ class EventProcessorTest {
         metrics,
         new BboxClassifier(),
         new ActivityBucketKeyResolver(),
-        Optional.empty());
+        Optional.empty(),
+        new LastPositionSnapshotWriter(redisTemplate, new ObjectMapper(), properties));
   }
 
   @Test
@@ -151,7 +152,8 @@ class EventProcessorTest {
         metrics,
         new BboxClassifier(),
         new ActivityBucketKeyResolver(),
-        Optional.of(repo));
+        Optional.of(repo),
+        new LastPositionSnapshotWriter(redisTemplate, new ObjectMapper(), properties));
 
     processorWithRepo.process(validPayload("abc123", 48.0, 2.0));
 

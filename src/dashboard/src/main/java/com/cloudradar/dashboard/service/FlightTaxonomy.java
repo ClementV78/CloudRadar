@@ -53,7 +53,13 @@ final class FlightTaxonomy {
         snapshot.militaryHint(),
         snapshot.airframeType() == null ? "unknown" : snapshot.airframeType(),
         fleetType(snapshot),
-        aircraftSize(snapshot));
+        aircraftSize(snapshot),
+        event.prevLat(),
+        event.prevLon(),
+        event.prevHeading(),
+        event.prevVelocity(),
+        event.prevAltitude(),
+        event.prevLastContact());
   }
 
   String fleetType(FlightSnapshot snapshot) {

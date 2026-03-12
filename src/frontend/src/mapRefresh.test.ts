@@ -15,15 +15,26 @@ describe('mapRefresh helpers', () => {
     expect(resolveSnapshotUpdateAction({
       hasRenderedFlights: false,
       batchChanged: true,
-      animationRunning: false
+      animationRunning: false,
+      bootstrapAnimationReady: false
     })).toBe('snap');
+  });
+
+  it('resolves snapshot action to bootstrap-animate on first paint when previous snapshot is available', () => {
+    expect(resolveSnapshotUpdateAction({
+      hasRenderedFlights: false,
+      batchChanged: true,
+      animationRunning: false,
+      bootstrapAnimationReady: true
+    })).toBe('bootstrap-animate');
   });
 
   it('resolves snapshot action to animate when a new batch arrives', () => {
     expect(resolveSnapshotUpdateAction({
       hasRenderedFlights: true,
       batchChanged: true,
-      animationRunning: false
+      animationRunning: false,
+      bootstrapAnimationReady: false
     })).toBe('animate');
   });
 
@@ -31,7 +42,8 @@ describe('mapRefresh helpers', () => {
     expect(resolveSnapshotUpdateAction({
       hasRenderedFlights: true,
       batchChanged: false,
-      animationRunning: true
+      animationRunning: true,
+      bootstrapAnimationReady: false
     })).toBe('noop');
   });
 
@@ -39,7 +51,8 @@ describe('mapRefresh helpers', () => {
     expect(resolveSnapshotUpdateAction({
       hasRenderedFlights: true,
       batchChanged: false,
-      animationRunning: false
+      animationRunning: false,
+      bootstrapAnimationReady: false
     })).toBe('snap');
   });
 

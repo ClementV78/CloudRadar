@@ -1,17 +1,22 @@
-export type SnapshotUpdateAction = 'snap' | 'animate' | 'noop';
+export type SnapshotUpdateAction = 'snap' | 'animate' | 'noop' | 'bootstrap-animate';
 
 interface SnapshotUpdateInput {
   hasRenderedFlights: boolean;
   batchChanged: boolean;
   animationRunning: boolean;
+  bootstrapAnimationReady: boolean;
 }
 
 export function resolveSnapshotUpdateAction({
   hasRenderedFlights,
   batchChanged,
-  animationRunning
+  animationRunning,
+  bootstrapAnimationReady
 }: SnapshotUpdateInput): SnapshotUpdateAction {
   if (!hasRenderedFlights) {
+    if (bootstrapAnimationReady) {
+      return 'bootstrap-animate';
+    }
     return 'snap';
   }
   if (batchChanged) {

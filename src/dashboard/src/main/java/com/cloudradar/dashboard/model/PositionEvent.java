@@ -23,7 +23,13 @@ public record PositionEvent(
     @JsonProperty("time_position") Long timePosition,
     @JsonProperty("last_contact") Long lastContact,
     @JsonProperty("ingested_at") String ingestedAt,
-    @JsonProperty("opensky_fetch_epoch") Long openskyFetchEpoch) {
+    @JsonProperty("opensky_fetch_epoch") Long openskyFetchEpoch,
+    @JsonProperty("prev_lat") Double prevLat,
+    @JsonProperty("prev_lon") Double prevLon,
+    @JsonProperty("prev_heading") Double prevHeading,
+    @JsonProperty("prev_velocity") Double prevVelocity,
+    @JsonProperty("prev_altitude") Double prevAltitude,
+    @JsonProperty("prev_last_contact") Long prevLastContact) {
 
   /**
    * Returns the best-effort altitude field for UI usage.
