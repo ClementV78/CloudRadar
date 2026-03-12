@@ -4,6 +4,18 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 
 ## 2026-03-12
 
+### [app/ingester] Startup crash after refactor (`FlightIngestJob` bean instantiation)
+- **Severity:** High
+- **Impact:** `ingester` failed to start after deployment (`CrashLoopBackOff`), so pipeline freshness degraded and ingestion stopped.
+- **Signal:** Pod logs showed `BeanCreationException` with `No default constructor found` for `FlightIngestJob`; probes failed with `connection refused` on `/healthz`.
+- **Analysis:** `FlightIngestJob` had multiple constructors and Spring bean wiring did not consistently resolve the runtime constructor without explicit constructor injection metadata.
+- **Resolution:**
+  1. Add `@Autowired` on the runtime constructor of `FlightIngestJob`.
+  2. Strengthen `IngesterApplicationTests` to instantiate the real `FlightIngestJob` bean (remove `@MockBean` masking).
+  3. Bump release version to force a new image build/deploy for the fix.
+- **Guardrail:** Never mock the critical top-level runtime bean in `contextLoads` tests when the goal is to validate container wiring.
+- **Refs:** issue #574
+
 ### [frontend/map] First-load aircraft freeze before initial movement (missing previous snapshot at bootstrap)
 - **Severity:** Medium
 - **Impact:** Dashboard map can show static aircraft for ~10-15 seconds on page load before movement begins, degrading first impression and perceived realtime quality.
