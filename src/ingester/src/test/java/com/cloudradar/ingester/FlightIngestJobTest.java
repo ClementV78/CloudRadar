@@ -3,320 +3,132 @@ package com.cloudradar.ingester;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 import com.cloudradar.ingester.config.IngesterProperties;
 import com.cloudradar.ingester.opensky.FetchResult;
+import com.cloudradar.ingester.opensky.FlightState;
 import com.cloudradar.ingester.opensky.OpenSkyClient;
 import com.cloudradar.ingester.redis.RedisPublisher;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class FlightIngestJobTest {
 
   @Test
-  void ingestUsesOpenSkyLimitHeaderForThrottlingWhenAvailable() {
+  void ingestPublishesMappedEventsOnSuccessfulCycle() {
     OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
     RedisPublisher redisPublisher = mock(RedisPublisher.class);
-    when(openSkyClient.fetchStates()).thenReturn(new FetchResult(List.of(), 399, 400, null));
-    when(redisPublisher.pushEvents(anyList())).thenReturn(0);
+    when(openSkyClient.fetchStates()).thenReturn(new FetchResult(
+        List.of(new FlightState("abc123", "AFR123", 48.0, 2.0, 230.0, 180.0, 11000.0, 10900.0, false, 1700L, 1701L)),
+        399,
+        400,
+        2000L));
+    when(redisPublisher.pushEvents(anyList())).thenReturn(1);
 
+    IngestionBackoffController backoffController = new IngestionBackoffController();
     FlightIngestJob job = new FlightIngestJob(
         openSkyClient,
         redisPublisher,
-        new SimpleMeterRegistry(),
-        buildProperties());
+        new FlightEventMapper(),
+        new OpenSkyRateLimitTracker(buildProperties()),
+        backoffController,
+        buildProperties(),
+        new SimpleMeterRegistry());
 
     job.ingest();
 
-    assertThat(readLongField(job, "currentDelayMs")).isEqualTo(10_000L);
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<Map<String, Object>>> payloadCaptor = ArgumentCaptor.forClass(List.class);
+    verify(redisPublisher).pushEvents(payloadCaptor.capture());
+    assertThat(payloadCaptor.getValue()).hasSize(1);
+    assertThat(payloadCaptor.getValue().get(0))
+        .containsEntry("icao24", "abc123")
+        .containsEntry("callsign", "AFR123")
+        .containsKey("opensky_fetch_epoch");
+    assertThat(backoffController.currentBackoffSeconds()).isZero();
   }
 
   @Test
-  void ingestFallsBackToConfiguredQuotaWhenLimitHeaderMissing() {
-    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
-    RedisPublisher redisPublisher = mock(RedisPublisher.class);
-    when(openSkyClient.fetchStates()).thenReturn(new FetchResult(List.of(), 399, null, null));
-    when(redisPublisher.pushEvents(anyList())).thenReturn(0);
-
-    FlightIngestJob job = new FlightIngestJob(
-        openSkyClient,
-        redisPublisher,
-        new SimpleMeterRegistry(),
-        buildProperties());
-
-    job.ingest();
-
-    assertThat(readLongField(job, "currentDelayMs")).isEqualTo(30_000L);
-  }
-
-  @Test
-  void ingestStoresResetEpochWhenHeaderPresent() {
-    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
-    RedisPublisher redisPublisher = mock(RedisPublisher.class);
-    when(openSkyClient.fetchStates()).thenReturn(new FetchResult(List.of(), 390, 400, 12345L));
-    when(redisPublisher.pushEvents(anyList())).thenReturn(0);
-
-    FlightIngestJob job = new FlightIngestJob(
-        openSkyClient,
-        redisPublisher,
-        new SimpleMeterRegistry(),
-        buildProperties());
-
-    job.ingest();
-
-    assertThat(readAtomicLongField(job, "resetAtEpochSeconds")).isEqualTo(12345L);
-  }
-
-  @Test
-  void ingestHandlesUnchangedHeaderLimitAcrossCycles() {
-    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
-    RedisPublisher redisPublisher = mock(RedisPublisher.class);
-    when(openSkyClient.fetchStates())
-        .thenReturn(new FetchResult(List.of(), 399, 400, null))
-        .thenReturn(new FetchResult(List.of(), 398, 400, null));
-    when(redisPublisher.pushEvents(anyList())).thenReturn(0);
-
-    FlightIngestJob job = new FlightIngestJob(
-        openSkyClient,
-        redisPublisher,
-        new SimpleMeterRegistry(),
-        buildProperties());
-
-    job.ingest();
-    forceNextCycle(job);
-    job.ingest();
-
-    assertThat(readAtomicLongField(job, "creditLimitOverride")).isEqualTo(400L);
-    assertThat(readLongField(job, "currentDelayMs")).isEqualTo(10_000L);
-  }
-
-  @Test
-  void ingestKeepsBaseDelayWhenEffectiveQuotaIsZero() {
-    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
-    RedisPublisher redisPublisher = mock(RedisPublisher.class);
-    when(openSkyClient.fetchStates()).thenReturn(new FetchResult(List.of(), 399, null, null));
-    when(redisPublisher.pushEvents(anyList())).thenReturn(0);
-
-    FlightIngestJob job = new FlightIngestJob(
-        openSkyClient,
-        redisPublisher,
-        new SimpleMeterRegistry(),
-        buildPropertiesWithQuota(0L));
-
-    job.ingest();
-
-    assertThat(readLongField(job, "currentDelayMs")).isEqualTo(10_000L);
-    assertThat(readAtomicLongField(job, "creditLimitOverride")).isEqualTo(-1L);
-  }
-
-  @Test
-  void ingestKeepsBaseDelayWhenRemainingCreditsMissing() {
-    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
-    RedisPublisher redisPublisher = mock(RedisPublisher.class);
-    when(openSkyClient.fetchStates()).thenReturn(new FetchResult(List.of(), null, null, null));
-    when(redisPublisher.pushEvents(anyList())).thenReturn(0);
-
-    FlightIngestJob job = new FlightIngestJob(
-        openSkyClient,
-        redisPublisher,
-        new SimpleMeterRegistry(),
-        buildProperties());
-
-    job.ingest();
-
-    assertThat(readLongField(job, "currentDelayMs")).isEqualTo(10_000L);
-  }
-
-  @Test
-  void effectiveQuotaFallsBackToConfiguredQuotaWithoutHeaderOverride() {
-    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
-    RedisPublisher redisPublisher = mock(RedisPublisher.class);
-
-    FlightIngestJob job = new FlightIngestJob(
-        openSkyClient,
-        redisPublisher,
-        new SimpleMeterRegistry(),
-        buildPropertiesWithQuota(4000L));
-
-    assertThat(invokeEffectiveQuota(job, buildPropertiesWithQuota(4000L).rateLimit())).isEqualTo(4000L);
-  }
-
-  @Test
-  void ingestKeepsBaseDelayWhenRateLimitConfigMissing() {
-    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
-    RedisPublisher redisPublisher = mock(RedisPublisher.class);
-    when(openSkyClient.fetchStates()).thenReturn(new FetchResult(List.of(), 399, 400, null));
-    when(redisPublisher.pushEvents(anyList())).thenReturn(0);
-
-    FlightIngestJob job = new FlightIngestJob(
-        openSkyClient,
-        redisPublisher,
-        new SimpleMeterRegistry(),
-        buildPropertiesWithoutRateLimit());
-
-    job.ingest();
-
-    assertThat(readLongField(job, "currentDelayMs")).isEqualTo(10_000L);
-  }
-
-  @Test
-  void quotaOrDefaultUsesConfiguredQuotaWhenNoHeaderOverride() {
-    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
-    RedisPublisher redisPublisher = mock(RedisPublisher.class);
-
-    FlightIngestJob job = new FlightIngestJob(
-        openSkyClient,
-        redisPublisher,
-        new SimpleMeterRegistry(),
-        buildPropertiesWithQuota(4000L));
-
-    assertThat(invokeQuotaOrDefault(job)).isEqualTo(4000.0);
-  }
-
-  @Test
-  void ingestAppliesProgressiveBackoffOnConsecutiveFailures() {
+  void ingestAppliesBackoffWhenFetchThrows() {
     OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
     RedisPublisher redisPublisher = mock(RedisPublisher.class);
     when(openSkyClient.fetchStates()).thenThrow(new RuntimeException("opensky down"));
 
+    IngestionBackoffController backoffController = new IngestionBackoffController();
     FlightIngestJob job = new FlightIngestJob(
         openSkyClient,
         redisPublisher,
-        new SimpleMeterRegistry(),
-        buildProperties());
+        new FlightEventMapper(),
+        new OpenSkyRateLimitTracker(buildProperties()),
+        backoffController,
+        buildProperties(),
+        new SimpleMeterRegistry());
 
     job.ingest();
-    assertThat(readAtomicLongField(job, "currentBackoffSeconds")).isEqualTo(1L);
-    assertThat(readBooleanField(job, "disabled")).isFalse();
 
-    forceNextCycle(job);
-    job.ingest();
-    assertThat(readAtomicLongField(job, "currentBackoffSeconds")).isEqualTo(2L);
-    assertThat(readBooleanField(job, "disabled")).isFalse();
+    assertThat(backoffController.currentBackoffSeconds()).isEqualTo(1L);
+    verify(redisPublisher, never()).pushEvents(anyList());
   }
 
   @Test
-  void ingestDisablesAfterTooManyFailures() {
+  void ingestSkipsWhenBackoffWindowIsActive() {
     OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
     RedisPublisher redisPublisher = mock(RedisPublisher.class);
-    when(openSkyClient.fetchStates()).thenThrow(new RuntimeException("still down"));
+
+    IngestionBackoffController backoffController = new IngestionBackoffController();
+    backoffController.recordFailure(System.currentTimeMillis());
 
     FlightIngestJob job = new FlightIngestJob(
         openSkyClient,
         redisPublisher,
-        new SimpleMeterRegistry(),
-        buildProperties());
+        new FlightEventMapper(),
+        new OpenSkyRateLimitTracker(buildProperties()),
+        backoffController,
+        buildProperties(),
+        new SimpleMeterRegistry());
 
-    setAtomicIntField(job, "consecutiveFailures", 10);
-    forceNextCycle(job);
     job.ingest();
 
-    assertThat(readBooleanField(job, "disabled")).isTrue();
-    assertThat(readAtomicLongField(job, "currentBackoffSeconds")).isZero();
-    assertThat(readLongField(job, "nextAllowedAtMs")).isEqualTo(Long.MAX_VALUE);
+    verify(openSkyClient, never()).fetchStates();
+  }
 
-    // Once disabled, ingest should return immediately.
+  @Test
+  void ingestSkipsWhenBackoffControllerIsDisabled() {
+    OpenSkyClient openSkyClient = mock(OpenSkyClient.class);
+    RedisPublisher redisPublisher = mock(RedisPublisher.class);
+
+    IngestionBackoffController backoffController = new IngestionBackoffController();
+    for (int i = 0; i < 11; i++) {
+      backoffController.recordFailure(System.currentTimeMillis());
+    }
+
+    FlightIngestJob job = new FlightIngestJob(
+        openSkyClient,
+        redisPublisher,
+        new FlightEventMapper(),
+        new OpenSkyRateLimitTracker(buildProperties()),
+        backoffController,
+        buildProperties(),
+        new SimpleMeterRegistry());
+
     job.ingest();
-    verify(openSkyClient, times(1)).fetchStates();
+
+    verify(openSkyClient, never()).fetchStates();
+    assertThat(backoffController.disabledGaugeValue()).isEqualTo(1);
   }
 
   private IngesterProperties buildProperties() {
-    return buildPropertiesWithQuota(4000L);
-  }
-
-  private IngesterProperties buildPropertiesWithQuota(long quota) {
     return new IngesterProperties(
         10_000L,
         new IngesterProperties.Redis("cloudradar:ingest:queue"),
         new IngesterProperties.Bbox(46.0, 50.0, 2.0, 4.0),
-        new IngesterProperties.RateLimit(quota, 50, 80, 95, 30_000L, 300_000L),
+        new IngesterProperties.RateLimit(4_000L, 50, 80, 95, 30_000L, 300_000L),
         new IngesterProperties.BboxBoost("cloudradar:opensky:bbox:boost:active", 1.0));
-  }
-
-  private IngesterProperties buildPropertiesWithoutRateLimit() {
-    return new IngesterProperties(
-        10_000L,
-        new IngesterProperties.Redis("cloudradar:ingest:queue"),
-        new IngesterProperties.Bbox(46.0, 50.0, 2.0, 4.0),
-        null,
-        new IngesterProperties.BboxBoost("cloudradar:opensky:bbox:boost:active", 1.0));
-  }
-
-  private void forceNextCycle(FlightIngestJob job) {
-    try {
-      Field field = FlightIngestJob.class.getDeclaredField("nextAllowedAtMs");
-      field.setAccessible(true);
-      field.setLong(job, 0L);
-    } catch (ReflectiveOperationException ex) {
-      throw new IllegalStateException("Unable to set test field: nextAllowedAtMs", ex);
-    }
-  }
-
-  private long readAtomicLongField(Object target, String fieldName) {
-    try {
-      Field field = FlightIngestJob.class.getDeclaredField(fieldName);
-      field.setAccessible(true);
-      return ((java.util.concurrent.atomic.AtomicLong) field.get(target)).get();
-    } catch (ReflectiveOperationException ex) {
-      throw new IllegalStateException("Unable to read test field: " + fieldName, ex);
-    }
-  }
-
-  private long invokeEffectiveQuota(FlightIngestJob job, IngesterProperties.RateLimit rateLimit) {
-    try {
-      Method method = FlightIngestJob.class.getDeclaredMethod(
-          "effectiveQuota",
-          IngesterProperties.RateLimit.class);
-      method.setAccessible(true);
-      return (long) method.invoke(job, rateLimit);
-    } catch (ReflectiveOperationException ex) {
-      throw new IllegalStateException("Unable to invoke effectiveQuota for test coverage", ex);
-    }
-  }
-
-  private double invokeQuotaOrDefault(FlightIngestJob job) {
-    try {
-      Method method = FlightIngestJob.class.getDeclaredMethod("quotaOrDefault");
-      method.setAccessible(true);
-      return (double) method.invoke(job);
-    } catch (ReflectiveOperationException ex) {
-      throw new IllegalStateException("Unable to invoke quotaOrDefault for test coverage", ex);
-    }
-  }
-
-  private long readLongField(Object target, String fieldName) {
-    try {
-      Field field = FlightIngestJob.class.getDeclaredField(fieldName);
-      field.setAccessible(true);
-      return field.getLong(target);
-    } catch (ReflectiveOperationException ex) {
-      throw new IllegalStateException("Unable to read test field: " + fieldName, ex);
-    }
-  }
-
-  private boolean readBooleanField(Object target, String fieldName) {
-    try {
-      Field field = FlightIngestJob.class.getDeclaredField(fieldName);
-      field.setAccessible(true);
-      return field.getBoolean(target);
-    } catch (ReflectiveOperationException ex) {
-      throw new IllegalStateException("Unable to read test field: " + fieldName, ex);
-    }
-  }
-
-  private void setAtomicIntField(Object target, String fieldName, int value) {
-    try {
-      Field field = FlightIngestJob.class.getDeclaredField(fieldName);
-      field.setAccessible(true);
-      ((java.util.concurrent.atomic.AtomicInteger) field.get(target)).set(value);
-    } catch (ReflectiveOperationException ex) {
-      throw new IllegalStateException("Unable to set test field: " + fieldName, ex);
-    }
   }
 }

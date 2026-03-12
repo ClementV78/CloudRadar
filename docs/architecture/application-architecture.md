@@ -1,6 +1,6 @@
 # CloudRadar Application Architecture
 
-**Last updated**: 2026-03-11
+**Last updated**: 2026-03-12
 
 This document describes the architecture and design of all microservices in the CloudRadar platform. Each service is containerized and deployed to k3s via ArgoCD.
 
@@ -61,7 +61,7 @@ Fetches live flight states from OpenSky API every 10 seconds and publishes each 
 - **Language**: Java 17
 - **Framework**: Spring Boot 3.x
 - **Scheduler**: Spring `@Scheduled`
-- **HTTP Client**: RestTemplate / Spring WebClient
+- **HTTP Client**: Java `HttpClient` (`java.net.http`)
 - **Authentication**: OAuth2 (OpenSky credentials via SSM Parameter Store)
 - **Message Queue**: Redis List
 
@@ -69,48 +69,65 @@ Fetches live flight states from OpenSky API every 10 seconds and publishes each 
 
 ```mermaid
 flowchart LR
-    Scheduler["Spring Scheduler<br/>(10s interval)"]
+    Scheduler["Spring Scheduler<br/>(10s interval)"] --> Job["FlightIngestJob<br/>(orchestrator)"]
     OpenSkyClient["OpenSkyClient<br/>(REST)"]
     TokenService["OpenSkyTokenService<br/>(OAuth2)"]
-    Mapping["FlightState<br/>→ Event Map"]
+    Mapping["FlightEventMapper<br/>FlightState → Event Map"]
+    Backoff["IngestionBackoffController<br/>(progressive backoff)"]
+    RateLimit["OpenSkyRateLimitTracker<br/>(effective quota + delay)"]
+    MetricsHelper["IngesterMetrics<br/>(counters + gauges)"]
     Redis["Redis List<br/>(cloudradar:ingest:queue)"]
     
-    Scheduler -->|fetch states| OpenSkyClient
+    Job -->|fetch states| OpenSkyClient
     OpenSkyClient -->|get bearer token| TokenService
-    TokenService -->|cache refresh| OpenSkyClient
     OpenSkyClient -->|parse| Mapping
+    Job --> Backoff
+    Job --> RateLimit
+    Job --> MetricsHelper
     Mapping -->|push JSON| Redis
-    Scheduler -->|expose| Metrics["/metrics"]
-    Scheduler -->|expose| Health["/healthz"]
+    Job -->|expose| Metrics["/metrics"]
+    Job -->|expose| Health["/healthz"]
 ```
 
 ### Code Organization
 
 ```
 src/ingester/
-├── IngesterApplication.java              # Spring Boot entrypoint, scheduling enabled
-├── config/
-│   ├── IngesterProperties.java            # Configuration: refresh interval, Redis key, bbox
-│   ├── OpenSkyProperties.java             # OpenSky API URLs, token endpoint
-│   ├── AwsProperties.java                 # AWS region, SSM parameter names
-│   └── HttpClientConfig.java              # RestTemplate / WebClient beans
-├── opensky/
-│   ├── OpenSkyClient.java                 # Fetches /states/all, parses response
-│   ├── OpenSkyTokenService.java           # Manages OAuth2 bearer token (10m TTL)
-│   ├── OpenSkyCredentialsProvider.java    # Loads credentials from SSM
-│   └── FlightState.java                   # DTO for OpenSky state objects
-├── redis/
-│   └── RedisPublisher.java                # Serializes events as JSON, pushes to Redis List
-└── job/
-    └── FlightIngestJob.java               # Scheduled job (runs every INGESTER_REFRESH_MS)
+├── src/main/java/com/cloudradar/ingester/
+│   ├── IngesterApplication.java                # Spring Boot entrypoint, scheduling enabled
+│   ├── FlightIngestJob.java                    # Scheduled orchestrator (fetch/map/publish)
+│   ├── FlightEventMapper.java                  # FlightState -> Redis payload mapper
+│   ├── IngestionBackoffController.java         # Progressive backoff + disable policy
+│   ├── OpenSkyRateLimitTracker.java            # Effective quota and delay adaptation
+│   ├── OpenSkyRateLimitMetricCalculator.java   # Table-driven rate-limit metric helpers
+│   ├── IngesterMetrics.java                    # Ingestion/OpenSky gauges + counters
+│   ├── config/
+│   │   ├── AppConfig.java                      # Shared beans (HttpClient)
+│   │   ├── IngesterProperties.java             # Refresh interval, Redis key, bbox
+│   │   ├── OpenSkyProperties.java              # OpenSky routing + token settings
+│   │   └── AwsProperties.java                  # AWS region/SSM parameter names
+│   ├── opensky/
+│   │   ├── OpenSkyClient.java                  # /states/all request/response orchestration
+│   │   ├── OpenSkyTokenService.java            # OAuth token cache + cooldown
+│   │   ├── OpenSkyResponseParser.java          # JSON payload + headers parsing
+│   │   ├── OpenSkyBboxResolver.java            # Effective bbox resolution
+│   │   ├── OpenSkyStatesHttpMetrics.java       # States-call HTTP metrics
+│   │   ├── OpenSkyTokenHttpMetrics.java        # Token-call HTTP metrics
+│   │   ├── TokenCooldownPolicy.java            # Token failure cooldown state machine
+│   │   ├── OpenSkyEndpointProvider.java        # Routing mode endpoint selection
+│   │   ├── OpenSkyRateLimitHeaders.java        # Parsed rate-limit header record
+│   │   ├── FetchResult.java                    # Stable fetch contract
+│   │   └── FlightState.java                    # OpenSky state DTO
+│   └── redis/
+│       └── RedisPublisher.java                 # Serializes events and pushes to Redis List
 ```
 
 ### Flow
 
-1. `FlightIngestJob` runs every 10 seconds (configurable via `INGESTER_REFRESH_MS`)
-2. `OpenSkyClient` requests `/states/all` for the defined bounding box (Île-de-France by default)
-3. `OpenSkyTokenService` provides a cached OAuth2 bearer token (refreshed every ~10 minutes)
-4. Response is parsed into `FlightState` objects, then to a simple JSON map:
+1. `FlightIngestJob` runs every 10 seconds (configurable via `INGESTER_REFRESH_MS`) and orchestrates a full ingestion cycle.
+2. `OpenSkyClient` requests `/states/all` for the effective bounding box and uses an OAuth2 bearer token from `OpenSkyTokenService`.
+3. `OpenSkyRateLimitTracker` updates effective quota/remaining headers and computes the next refresh delay tier.
+4. `FlightEventMapper` converts `FlightState` objects into Redis-ready JSON maps:
    ```json
    {
      "icao24": "abc123",
@@ -125,8 +142,8 @@ src/ingester/
      "last_contact": 1704067200
    }
    ```
-5. `RedisPublisher` pushes the JSON to `cloudradar:ingest:queue` (Redis List)
-6. Metrics (`/metrics`) and health (`/healthz`) exposed via Actuator
+5. `RedisPublisher` pushes payloads to `cloudradar:ingest:queue` (Redis List).
+6. `IngesterMetrics` updates counters/gauges while `IngestionBackoffController` handles failure backoff and disable-after-threshold behavior.
 
 ### Error Handling
 
@@ -160,11 +177,12 @@ Details:
 
 ### Metrics Exposed
 
-- `opensky_requests_total` — Total API requests sent
-- `opensky_errors_total` — Total API errors
-- `ingester_events_published_total` — Total events pushed to Redis
-- `ingester_opensky_backoff_seconds` — Current OpenSky failure backoff duration in seconds
-- `ingester_opensky_disabled` — Ingester disabled flag (1 = disabled after repeated failures)
+- `ingester.fetch.total` — Total states fetched
+- `ingester.fetch.requests.total` — Total ingestion fetch cycles
+- `ingester.push.total` — Total events pushed to Redis
+- `ingester.errors.total` — Total failed ingestion cycles
+- `ingester.opensky.backoff.seconds` — Current OpenSky failure backoff duration in seconds
+- `ingester.opensky.disabled` — Ingester disabled flag (1 = disabled after repeated failures)
 
 ---
 
