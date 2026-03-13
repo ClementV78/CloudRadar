@@ -1,5 +1,12 @@
+provider "aws" {
+  region = var.region
+}
+
 locals {
-  offline_enabled = var.offline_site_enabled && local.dns_zone_name != ""
+  dns_zone_name = trimsuffix(var.dns_zone_name, ".")
+
+  offline_enabled          = var.offline_site_enabled && local.dns_zone_name != ""
+  offline_failover_enabled = local.offline_enabled && var.offline_route53_failover_enabled
 
   offline_domain = local.offline_enabled ? "${var.offline_subdomain_label}.${local.dns_zone_name}" : ""
   live_domain    = local.offline_enabled ? "${var.offline_primary_domain_label}.${local.dns_zone_name}" : ""
@@ -17,7 +24,7 @@ locals {
     : "cloudradar-offline-${replace(local.dns_zone_name, ".", "-")}"
   ) : ""
 
-  zone_id = try(aws_route53_zone.cloudradar[0].zone_id, "")
+  zone_id = try(data.aws_route53_zone.cloudradar[0].zone_id, "")
 
   offline_static_files = local.offline_enabled ? {
     "index.html" = {
@@ -48,6 +55,13 @@ locals {
       content_type = "image/png"
     }
   } : {}
+}
+
+data "aws_route53_zone" "cloudradar" {
+  count = local.offline_enabled ? 1 : 0
+
+  name         = local.dns_zone_name
+  private_zone = false
 }
 
 resource "aws_s3_bucket" "offline_site" {
@@ -376,14 +390,20 @@ resource "aws_cloudfront_origin_access_control" "offline_site" {
 }
 
 data "aws_cloudfront_cache_policy" "caching_optimized" {
+  count = local.offline_enabled ? 1 : 0
+
   name = "Managed-CachingOptimized"
 }
 
 data "aws_cloudfront_cache_policy" "caching_disabled" {
+  count = local.offline_enabled ? 1 : 0
+
   name = "Managed-CachingDisabled"
 }
 
 data "aws_cloudfront_origin_request_policy" "all_viewer_except_host_header" {
+  count = local.offline_enabled ? 1 : 0
+
   name = "Managed-AllViewerExceptHostHeader"
 }
 
@@ -421,18 +441,18 @@ resource "aws_cloudfront_distribution" "offline" {
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD"]
     compress               = true
-    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized[0].id
   }
 
   ordered_cache_behavior {
     path_pattern             = "/api/*"
     target_origin_id         = "offline-contact-api"
     viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "POST"]
+    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
     cached_methods           = ["GET", "HEAD"]
     compress                 = true
-    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header.id
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled[0].id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host_header[0].id
   }
 
   restrictions {
@@ -498,7 +518,7 @@ resource "aws_route53_record" "offline_domain_alias" {
 }
 
 resource "aws_route53_health_check" "primary_live" {
-  count = local.offline_enabled ? 1 : 0
+  count = local.offline_failover_enabled ? 1 : 0
 
   fqdn              = local.live_domain
   port              = var.offline_primary_health_port
@@ -512,7 +532,7 @@ resource "aws_route53_health_check" "primary_live" {
 }
 
 resource "aws_route53_record" "main_failover_primary" {
-  count = local.offline_enabled ? 1 : 0
+  count = local.offline_failover_enabled ? 1 : 0
 
   zone_id         = local.zone_id
   name            = local.dns_zone_name
@@ -534,7 +554,7 @@ resource "aws_route53_record" "main_failover_primary" {
 }
 
 resource "aws_route53_record" "main_failover_secondary" {
-  count = local.offline_enabled ? 1 : 0
+  count = local.offline_failover_enabled ? 1 : 0
 
   zone_id        = local.zone_id
   name           = local.dns_zone_name

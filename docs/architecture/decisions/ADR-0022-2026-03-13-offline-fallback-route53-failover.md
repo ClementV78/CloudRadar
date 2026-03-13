@@ -13,7 +13,8 @@ Constraints:
 - add anti-spam controls without introducing high fixed-cost components.
 
 ## Decision
-Implement an offline fallback stack in the persistent bootstrap layer with Route53 failover:
+Implement an offline fallback stack in a dedicated persistent Terraform root
+(`infra/aws/failover`) with Route53 failover:
 
 Important DNS behavior:
 - `PRIMARY` and `SECONDARY` are two failover records for the same public hostname (`cloudradar.<domain>`).
@@ -61,4 +62,5 @@ Important DNS behavior:
 ## Implementation links
 - Issue: #576
 - Runbook: `docs/runbooks/operations/offline-fallback.md`
+- CI workflow: `.github/workflows/ci-failover.yml`
 - Infra doc: `docs/architecture/infrastructure.md`

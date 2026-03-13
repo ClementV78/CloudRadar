@@ -222,7 +222,7 @@ flowchart LR
 
   subgraph GATES["2) PR Quality Gates"]
     direction TB
-    PR_CHECKS["ci-infra + build-and-push + ci-k8s + sonarcloud"]
+    PR_CHECKS["ci-infra + ci-failover + build-and-push + ci-k8s + sonarcloud"]
   end
 
   subgraph OPS["3) Delivery and Operations"]
@@ -251,6 +251,7 @@ flowchart LR
 | Workflow | What it validates |
 |---|---|
 | `ci-infra` | Terraform formatting, validation, plan, static security checks |
+| `ci-failover` | Dedicated offline-fallback Terraform validation and plan checks |
 | `build-and-push` | Java tests + PMD/Checkstyle/ArchUnit (`mvn verify`), frontend tests, Dockerfile lint, dependency CVE scan |
 | `ci-k8s` | Kubernetes manifest consistency and policy checks |
 | `sonarcloud` | Code quality gate (bugs, smells, security hotspots, coverage context) |
@@ -271,7 +272,7 @@ Testing is not limited to application code — it **validates the full delivery 
 |---|---|
 | Automated tests | **205** (Java + TypeScript, 49 files) |
 | Test categories | **9** (unit, integration, contract, smoke, E2E, security, quality, infra, perf) |
-| PR quality gates | **8** blocking checks in parallel |
+| PR quality gates | **9** blocking checks in parallel |
 | Static analysis rules | PMD (5) + Checkstyle (10) + ArchUnit (6) + SonarCloud |
 | Infra validation | 40 `.tf` files + 69 k8s manifests validated per PR |
 | Performance baseline | k6 nightly: 10 VUs, p95 < 1500 ms, error rate < 5% |

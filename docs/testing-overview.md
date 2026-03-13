@@ -196,7 +196,7 @@ block-beta
 | 🌐 **E2E / Smoke** | Health + data pipeline post-deploy | 3 endpoints : `/healthz`, `/api/flights`, `/grafana` | Dispatch | `ci-infra` | ✅ |
 | 🔒 **Security** | Dépendances CVE, secrets, IaC | Trivy fs (6 services) + tfsec + Hadolint (6 Dockerfiles) | PR | `build-and-push` + `ci-infra` | ✅ |
 | 📏 **Code Quality** | Smells, duplication, coverage, design rules | PMD (5 règles) + Checkstyle (10 modules) + ArchUnit (6 tests) + SonarCloud gate → SARIF | PR | `sonarcloud` + `build-and-push` | ✅ |
-| ⚙️ **Infra Validation** | Terraform + k8s manifest schemas | 40 fichiers `.tf` (fmt/validate/plan) + 69 manifests k8s (kubeconform) | PR | `ci-infra` + `ci-k8s` | ✅ |
+| ⚙️ **Infra Validation** | Terraform + k8s manifest schemas | 40+ fichiers `.tf` (fmt/validate/plan) + 69 manifests k8s (kubeconform) | PR | `ci-infra` + `ci-failover` + `ci-k8s` | ✅ |
 | 🏔️ **Performance** | Latence p95, taux d'erreur | k6 : 10 VUs, p95 < 1500 ms, erreur < 5 %, checks > 95 % | Nightly | `k6-nightly-baseline` | ✅ |
 | 🖥️ **UI** | Render smoke composants React | 35 tests Vitest, 9 fichiers, 3 composants + utils | PR | `build-and-push` | ✅ |
 
@@ -204,7 +204,7 @@ block-beta
 
 ## 4. Pipelines CI/CD
 
-Les 9 workflows GitHub Actions de CloudRadar sont organisés pour **tourner en parallèle** et donner un feedback rapide. Chaque workflow a un périmètre clair et un déclencheur précis. L'authentification AWS se fait par **OIDC** (pas de clés stockées), et les builds Docker utilisent une **matrice** pour construire les 6 images en parallèle.
+Les workflows GitHub Actions de CloudRadar sont organisés pour **tourner en parallèle** et donner un feedback rapide. Chaque workflow a un périmètre clair et un déclencheur précis. L'authentification AWS se fait par **OIDC** (pas de clés stockées), et les builds Docker utilisent une **matrice** pour construire les 6 images en parallèle.
 
 Voici **qui vérifie quoi, et quand** :
 
@@ -212,11 +212,13 @@ Voici **qui vérifie quoi, et quand** :
 block-beta
   columns 2
 
-  PR["🔀 Sur chaque Pull Request"]:2
+  PR["🔀 Sur chaque Pull Request*"]:2
   BAP["🏗️ build-and-push<br>Compile, teste et scanne les 6 services"]:1
   SQG["📊 sonarcloud<br>Dette technique, couverture, duplication"]:1
   CIK["☸️ ci-k8s<br>Manifests Kubernetes valides ?"]:1
   CII["🔒 ci-infra<br>Terraform sûr et déployable ?"]:1
+  CIF["🧭 ci-failover<br>Failover Terraform valide ?"]:1
+  PR_SPACER[" "]:1
 
   POST["Après merge"]:2
   CIID["🌍 ci-infra dispatch<br>Deploy complet + smoke tests"]:1
@@ -227,10 +229,13 @@ block-beta
   style SQG fill:#bbdefb,color:#000
   style CIK fill:#bbdefb,color:#000
   style CII fill:#bbdefb,color:#000
+  style CIF fill:#bbdefb,color:#000
+  style PR_SPACER fill:transparent,stroke:transparent,color:transparent
   style POST fill:#757575,color:#fff
   style CIID fill:#ffe0b2,color:#000
   style K6 fill:#e1bee7,color:#000
 ```
+*Déclenchement filtré par fichiers/paths selon chaque workflow (pas systématiquement toutes les PR).*
 
 | Workflow | Rôle en une phrase | Vérifie | Temps |
 |---|---|---|---|
@@ -238,6 +243,7 @@ block-beta
 | **sonarcloud** | Surveiller la dette technique | Quality gate, coverage, code smells, duplication | 2–4 min |
 | **ci-k8s** | Valider les fichiers Kubernetes | Schemas kubeconform, sync versions, noms d'images | < 1 min |
 | **ci-infra** (PR) | Vérifier l'infra avant déploiement | terraform fmt/validate/plan, tfsec sécurité | 1–3 min |
+| **ci-failover** | Valider et piloter la stack offline/failover dédiée | terraform validate/plan/apply/destroy (`infra/aws/failover`) | 1–3 min |
 | **ci-infra** (dispatch) | Déployer et vérifier en conditions réelles | Terraform apply → ArgoCD sync → smoke tests | 5–15 min |
 | **k6-nightly** | Mesurer la performance chaque nuit | p95 < 1.5s, taux d'erreur < 5%, checks > 95% | ~1 min |
 

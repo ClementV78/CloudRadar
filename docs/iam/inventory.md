@@ -13,8 +13,9 @@ Source of truth: Terraform modules under `infra/aws/modules/` and runbooks in `d
 
 | Name | Purpose | Source |
 | --- | --- | --- |
-| `CloudRadarBootstrapRole` | Bootstrap role assumed with MFA for initial account setup. | `docs/runbooks/aws-account-bootstrap.md` |
-| `CloudRadarTerraformRole` | Main Terraform role (CI + local assume). | `docs/runbooks/aws-account-bootstrap.md` |
+| `CloudRadarBootstrapRole` | Bootstrap role assumed with MFA for initial account setup. | `docs/runbooks/bootstrap/aws-account-bootstrap.md` |
+| `CloudRadarTerraformRole` | Main Terraform role (CI + local assume). | `docs/runbooks/bootstrap/aws-account-bootstrap.md` |
+| `CloudRadarFailoverRole` | Dedicated Terraform role for offline/failover stack workflow. | `docs/runbooks/bootstrap/aws-account-bootstrap.md`, `docs/runbooks/ci-cd/ci-failover.md` |
 | `cloudradar-<env>-k3s-*` | k3s nodes role + instance profile for EC2. | `infra/aws/modules/k3s/main.tf` |
 | `cloudradar-<env>-edge-*` | Edge EC2 role + instance profile. | `infra/aws/modules/edge/main.tf` |
 
@@ -29,4 +30,4 @@ Source of truth: Terraform modules under `infra/aws/modules/` and runbooks in `d
 ## Notes
 
 - Role and instance profile names use prefixes; use IAM search for `cloudradar-<env>-k3s` or `cloudradar-<env>-edge`.
-- For bootstrap/role policies, see `docs/runbooks/aws-account-bootstrap.md`.
+- For bootstrap and CI role policies, see `docs/runbooks/bootstrap/aws-account-bootstrap.md`.
