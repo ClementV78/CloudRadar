@@ -42,7 +42,7 @@ class ContactDemoLambdaTest(unittest.TestCase):
         "email": "jane@example.com",
         "message": "I would like a live demo next week.",
         "honeypot": "",
-        "page": "https://cloudradar.iotx.fr",
+        "page": "https://cloudradar.example.com",
         "userAgent": "unit-test"
       }
     )

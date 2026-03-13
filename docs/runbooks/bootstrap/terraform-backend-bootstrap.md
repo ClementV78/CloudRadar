@@ -59,7 +59,7 @@ flowchart TB
   - `DNS_ZONE_NAME` (optional unless `issue_tls=true`)
   - `TLS_DOMAIN` (required when `issue_tls=true`)
   - `OFFLINE_SITE_ENABLED` (optional; set `true` to enable offline fallback stack)
-  - `OFFLINE_CONTACT_SENDER_EMAIL` (required when `OFFLINE_SITE_ENABLED=true`)
+  - `OFFLINE_CONTACT_SENDER_LOCAL_PART` (optional; default `noreply`)
   - `OFFLINE_CONTACT_RECIPIENT_EMAIL` (required when `OFFLINE_SITE_ENABLED=true`)
 
 ## Run
@@ -200,6 +200,7 @@ terraform -chdir=infra/aws/live/dev init -backend-config=backend.hcl
   - SSM writes use `SecureString` Standard tier first, then Advanced tier fallback only if value size exceeds Standard limits.
 - Offline fallback details:
   - Route53 failover keeps the online path unchanged and switches to offline CloudFront only when the primary health check fails.
+  - SES sender identity is domain-based and provisioned by Terraform (`_amazonses` verification + DKIM records in Route53).
   - Anti-spam baseline excludes WAF by design (FinOps): API throttling + honeypot + backend validation + DynamoDB rate limits.
 
 ## State Persistence (Recommended)

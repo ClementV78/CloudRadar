@@ -64,7 +64,7 @@ jobs:
           OFFLINE_SITE_BUCKET_NAME="${{ vars.OFFLINE_SITE_BUCKET_NAME }}"
           OFFLINE_SUBDOMAIN_LABEL="${{ vars.OFFLINE_SUBDOMAIN_LABEL }}"
           OFFLINE_PRIMARY_DOMAIN_LABEL="${{ vars.OFFLINE_PRIMARY_DOMAIN_LABEL }}"
-          OFFLINE_CONTACT_SENDER_EMAIL="${{ vars.OFFLINE_CONTACT_SENDER_EMAIL }}"
+          OFFLINE_CONTACT_SENDER_LOCAL_PART="${{ vars.OFFLINE_CONTACT_SENDER_LOCAL_PART }}"
           OFFLINE_CONTACT_RECIPIENT_EMAIL="${{ vars.OFFLINE_CONTACT_RECIPIENT_EMAIL }}"
           OFFLINE_LOGS_RETENTION_DAYS="${{ vars.OFFLINE_LOGS_RETENTION_DAYS }}"
           OFFLINE_RATE_LIMIT_WINDOW_SECONDS="${{ vars.OFFLINE_RATE_LIMIT_WINDOW_SECONDS }}"
@@ -128,8 +128,8 @@ jobs:
           if [[ -n "${OFFLINE_PRIMARY_DOMAIN_LABEL}" ]]; then
             echo "TF_VAR_offline_primary_domain_label=${OFFLINE_PRIMARY_DOMAIN_LABEL}" >> "${GITHUB_ENV}"
           fi
-          if [[ -n "${OFFLINE_CONTACT_SENDER_EMAIL}" ]]; then
-            echo "TF_VAR_offline_contact_sender_email=${OFFLINE_CONTACT_SENDER_EMAIL}" >> "${GITHUB_ENV}"
+          if [[ -n "${OFFLINE_CONTACT_SENDER_LOCAL_PART}" ]]; then
+            echo "TF_VAR_offline_contact_sender_local_part=${OFFLINE_CONTACT_SENDER_LOCAL_PART}" >> "${GITHUB_ENV}"
           fi
           if [[ -n "${OFFLINE_CONTACT_RECIPIENT_EMAIL}" ]]; then
             echo "TF_VAR_offline_contact_recipient_email=${OFFLINE_CONTACT_RECIPIENT_EMAIL}" >> "${GITHUB_ENV}"

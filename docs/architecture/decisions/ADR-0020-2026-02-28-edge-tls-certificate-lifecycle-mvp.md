@@ -6,7 +6,7 @@ Status: Accepted
 ## Context
 
 CloudRadar exposes public HTTPS traffic through an Edge Nginx EC2 instance.
-The MVP must provide a valid certificate for `cloudradar.iotx.fr` while keeping:
+The MVP must provide a valid certificate for `cloudradar.<domain>` while keeping:
 - low operational cost (no mandatory ALB/managed edge stack),
 - frequent destroy/redeploy compatibility,
 - no private key in Git or Terraform state,

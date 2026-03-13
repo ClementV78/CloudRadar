@@ -3,6 +3,9 @@ locals {
 
   offline_domain = local.offline_enabled ? "${var.offline_subdomain_label}.${local.dns_zone_name}" : ""
   live_domain    = local.offline_enabled ? "${var.offline_primary_domain_label}.${local.dns_zone_name}" : ""
+  offline_sender_email = local.offline_enabled ? (
+    "${trimspace(var.offline_contact_sender_local_part)}@${local.dns_zone_name}"
+  ) : ""
 
   offline_bucket_name = local.offline_enabled ? (
     trimspace(var.offline_site_bucket_name) != ""
@@ -109,10 +112,40 @@ resource "aws_s3_object" "offline_screenshots" {
   content_type = each.value.content_type
 }
 
-resource "aws_ses_email_identity" "offline_sender" {
+resource "aws_ses_domain_identity" "offline_sender_domain" {
   count = local.offline_enabled ? 1 : 0
 
-  email = var.offline_contact_sender_email
+  domain = local.dns_zone_name
+}
+
+resource "aws_route53_record" "offline_sender_domain_verification" {
+  count = local.offline_enabled ? 1 : 0
+
+  allow_overwrite = true
+  zone_id         = local.zone_id
+  name            = "_amazonses.${local.dns_zone_name}"
+  type            = "TXT"
+  ttl             = 600
+  records         = [aws_ses_domain_identity.offline_sender_domain[0].verification_token]
+}
+
+resource "aws_ses_domain_dkim" "offline_sender_domain" {
+  count = local.offline_enabled ? 1 : 0
+
+  domain = aws_ses_domain_identity.offline_sender_domain[0].domain
+}
+
+resource "aws_route53_record" "offline_sender_domain_dkim" {
+  for_each = local.offline_enabled ? {
+    for token in aws_ses_domain_dkim.offline_sender_domain[0].dkim_tokens : token => token
+  } : {}
+
+  allow_overwrite = true
+  zone_id         = local.zone_id
+  name            = "${each.value}._domainkey.${local.dns_zone_name}"
+  type            = "CNAME"
+  ttl             = 600
+  records         = ["${each.value}.dkim.amazonses.com"]
 }
 
 resource "aws_dynamodb_table" "offline_rate_limit" {
@@ -194,7 +227,7 @@ resource "aws_iam_role_policy" "offline_contact_lambda" {
           "ses:SendEmail",
           "ses:SendRawEmail"
         ]
-        Resource = "*"
+        Resource = "arn:aws:ses:${var.region}:*:identity/${local.dns_zone_name}"
       }
     ]
   })
@@ -226,7 +259,7 @@ resource "aws_lambda_function" "offline_contact" {
     variables = {
       RATE_LIMIT_TABLE_NAME     = aws_dynamodb_table.offline_rate_limit[0].name
       RECIPIENT_EMAIL           = var.offline_contact_recipient_email
-      SENDER_EMAIL              = var.offline_contact_sender_email
+      SENDER_EMAIL              = local.offline_sender_email
       RATE_LIMIT_WINDOW_SECONDS = tostring(var.offline_rate_limit_window_seconds)
       RATE_LIMIT_MAX_HITS       = tostring(var.offline_rate_limit_max_hits)
     }

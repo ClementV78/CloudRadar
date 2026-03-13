@@ -239,7 +239,7 @@ This log tracks incidents and fixes in reverse chronological order. Use it for d
 ### [edge/ui] Repeated Basic Auth popup loop on dashboard refresh + duplicate/stale map markers
 - **Severity:** High
 - **Impact:** Public UI became hard to use: browser auth modal reappeared every refresh cycle, and map could show duplicate/stale aircraft markers.
-- **Signal:** At `https://cloudradar.iotx.fr`, login popup reopened repeatedly while frontend polled map APIs; aircraft list did not consistently match the latest OpenSky fetch set.
+- **Signal:** At `https://cloudradar.<domain>`, login popup reopened repeatedly while frontend polled map APIs; aircraft list did not consistently match the latest OpenSky fetch set.
 - **Analysis:** Edge Nginx enforced Basic Auth globally, including `/api/*`, so any unauthenticated periodic call triggered browser re-auth.  
   On data path, dashboard snapshots were not explicitly constrained to the latest processed OpenSky batch, so stale/historical entries could still surface.
 - **Resolution:**  
