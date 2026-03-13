@@ -62,7 +62,8 @@ jobs:
           terraform -chdir=infra/aws/failover plan -input=false -no-color \
             -var="region=${AWS_REGION}" \
             -var="dns_zone_name=example.com" \
-            -var="offline_site_enabled=false"
+            -var="offline_site_enabled=false" \
+            -var="aws_provider_light_mode=true"
 
       - name: Lambda unit tests (offline contact handler)
         run: python3 -m unittest discover -s infra/aws/failover/lambda/tests -p 'test_*.py'

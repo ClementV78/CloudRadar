@@ -4,6 +4,12 @@ variable "region" {
   default     = "us-east-1"
 }
 
+variable "aws_provider_light_mode" {
+  type        = bool
+  description = "Disable AWS provider credential/account checks for local PR-safe plan validation."
+  default     = false
+}
+
 variable "dns_zone_name" {
   type        = string
   description = "Route53 hosted zone name for delegated subdomain (e.g., cloudradar.example.com)."

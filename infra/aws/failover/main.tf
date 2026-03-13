@@ -1,5 +1,10 @@
 provider "aws" {
   region = var.region
+
+  # PR-safe Terraform plans run without AWS credentials in CI.
+  skip_credentials_validation = var.aws_provider_light_mode
+  skip_requesting_account_id  = var.aws_provider_light_mode
+  skip_metadata_api_check     = var.aws_provider_light_mode
 }
 
 locals {
@@ -250,6 +255,7 @@ resource "aws_iam_role_policy" "offline_contact_lambda" {
 }
 
 resource "aws_cloudwatch_log_group" "offline_contact_lambda" {
+  #tfsec:ignore:aws-cloudwatch-log-group-customer-key:KMS CMK omitted by FinOps choice for low-volume offline fallback logs.
   count = local.offline_enabled ? 1 : 0
 
   name              = "/aws/lambda/cloudradar-offline-contact"
@@ -258,6 +264,7 @@ resource "aws_cloudwatch_log_group" "offline_contact_lambda" {
 }
 
 resource "aws_lambda_function" "offline_contact" {
+  #tfsec:ignore:aws-lambda-enable-tracing:X-Ray tracing intentionally disabled for minimal-cost offline fallback path.
   count = local.offline_enabled ? 1 : 0
 
   function_name = "cloudradar-offline-contact"
@@ -311,6 +318,7 @@ resource "aws_apigatewayv2_route" "offline_contact" {
 }
 
 resource "aws_apigatewayv2_stage" "offline_contact" {
+  #tfsec:ignore:aws-api-gateway-enable-access-logging:Access logs intentionally disabled to keep offline fallback cost baseline minimal.
   count = local.offline_enabled ? 1 : 0
 
   api_id      = aws_apigatewayv2_api.offline_contact[0].id
@@ -408,6 +416,8 @@ data "aws_cloudfront_origin_request_policy" "all_viewer_except_host_header" {
 }
 
 resource "aws_cloudfront_distribution" "offline" {
+  #tfsec:ignore:aws-cloudfront-enable-waf:No WAF in v1.1 by explicit ADR/FinOps decision.
+  #tfsec:ignore:aws-cloudfront-enable-logging:CloudFront access logs disabled to limit recurring offline fallback cost.
   count = local.offline_enabled ? 1 : 0
 
   enabled             = true
