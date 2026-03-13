@@ -6,6 +6,10 @@ locals {
   offline_sender_email = local.offline_enabled ? (
     "${trimspace(var.offline_contact_sender_local_part)}@${local.dns_zone_name}"
   ) : ""
+  offline_certificate_validation_domains = local.offline_enabled ? [
+    local.dns_zone_name,
+    local.offline_domain
+  ] : []
 
   offline_bucket_name = local.offline_enabled ? (
     trimspace(var.offline_site_bucket_name) != ""
@@ -136,16 +140,14 @@ resource "aws_ses_domain_dkim" "offline_sender_domain" {
 }
 
 resource "aws_route53_record" "offline_sender_domain_dkim" {
-  for_each = local.offline_enabled ? {
-    for token in aws_ses_domain_dkim.offline_sender_domain[0].dkim_tokens : token => token
-  } : {}
+  count = local.offline_enabled ? 3 : 0
 
   allow_overwrite = true
   zone_id         = local.zone_id
-  name            = "${each.value}._domainkey.${local.dns_zone_name}"
+  name            = "${aws_ses_domain_dkim.offline_sender_domain[0].dkim_tokens[count.index]}._domainkey.${local.dns_zone_name}"
   type            = "CNAME"
   ttl             = 600
-  records         = ["${each.value}.dkim.amazonses.com"]
+  records         = ["${aws_ses_domain_dkim.offline_sender_domain[0].dkim_tokens[count.index]}.dkim.amazonses.com"]
 }
 
 resource "aws_dynamodb_table" "offline_rate_limit" {
@@ -334,27 +336,33 @@ resource "aws_acm_certificate" "offline" {
 }
 
 resource "aws_route53_record" "offline_certificate_validation" {
-  for_each = local.offline_enabled ? {
-    for dvo in aws_acm_certificate.offline[0].domain_validation_options : dvo.domain_name => {
-      name  = dvo.resource_record_name
-      type  = dvo.resource_record_type
-      value = dvo.resource_record_value
-    }
-  } : {}
+  for_each = toset(local.offline_certificate_validation_domains)
 
   allow_overwrite = true
   zone_id         = local.zone_id
-  name            = each.value.name
-  type            = each.value.type
-  ttl             = 60
-  records         = [each.value.value]
+  name = one([
+    for dvo in aws_acm_certificate.offline[0].domain_validation_options : dvo.resource_record_name
+    if dvo.domain_name == each.key
+  ])
+  type = one([
+    for dvo in aws_acm_certificate.offline[0].domain_validation_options : dvo.resource_record_type
+    if dvo.domain_name == each.key
+  ])
+  ttl = 60
+  records = [one([
+    for dvo in aws_acm_certificate.offline[0].domain_validation_options : dvo.resource_record_value
+    if dvo.domain_name == each.key
+  ])]
 }
 
 resource "aws_acm_certificate_validation" "offline" {
   count = local.offline_enabled ? 1 : 0
 
-  certificate_arn         = aws_acm_certificate.offline[0].arn
-  validation_record_fqdns = [for record in aws_route53_record.offline_certificate_validation : record.fqdn]
+  certificate_arn = aws_acm_certificate.offline[0].arn
+  validation_record_fqdns = [
+    for domain in local.offline_certificate_validation_domains :
+    aws_route53_record.offline_certificate_validation[domain].fqdn
+  ]
 }
 
 resource "aws_cloudfront_origin_access_control" "offline_site" {
