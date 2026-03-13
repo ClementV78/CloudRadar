@@ -1,0 +1,382 @@
+name: ci-failover
+
+on:
+  pull_request:
+    paths:
+      - "infra/aws/failover/**"
+      - ".github/workflows/ci-failover.yml"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Terraform action"
+        required: true
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+      auto_approve:
+        description: "Set to true to allow apply"
+        required: true
+        type: boolean
+        default: false
+      import_existing:
+        description: "Import existing failover resources before plan/apply (migration-safe)"
+        required: true
+        type: boolean
+        default: true
+      confirm_destroy:
+        description: "Type DESTROY to confirm"
+        required: false
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+  TF_LOCK_TABLE_NAME: ${{ vars.TF_LOCK_TABLE_NAME }}
+  TF_ROLE_ARN: ${{ vars.AWS_FAILOVER_TERRAFORM_ROLE_ARN }}
+
+jobs:
+  pr-validate:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform validate + plan (safe PR mode, local backend)
+        run: |
+          set -euo pipefail
+          mv infra/aws/failover/backend.tf infra/aws/failover/backend.tf.disabled
+          trap 'mv infra/aws/failover/backend.tf.disabled infra/aws/failover/backend.tf' EXIT
+
+          terraform -chdir=infra/aws/failover init -backend=false -reconfigure
+          terraform -chdir=infra/aws/failover validate
+          terraform -chdir=infra/aws/failover plan -input=false -no-color \
+            -var="region=${AWS_REGION}" \
+            -var="dns_zone_name=example.com" \
+            -var="offline_site_enabled=false" \
+            -var="aws_provider_light_mode=true"
+
+      - name: Lambda unit tests (offline contact handler)
+        run: python3 -m unittest discover -s infra/aws/failover/lambda/tests -p 'test_*.py'
+
+  failover:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Guard required workflow variables
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -z "${TF_ROLE_ARN}" ]] && missing+=("AWS_FAILOVER_TERRAFORM_ROLE_ARN")
+          [[ -z "${TF_STATE_BUCKET}" ]] && missing+=("TF_STATE_BUCKET")
+          [[ -z "${TF_LOCK_TABLE_NAME}" ]] && missing+=("TF_LOCK_TABLE_NAME")
+          [[ -z "${{ vars.DNS_ZONE_NAME }}" ]] && missing+=("DNS_ZONE_NAME")
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing required GitHub variables: ${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TF_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform init (remote backend)
+        run: |
+          terraform -chdir=infra/aws/failover init \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=${TF_LOCK_TABLE_NAME}" \
+            -backend-config="key=cloudradar/failover/terraform.tfstate"
+
+      - name: Terraform validate
+        run: terraform -chdir=infra/aws/failover validate
+
+      - name: Import existing failover resources (best effort)
+        if: ${{ inputs.action != 'destroy' && inputs.import_existing }}
+        run: |
+          set -euo pipefail
+          DNS_ZONE_NAME="${{ vars.DNS_ZONE_NAME }}"
+          OFFLINE_SITE_ENABLED="${{ vars.OFFLINE_SITE_ENABLED || 'true' }}"
+          OFFLINE_SITE_BUCKET_NAME="${{ vars.OFFLINE_SITE_BUCKET_NAME }}"
+          OFFLINE_SUBDOMAIN_LABEL="${{ vars.OFFLINE_SUBDOMAIN_LABEL || 'offline' }}"
+          OFFLINE_PRIMARY_DOMAIN_LABEL="${{ vars.OFFLINE_PRIMARY_DOMAIN_LABEL || 'live' }}"
+          OFFLINE_PRIMARY_HEALTH_PATH="${{ vars.OFFLINE_PRIMARY_HEALTH_PATH || '/statusz' }}"
+          DNS_ZONE_NO_DOT="${DNS_ZONE_NAME%.}"
+
+          if [[ "${OFFLINE_SITE_ENABLED}" != "true" ]]; then
+            echo "OFFLINE_SITE_ENABLED=${OFFLINE_SITE_ENABLED}; skipping imports."
+            exit 0
+          fi
+
+          tf_import() {
+            local address="$1"
+            local import_id="${2:-}"
+            if [[ -z "${import_id}" || "${import_id}" == "None" || "${import_id}" == "null" ]]; then
+              return 0
+            fi
+            terraform -chdir=infra/aws/failover import "${address}" "${import_id}" || true
+          }
+
+          ZONE_ID="$(aws route53 list-hosted-zones-by-name \
+            --dns-name "${DNS_ZONE_NO_DOT}." \
+            --output json | jq -r --arg name "${DNS_ZONE_NO_DOT}." '.HostedZones[] | select(.Name==$name) | .Id' | head -n1)"
+          ZONE_ID="${ZONE_ID##*/}"
+
+          OFFLINE_DOMAIN="${OFFLINE_SUBDOMAIN_LABEL}.${DNS_ZONE_NO_DOT}"
+          LIVE_DOMAIN="${OFFLINE_PRIMARY_DOMAIN_LABEL}.${DNS_ZONE_NO_DOT}"
+          OFFLINE_BUCKET="${OFFLINE_SITE_BUCKET_NAME:-cloudradar-offline-${DNS_ZONE_NO_DOT//./-}}"
+          OFFLINE_RATE_LIMIT_TABLE="cloudradar-offline-contact-rate-limit"
+          OFFLINE_LAMBDA_NAME="cloudradar-offline-contact"
+          OFFLINE_LAMBDA_LOG_GROUP="/aws/lambda/cloudradar-offline-contact"
+
+          if aws s3api head-bucket --bucket "${OFFLINE_BUCKET}" >/dev/null 2>&1; then
+            tf_import aws_s3_bucket.offline_site[0] "${OFFLINE_BUCKET}"
+            tf_import aws_s3_bucket_versioning.offline_site[0] "${OFFLINE_BUCKET}"
+            tf_import aws_s3_bucket_server_side_encryption_configuration.offline_site[0] "${OFFLINE_BUCKET}"
+            tf_import aws_s3_bucket_public_access_block.offline_site[0] "${OFFLINE_BUCKET}"
+            tf_import aws_s3_bucket_ownership_controls.offline_site[0] "${OFFLINE_BUCKET}"
+            tf_import aws_s3_bucket_policy.offline_site[0] "${OFFLINE_BUCKET}"
+
+            for static_key in index.html styles.css app.js; do
+              if aws s3api head-object --bucket "${OFFLINE_BUCKET}" --key "${static_key}" >/dev/null 2>&1; then
+                tf_import "aws_s3_object.offline_static[\"${static_key}\"]" "${OFFLINE_BUCKET}/${static_key}"
+              fi
+            done
+
+            for screenshot_key in screenshots/dashboard.png screenshots/grafana-app-telemetry.png screenshots/grafana-ops.png; do
+              if aws s3api head-object --bucket "${OFFLINE_BUCKET}" --key "${screenshot_key}" >/dev/null 2>&1; then
+                tf_import "aws_s3_object.offline_screenshots[\"${screenshot_key}\"]" "${OFFLINE_BUCKET}/${screenshot_key}"
+              fi
+            done
+          fi
+
+          if aws dynamodb describe-table --table-name "${OFFLINE_RATE_LIMIT_TABLE}" >/dev/null 2>&1; then
+            tf_import aws_dynamodb_table.offline_rate_limit[0] "${OFFLINE_RATE_LIMIT_TABLE}"
+          fi
+
+          tf_import aws_ses_domain_identity.offline_sender_domain[0] "${DNS_ZONE_NO_DOT}"
+          tf_import aws_ses_domain_dkim.offline_sender_domain[0] "${DNS_ZONE_NO_DOT}"
+
+          if [[ -n "${ZONE_ID}" && "${ZONE_ID}" != "null" ]]; then
+            tf_import aws_route53_record.offline_sender_domain_verification[0] "${ZONE_ID}__amazonses.${DNS_ZONE_NO_DOT}._TXT"
+
+            mapfile -t DKIM_RECORD_NAMES < <(
+              aws route53 list-resource-record-sets --hosted-zone-id "${ZONE_ID}" --output json \
+                | jq -r --arg suffix "._domainkey.${DNS_ZONE_NO_DOT}." \
+                  '.ResourceRecordSets[] | select(.Type=="CNAME" and (.Name | endswith($suffix))) | .Name' \
+                | sort -u | head -n 3
+            )
+            for idx in "${!DKIM_RECORD_NAMES[@]}"; do
+              tf_import "aws_route53_record.offline_sender_domain_dkim[${idx}]" "${ZONE_ID}_${DKIM_RECORD_NAMES[${idx}]}_CNAME"
+            done
+          fi
+
+          LOG_GROUP_NAME="$(aws logs describe-log-groups \
+            --log-group-name-prefix "${OFFLINE_LAMBDA_LOG_GROUP}" \
+            --query "logGroups[?logGroupName=='${OFFLINE_LAMBDA_LOG_GROUP}'].logGroupName | [0]" \
+            --output text 2>/dev/null || true)"
+          tf_import aws_cloudwatch_log_group.offline_contact_lambda[0] "${LOG_GROUP_NAME}"
+
+          tf_import aws_lambda_function.offline_contact[0] "${OFFLINE_LAMBDA_NAME}"
+          tf_import aws_lambda_permission.offline_contact_apigw[0] "${OFFLINE_LAMBDA_NAME}/AllowApiGatewayInvoke"
+
+          ROLE_NAME="$(aws iam list-roles \
+            --query "Roles[?starts_with(RoleName, 'cloudradar-offline-contact-lambda-')].RoleName | [0]" \
+            --output text 2>/dev/null || true)"
+          tf_import aws_iam_role.offline_contact_lambda[0] "${ROLE_NAME}"
+
+          if [[ -n "${ROLE_NAME}" && "${ROLE_NAME}" != "None" && "${ROLE_NAME}" != "null" ]]; then
+            POLICY_NAME="$(aws iam list-role-policies --role-name "${ROLE_NAME}" --query "PolicyNames[0]" --output text 2>/dev/null || true)"
+            tf_import aws_iam_role_policy.offline_contact_lambda[0] "${ROLE_NAME}:${POLICY_NAME}"
+          fi
+
+          API_ID="$(aws apigatewayv2 get-apis --query "Items[?Name=='cloudradar-offline-contact'].ApiId | [0]" --output text 2>/dev/null || true)"
+          tf_import aws_apigatewayv2_api.offline_contact[0] "${API_ID}"
+          tf_import aws_apigatewayv2_stage.offline_contact[0] "${API_ID}/\$default"
+
+          if [[ -n "${API_ID}" && "${API_ID}" != "None" && "${API_ID}" != "null" ]]; then
+            ROUTE_ID="$(aws apigatewayv2 get-routes --api-id "${API_ID}" --query "Items[?RouteKey=='POST /api/contact-demo'].RouteId | [0]" --output text 2>/dev/null || true)"
+            INTEGRATION_ID="$(aws apigatewayv2 get-integrations --api-id "${API_ID}" --query "Items[?contains(IntegrationUri, 'cloudradar-offline-contact')].IntegrationId | [0]" --output text 2>/dev/null || true)"
+            tf_import aws_apigatewayv2_route.offline_contact[0] "${API_ID}/${ROUTE_ID}"
+            tf_import aws_apigatewayv2_integration.offline_contact[0] "${API_ID}/${INTEGRATION_ID}"
+          fi
+
+          CERT_ARN="$(aws acm list-certificates \
+            --certificate-statuses ISSUED PENDING_VALIDATION \
+            --query "CertificateSummaryList[?DomainName=='${DNS_ZONE_NO_DOT}'].CertificateArn | [0]" \
+            --output text 2>/dev/null || true)"
+          tf_import aws_acm_certificate.offline[0] "${CERT_ARN}"
+
+          if [[ -n "${CERT_ARN}" && "${CERT_ARN}" != "None" && "${CERT_ARN}" != "null" && -n "${ZONE_ID}" && "${ZONE_ID}" != "null" ]]; then
+            ROOT_VALIDATION_NAME="$(aws acm describe-certificate --certificate-arn "${CERT_ARN}" --query "Certificate.DomainValidationOptions[?DomainName=='${DNS_ZONE_NO_DOT}'].ResourceRecord.Name | [0]" --output text 2>/dev/null || true)"
+            OFFLINE_VALIDATION_NAME="$(aws acm describe-certificate --certificate-arn "${CERT_ARN}" --query "Certificate.DomainValidationOptions[?DomainName=='${OFFLINE_DOMAIN}'].ResourceRecord.Name | [0]" --output text 2>/dev/null || true)"
+            tf_import "aws_route53_record.offline_certificate_validation[\"${DNS_ZONE_NO_DOT}\"]" "${ZONE_ID}_${ROOT_VALIDATION_NAME}_CNAME"
+            tf_import "aws_route53_record.offline_certificate_validation[\"${OFFLINE_DOMAIN}\"]" "${ZONE_ID}_${OFFLINE_VALIDATION_NAME}_CNAME"
+          fi
+
+          OAC_ID="$(aws cloudfront list-origin-access-controls --query "OriginAccessControlList.Items[?Name=='cloudradar-offline-oac'].Id | [0]" --output text 2>/dev/null || true)"
+          tf_import aws_cloudfront_origin_access_control.offline_site[0] "${OAC_ID}"
+
+          OFFLINE_DIST_ID="$(aws cloudfront list-distributions --query "DistributionList.Items[?Aliases.Quantity > \`0\` && contains(Aliases.Items, '${DNS_ZONE_NO_DOT}')].Id | [0]" --output text 2>/dev/null || true)"
+          tf_import aws_cloudfront_distribution.offline[0] "${OFFLINE_DIST_ID}"
+
+          if [[ -n "${ZONE_ID}" && "${ZONE_ID}" != "null" ]]; then
+            tf_import aws_route53_record.offline_domain_alias[0] "${ZONE_ID}_${OFFLINE_DOMAIN}._A"
+            tf_import aws_route53_record.main_failover_primary[0] "${ZONE_ID}_${DNS_ZONE_NO_DOT}._A_primary-live"
+            tf_import aws_route53_record.main_failover_secondary[0] "${ZONE_ID}_${DNS_ZONE_NO_DOT}._A_secondary-offline"
+          fi
+
+          PRIMARY_HEALTH_CHECK_ID="$(aws route53 list-health-checks \
+            --query "HealthChecks[?FullyQualifiedDomainName=='${LIVE_DOMAIN}' && ResourcePath=='${OFFLINE_PRIMARY_HEALTH_PATH}'].Id | [0]" \
+            --output text 2>/dev/null || true)"
+          tf_import aws_route53_health_check.primary_live[0] "${PRIMARY_HEALTH_CHECK_ID}"
+
+      - name: Terraform plan
+        if: ${{ inputs.action == 'plan' || inputs.action == 'apply' }}
+        run: |
+          set -euo pipefail
+
+          OFFLINE_SITE_ENABLED="${{ vars.OFFLINE_SITE_ENABLED || 'true' }}"
+          OFFLINE_CONTACT_RECIPIENT_EMAIL="${{ vars.OFFLINE_CONTACT_RECIPIENT_EMAIL }}"
+          OFFLINE_ROUTE53_FAILOVER_ENABLED="${{ vars.OFFLINE_ROUTE53_FAILOVER_ENABLED || 'true' }}"
+          OFFLINE_PRIMARY_DOMAIN_LABEL="${{ vars.OFFLINE_PRIMARY_DOMAIN_LABEL || 'live' }}"
+          DNS_ZONE_NAME="${{ vars.DNS_ZONE_NAME }}"
+          DNS_ZONE_NO_DOT="${DNS_ZONE_NAME%.}"
+
+          if [[ "${OFFLINE_SITE_ENABLED}" == "true" && -z "${OFFLINE_CONTACT_RECIPIENT_EMAIL}" ]]; then
+            echo "OFFLINE_CONTACT_RECIPIENT_EMAIL is required when OFFLINE_SITE_ENABLED=true" >&2
+            exit 1
+          fi
+
+          if [[ "${OFFLINE_SITE_ENABLED}" == "true" && "${OFFLINE_ROUTE53_FAILOVER_ENABLED}" == "true" ]]; then
+            ZONE_ID="$(aws route53 list-hosted-zones-by-name \
+              --dns-name "${DNS_ZONE_NO_DOT}." \
+              --query "HostedZones[?Name=='${DNS_ZONE_NO_DOT}.'].Id | [0]" \
+              --output text)"
+            ZONE_ID="${ZONE_ID##*/}"
+
+            if [[ -z "${ZONE_ID}" || "${ZONE_ID}" == "None" || "${ZONE_ID}" == "null" ]]; then
+              echo "Hosted zone ${DNS_ZONE_NO_DOT}. not found." >&2
+              exit 1
+            fi
+
+            LIVE_RECORD_NAME="${OFFLINE_PRIMARY_DOMAIN_LABEL}.${DNS_ZONE_NO_DOT}."
+            LIVE_RECORD_COUNT="$(aws route53 list-resource-record-sets \
+              --hosted-zone-id "${ZONE_ID}" \
+              --query "length(ResourceRecordSets[?Name=='${LIVE_RECORD_NAME}' && Type=='A'])" \
+              --output text)"
+
+            if [[ "${LIVE_RECORD_COUNT}" == "0" ]]; then
+              echo "Missing Route53 record ${LIVE_RECORD_NAME} in zone ${DNS_ZONE_NO_DOT}." >&2
+              echo "Run ci-infra first or set OFFLINE_ROUTE53_FAILOVER_ENABLED=false." >&2
+              exit 1
+            fi
+          fi
+
+          TF_ARGS=(
+            "-var=region=${AWS_REGION}"
+            "-var=dns_zone_name=${DNS_ZONE_NAME}"
+            "-var=offline_site_enabled=${OFFLINE_SITE_ENABLED}"
+          )
+
+          if [[ -n "${{ vars.OFFLINE_SITE_BUCKET_NAME }}" ]]; then
+            TF_ARGS+=("-var=offline_site_bucket_name=${{ vars.OFFLINE_SITE_BUCKET_NAME }}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_SUBDOMAIN_LABEL }}" ]]; then
+            TF_ARGS+=("-var=offline_subdomain_label=${{ vars.OFFLINE_SUBDOMAIN_LABEL }}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_PRIMARY_DOMAIN_LABEL }}" ]]; then
+            TF_ARGS+=("-var=offline_primary_domain_label=${{ vars.OFFLINE_PRIMARY_DOMAIN_LABEL }}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_CONTACT_SENDER_LOCAL_PART }}" ]]; then
+            TF_ARGS+=("-var=offline_contact_sender_local_part=${{ vars.OFFLINE_CONTACT_SENDER_LOCAL_PART }}")
+          fi
+          if [[ -n "${OFFLINE_CONTACT_RECIPIENT_EMAIL}" ]]; then
+            TF_ARGS+=("-var=offline_contact_recipient_email=${OFFLINE_CONTACT_RECIPIENT_EMAIL}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_LOGS_RETENTION_DAYS }}" ]]; then
+            TF_ARGS+=("-var=offline_logs_retention_days=${{ vars.OFFLINE_LOGS_RETENTION_DAYS }}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_RATE_LIMIT_WINDOW_SECONDS }}" ]]; then
+            TF_ARGS+=("-var=offline_rate_limit_window_seconds=${{ vars.OFFLINE_RATE_LIMIT_WINDOW_SECONDS }}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_RATE_LIMIT_MAX_HITS }}" ]]; then
+            TF_ARGS+=("-var=offline_rate_limit_max_hits=${{ vars.OFFLINE_RATE_LIMIT_MAX_HITS }}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_API_THROTTLE_RATE_LIMIT }}" ]]; then
+            TF_ARGS+=("-var=offline_api_throttle_rate_limit=${{ vars.OFFLINE_API_THROTTLE_RATE_LIMIT }}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_API_THROTTLE_BURST_LIMIT }}" ]]; then
+            TF_ARGS+=("-var=offline_api_throttle_burst_limit=${{ vars.OFFLINE_API_THROTTLE_BURST_LIMIT }}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_PRIMARY_HEALTH_PATH }}" ]]; then
+            TF_ARGS+=("-var=offline_primary_health_path=${{ vars.OFFLINE_PRIMARY_HEALTH_PATH }}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_PRIMARY_HEALTH_PORT }}" ]]; then
+            TF_ARGS+=("-var=offline_primary_health_port=${{ vars.OFFLINE_PRIMARY_HEALTH_PORT }}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_ROUTE53_FAILOVER_ENABLED }}" ]]; then
+            TF_ARGS+=("-var=offline_route53_failover_enabled=${{ vars.OFFLINE_ROUTE53_FAILOVER_ENABLED }}")
+          fi
+
+          terraform -chdir=infra/aws/failover plan -input=false -no-color -out=tfplan "${TF_ARGS[@]}"
+
+      - name: Guard apply confirmation
+        if: ${{ inputs.action == 'apply' && !inputs.auto_approve }}
+        run: |
+          echo "Set auto_approve=true to run apply." >&2
+          exit 1
+
+      - name: Terraform apply
+        if: ${{ inputs.action == 'apply' && inputs.auto_approve }}
+        run: terraform -chdir=infra/aws/failover apply -input=false -auto-approve tfplan
+
+      - name: Guard destroy confirmation
+        if: ${{ inputs.action == 'destroy' && inputs.confirm_destroy != 'DESTROY' }}
+        run: |
+          echo "Set confirm_destroy=DESTROY to proceed with destroy." >&2
+          exit 1
+
+      - name: Terraform destroy
+        if: ${{ inputs.action == 'destroy' && inputs.confirm_destroy == 'DESTROY' }}
+        run: |
+          set -euo pipefail
+
+          OFFLINE_SITE_ENABLED="${{ vars.OFFLINE_SITE_ENABLED || 'true' }}"
+          OFFLINE_CONTACT_RECIPIENT_EMAIL="${{ vars.OFFLINE_CONTACT_RECIPIENT_EMAIL }}"
+
+          TF_ARGS=(
+            "-var=region=${AWS_REGION}"
+            "-var=dns_zone_name=${{ vars.DNS_ZONE_NAME }}"
+            "-var=offline_site_enabled=${OFFLINE_SITE_ENABLED}"
+          )
+
+          if [[ -n "${{ vars.OFFLINE_SUBDOMAIN_LABEL }}" ]]; then
+            TF_ARGS+=("-var=offline_subdomain_label=${{ vars.OFFLINE_SUBDOMAIN_LABEL }}")
+          fi
+          if [[ -n "${{ vars.OFFLINE_PRIMARY_DOMAIN_LABEL }}" ]]; then
+            TF_ARGS+=("-var=offline_primary_domain_label=${{ vars.OFFLINE_PRIMARY_DOMAIN_LABEL }}")
+          fi
+          if [[ -n "${OFFLINE_CONTACT_RECIPIENT_EMAIL}" ]]; then
+            TF_ARGS+=("-var=offline_contact_recipient_email=${OFFLINE_CONTACT_RECIPIENT_EMAIL}")
+          fi
+
+          terraform -chdir=infra/aws/failover destroy -input=false -auto-approve "${TF_ARGS[@]}"

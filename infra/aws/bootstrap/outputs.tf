@@ -42,23 +42,3 @@ output "dns_zone_name_servers" {
   value       = try(aws_route53_zone.cloudradar[0].name_servers, [])
   description = "Name servers for the delegated subdomain (if created)."
 }
-
-output "offline_domain" {
-  value       = local.offline_enabled ? local.offline_domain : ""
-  description = "Offline preview domain (if offline stack is enabled)."
-}
-
-output "offline_cloudfront_domain_name" {
-  value       = local.offline_enabled ? aws_cloudfront_distribution.offline[0].domain_name : ""
-  description = "CloudFront domain for the offline fallback distribution."
-}
-
-output "offline_contact_api_endpoint" {
-  value       = local.offline_enabled ? aws_apigatewayv2_api.offline_contact[0].api_endpoint : ""
-  description = "Direct API Gateway endpoint for offline contact form."
-}
-
-output "offline_contact_sender_email" {
-  value       = local.offline_enabled ? local.offline_sender_email : ""
-  description = "Computed SES sender email used by the offline contact Lambda."
-}

@@ -29,6 +29,12 @@ Purpose: understand what `ci-infra` validates on PRs and how manual apply works.
 
 - Runbook: `docs/runbooks/ci-infra.md`
 
+## 2.1.1) Failover CI workflow reference (recommended)
+
+Purpose: manage persistent offline fallback resources in a dedicated Terraform state.
+
+- Runbook: `docs/runbooks/ci-cd/ci-failover.md`
+
 ## 2.2) App CI/CD workflow reference (recommended)
 
 Purpose: understand how multi-service Docker images are built and pushed to GHCR.
@@ -160,6 +166,7 @@ Purpose: run and verify the React/Leaflet frontend that consumes dashboard API e
 Purpose: keep a branded offline experience with demo contact form when live infra is down, using Route53 failover.
 
 - Runbook: `docs/runbooks/operations/offline-fallback.md`
+- Workflow: `.github/workflows/ci-failover.yml`
 
 ## 3.7) Observability stack (Prometheus + Grafana)
 

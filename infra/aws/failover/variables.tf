@@ -1,0 +1,119 @@
+variable "region" {
+  type        = string
+  description = "AWS region for failover resources."
+  default     = "us-east-1"
+}
+
+variable "aws_provider_light_mode" {
+  type        = bool
+  description = "Disable AWS provider credential/account checks for local PR-safe plan validation."
+  default     = false
+}
+
+variable "dns_zone_name" {
+  type        = string
+  description = "Route53 hosted zone name for delegated subdomain (e.g., cloudradar.example.com)."
+}
+
+variable "offline_site_enabled" {
+  type        = bool
+  description = "Enable offline fallback stack (S3 + CloudFront + API Gateway + Lambda + SES + Route53 failover)."
+  default     = true
+}
+
+variable "offline_site_bucket_name" {
+  type        = string
+  description = "Optional S3 bucket name for offline static assets. If empty, a name is derived from dns_zone_name."
+  default     = ""
+}
+
+variable "offline_subdomain_label" {
+  type        = string
+  description = "Subdomain label used for offline preview page (offline.<dns_zone_name>)."
+  default     = "offline"
+}
+
+variable "offline_primary_domain_label" {
+  type        = string
+  description = "Subdomain label for primary live endpoint used by Route53 failover health checks (live.<dns_zone_name>)."
+  default     = "live"
+}
+
+variable "offline_contact_sender_local_part" {
+  type        = string
+  description = "Local-part for SES sender email used by offline contact form (<local-part>@<dns_zone_name>)."
+  default     = "noreply"
+
+  validation {
+    condition     = length(trimspace(var.offline_contact_sender_local_part)) > 0
+    error_message = "offline_contact_sender_local_part must not be empty."
+  }
+}
+
+variable "offline_contact_recipient_email" {
+  type        = string
+  description = "Recipient email for offline contact form submissions."
+  default     = ""
+
+  validation {
+    condition     = !var.offline_site_enabled || length(trimspace(var.offline_contact_recipient_email)) > 0
+    error_message = "offline_contact_recipient_email must be set when offline_site_enabled is true."
+  }
+}
+
+variable "offline_logs_retention_days" {
+  type        = number
+  description = "CloudWatch logs retention for offline Lambda/API logs."
+  default     = 7
+}
+
+variable "offline_rate_limit_window_seconds" {
+  type        = number
+  description = "Rate-limit window size in seconds per source IP."
+  default     = 900
+}
+
+variable "offline_rate_limit_max_hits" {
+  type        = number
+  description = "Maximum accepted contact submissions per IP and window."
+  default     = 3
+}
+
+variable "offline_api_throttle_rate_limit" {
+  type        = number
+  description = "API Gateway throttle rate limit (requests per second)."
+  default     = 5
+}
+
+variable "offline_api_throttle_burst_limit" {
+  type        = number
+  description = "API Gateway throttle burst limit."
+  default     = 10
+}
+
+variable "offline_primary_health_path" {
+  type        = string
+  description = "Health-check path for Route53 primary live endpoint."
+  default     = "/statusz"
+}
+
+variable "offline_primary_health_port" {
+  type        = number
+  description = "Health-check port for Route53 primary live endpoint."
+  default     = 443
+}
+
+variable "offline_route53_failover_enabled" {
+  type        = bool
+  description = "Enable Route53 failover records and live health check for the main domain."
+  default     = true
+}
+
+variable "tags" {
+  type        = map(string)
+  description = "Common tags for failover resources."
+  default = {
+    Project = "CloudRadar"
+    Owner   = "infra"
+  }
+}

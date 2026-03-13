@@ -5,7 +5,8 @@ This document describes the Terraform layout and the baseline VPC network used p
 ## Terraform layout
 
 ### Terraform roots
-- `infra/aws/bootstrap`: creates the Terraform backend (state bucket, lock table), optional data buckets, optional DNS zone, and optional persistent offline fallback stack.
+- `infra/aws/bootstrap`: creates the Terraform backend (state bucket, lock table), optional data buckets, and optional DNS zone.
+- `infra/aws/failover`: creates the persistent offline fallback stack (S3 + CloudFront + API Gateway + Lambda + SES wiring + Route53 failover).
 - `infra/aws/live/dev`: deploys the full dev stack (VPC, NAT instance, k3s, edge) and wires the backup bucket name to k3s.
 - `infra/aws/live/prod`: deploys the prod VPC baseline only (future app/edge/k3s TBD).
 
@@ -18,7 +19,11 @@ flowchart TB
     backend --> lock
     lock -. optional .-> dns_zone["Route53 hosted zone"]
     lock -. optional .-> backups["SQLite backup bucket"]
-    lock -. optional .-> offline_stack["Offline fallback stack<br/>Route53 failover + CloudFront + S3 + API/Lambda + DynamoDB"]
+  end
+
+  subgraph Failover["infra/aws/failover"]
+    direction LR
+    offline_stack["Offline fallback stack<br/>Route53 failover + CloudFront + S3 + API/Lambda + DynamoDB"]
   end
 
   subgraph Live["infra/aws/live"]
@@ -61,6 +66,7 @@ flowchart TB
   end
 
   Bootstrap -->|backend for| Live
+  Bootstrap -->|backend for| Failover
   dev --> vpc
   dev --> nat
   dev --> k3s
@@ -112,7 +118,7 @@ flowchart TB
   k3s -. "SSM (optional)" .-> ssmEndpoints
 ```
 
-## Offline failover path (optional, bootstrap-persistent)
+## Offline failover path (optional, persistent stack)
 
 When enabled, DNS failover keeps the online path unchanged and serves a branded offline page when the primary health check fails.
 Both failover records share the same public hostname (`cloudradar.<domain>`): Route53 returns PRIMARY (online) or SECONDARY (offline) target according to the health-check result.
@@ -248,7 +254,7 @@ Prod values are currently aligned with module defaults and may be overridden lat
 - EBS CSI driver deployed via ArgoCD (kube-system).
 - `ebs-gp3` StorageClass for stateful workloads.
 - S3 backup bucket for SQLite snapshots.
-- Optional bootstrap-persistent offline S3 bucket for static fallback assets.
+- Optional persistent offline S3 bucket for static fallback assets (`infra/aws/failover`).
 
 ### Security
 - Security group for k3s nodes (explicit ports).
@@ -314,7 +320,7 @@ See [docs/runbooks/observability.md](../runbooks/observability.md) for operation
 ## Status
 
 - Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, S3 backup bucket for SQLite snapshots.
-- Implemented (optional): Route53 failover + CloudFront/S3 offline fallback + serverless contact path (API Gateway + Lambda + DynamoDB + SES), managed in `infra/aws/bootstrap`.
+- Implemented (optional): Route53 failover + CloudFront/S3 offline fallback + serverless contact path (API Gateway + Lambda + DynamoDB + SES), managed in `infra/aws/failover`.
 - Implemented (Edge TLS MVP): Let's Encrypt DNS-01 issuance from bootstrap workflow and certificate storage in SSM (`/cloudradar/edge/tls/*`) consumed by edge at boot in strict mode.
 - Implemented (IaC, dev): SSM/KMS interface endpoints are temporarily disabled to reduce cost; edge uses HTTPS egress for SSM.
 - Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery, Redis buffer in the data namespace, EBS CSI driver + `ebs-gp3` StorageClass.
