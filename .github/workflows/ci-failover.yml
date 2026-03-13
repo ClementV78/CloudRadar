@@ -30,6 +30,10 @@ on:
         required: false
         default: ""
 
+concurrency:
+  group: ci-failover-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   id-token: write
   contents: read
@@ -174,7 +178,7 @@ jobs:
               return 0
             fi
             echo "Importing ${address}..."
-            terraform -chdir=infra/aws/failover import -input=false "${address}" "${import_id}" || true
+            terraform -chdir=infra/aws/failover import -input=false -lock-timeout=300s "${address}" "${import_id}"
           }
 
           ZONE_ID="$(aws route53 list-hosted-zones-by-name \
@@ -379,7 +383,7 @@ jobs:
             TF_ARGS+=("-var=offline_route53_failover_enabled=${{ vars.OFFLINE_ROUTE53_FAILOVER_ENABLED }}")
           fi
 
-          terraform -chdir=infra/aws/failover plan -input=false -no-color -out=tfplan "${TF_ARGS[@]}"
+          terraform -chdir=infra/aws/failover plan -input=false -lock-timeout=300s -no-color -out=tfplan "${TF_ARGS[@]}"
 
       - name: Guard apply confirmation
         if: ${{ inputs.action == 'apply' && !inputs.auto_approve }}
@@ -389,7 +393,7 @@ jobs:
 
       - name: Terraform apply
         if: ${{ inputs.action == 'apply' && inputs.auto_approve }}
-        run: terraform -chdir=infra/aws/failover apply -input=false -auto-approve tfplan
+        run: terraform -chdir=infra/aws/failover apply -input=false -lock-timeout=300s -auto-approve tfplan
 
       - name: Guard destroy confirmation
         if: ${{ inputs.action == 'destroy' && inputs.confirm_destroy != 'DESTROY' }}
@@ -421,4 +425,4 @@ jobs:
             TF_ARGS+=("-var=offline_contact_recipient_email=${OFFLINE_CONTACT_RECIPIENT_EMAIL}")
           fi
 
-          terraform -chdir=infra/aws/failover destroy -input=false -auto-approve "${TF_ARGS[@]}"
+          terraform -chdir=infra/aws/failover destroy -input=false -lock-timeout=300s -auto-approve "${TF_ARGS[@]}"
