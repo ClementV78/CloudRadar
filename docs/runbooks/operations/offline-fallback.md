@@ -5,7 +5,7 @@ Serve a branded CloudRadar offline landing page with demo-contact form when live
 
 ## Architecture summary
 - Primary path (online): `cloudradar.<domain>` -> edge Nginx (existing, Let's Encrypt cert from SSM).
-- Failover path (offline): Route53 failover switches to CloudFront offline distribution backed by bootstrap S3.
+- Failover path (offline): Route53 failover switches to CloudFront offline distribution backed by dedicated failover S3.
 - Both failover records use the same public hostname (`cloudradar.<domain>`); Route53 returns PRIMARY or SECONDARY target depending on primary health-check status.
 - Contact form: `/api/contact-demo` -> CloudFront behavior -> API Gateway HTTP API -> Lambda -> SES.
 - Anti-spam baseline (no WAF): API throttling + honeypot + backend validation + DynamoDB IP/window rate limit.
@@ -40,10 +40,11 @@ flowchart LR
 ## Prerequisites
 - `DNS_ZONE_NAME` configured in bootstrap workflow vars.
 - Hosted zone managed by `infra/aws/bootstrap`.
+- Failover stack managed by `infra/aws/failover` (`ci-failover` workflow).
 - SES available in the selected region.
 
 ## Required GitHub Action variables
-Set in repository variables before running `bootstrap-terraform-backend`:
+Set in repository variables before running `ci-failover`:
 - `OFFLINE_SITE_ENABLED=true`
 - `OFFLINE_CONTACT_SENDER_LOCAL_PART=<sender-local-part>` (optional; default: `noreply`)
 - `OFFLINE_CONTACT_RECIPIENT_EMAIL=<your-mailbox>`
@@ -62,12 +63,14 @@ Optional tuning:
 
 ## Apply order
 Recommended sequence for this project:
-1. Apply `infra/aws/bootstrap` with `OFFLINE_SITE_ENABLED=true`.
-2. Apply `infra/aws/live/dev` (creates/updates `live.<zone>` record used by failover health checks).
+1. Run `bootstrap-terraform-backend` (backend + DNS zone + optional TLS issuance).
+2. Run `ci-infra` for live env (creates/updates `live.<zone>` record used by failover health checks).
+3. Run `ci-failover` (`action=apply`, `auto_approve=true`).
 
 In CI, use workflows:
-1. `bootstrap-terraform-backend` for bootstrap/offline stack.
+1. `bootstrap-terraform-backend` for backend + optional DNS/TLS bootstrap.
 2. `ci-infra` for live env.
+3. `ci-failover` for offline fallback stack + Route53 failover records.
 
 ## Verification checklist
 1. Validate offline DNS records:
@@ -92,8 +95,8 @@ aws route53 list-health-checks --query "HealthChecks[?contains(FullyQualifiedDom
 - Submit > configured `OFFLINE_RATE_LIMIT_MAX_HITS` in one window -> expected `429`.
 
 ## Rollback
-- Set `OFFLINE_SITE_ENABLED=false` and rerun bootstrap workflow.
-- Root domain routing returns to primary live endpoint only.
+- Set `OFFLINE_SITE_ENABLED=false` and run `ci-failover` with `action=apply`.
+- Or run `ci-failover` with `action=destroy` and `confirm_destroy=DESTROY`.
 
 ## Notes
 - No WAF in v1.1 by FinOps choice.

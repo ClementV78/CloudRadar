@@ -501,6 +501,7 @@ Store these values in a secure place and in GitHub Actions variables if needed.
 - **GitHub Actions** uses OIDC role separation:
   - `bootstrap-terraform-backend` -> `CloudRadarBootstrapRole` (`AWS_BOOTSTRAP_ROLE_ARN`)
   - `ci-infra` / `ci-infra-destroy` -> `CloudRadarTerraformRole` (`AWS_TERRAFORM_ROLE_ARN`)
+  - `ci-failover` -> `CloudRadarFailoverRole` (`AWS_FAILOVER_TERRAFORM_ROLE_ARN`)
 - **AWS CLI (local)** uses a profile for `CloudRadarTerraformUser`, then assumes `CloudRadarTerraformRole`.
   The user needs only `sts:AssumeRole` + MFA.
 
@@ -523,6 +524,24 @@ target bucket and table (not account-wide):
   "Resource": "arn:aws:dynamodb:us-east-1:<account-id>:table/cloudradar-tf-lock"
 }
 ```
+
+### Failover role permissions (minimum scope)
+Use a dedicated role (`CloudRadarFailoverRole`) for `.github/workflows/ci-failover.yml`.
+This role owns only the offline/failover stack lifecycle and can replace
+legacy temporary CloudFront permissions previously attached to bootstrap.
+
+Expected capability groups:
+- CloudFront: list managed policies, create/update/delete OAC and distribution, tags.
+- Route53: create/update/delete health checks and failover records.
+- ACM: request/describe/delete certificate and tags.
+- SES (domain identity mode): verify domain + DKIM, read status, delete identity.
+- API Gateway v2: create/update/delete HTTP API, routes, stages, integrations, tags.
+- Lambda + IAM role for Lambda: create/update/delete function, inline policy, pass role.
+- CloudWatch Logs: create log group, retention policy, tags.
+- DynamoDB + S3: offline rate-limit table and static site bucket resources.
+
+Keep `iam:PassRole` scoped to the offline Lambda role prefix and constrained with:
+- `Condition` -> `iam:PassedToService = lambda.amazonaws.com`
 
 ## Verification
 - Confirm OIDC provider exists in IAM.

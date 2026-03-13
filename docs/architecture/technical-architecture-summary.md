@@ -70,9 +70,9 @@ graph TB
     EDGE -->|Online app access| CORE
     CORE -->|Polls states<br/>REST/OAuth2| OPENSKY
     GITHUB -->|Deploys<br/>Actions/OIDC| CORE
-    GITHUB -->|Deploys bootstrap/offline IaC| OFFLINE
+    GITHUB -->|Deploys failover IaC| OFFLINE
     CORE -->|Runs on<br/>Terraform/k8s| AWS
-    OFFLINE -->|Runs on<br/>Terraform/bootstrap| AWS
+    OFFLINE -->|Runs on<br/>Terraform/failover| AWS
     
     style USER fill:#1976d2,stroke:#0d47a1,stroke-width:2px,color:#fff
     style CORE fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff

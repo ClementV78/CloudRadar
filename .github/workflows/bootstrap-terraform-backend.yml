@@ -60,19 +60,6 @@ jobs:
           BACKUP_BUCKET="${{ vars.TF_BACKUP_BUCKET_NAME }}"
           AIRCRAFT_REFERENCE_BUCKET="${{ vars.TF_AIRCRAFT_REFERENCE_BUCKET_NAME }}"
           DNS_ZONE_NAME="${{ vars.DNS_ZONE_NAME }}"
-          OFFLINE_SITE_ENABLED="${{ vars.OFFLINE_SITE_ENABLED }}"
-          OFFLINE_SITE_BUCKET_NAME="${{ vars.OFFLINE_SITE_BUCKET_NAME }}"
-          OFFLINE_SUBDOMAIN_LABEL="${{ vars.OFFLINE_SUBDOMAIN_LABEL }}"
-          OFFLINE_PRIMARY_DOMAIN_LABEL="${{ vars.OFFLINE_PRIMARY_DOMAIN_LABEL }}"
-          OFFLINE_CONTACT_SENDER_LOCAL_PART="${{ vars.OFFLINE_CONTACT_SENDER_LOCAL_PART }}"
-          OFFLINE_CONTACT_RECIPIENT_EMAIL="${{ vars.OFFLINE_CONTACT_RECIPIENT_EMAIL }}"
-          OFFLINE_LOGS_RETENTION_DAYS="${{ vars.OFFLINE_LOGS_RETENTION_DAYS }}"
-          OFFLINE_RATE_LIMIT_WINDOW_SECONDS="${{ vars.OFFLINE_RATE_LIMIT_WINDOW_SECONDS }}"
-          OFFLINE_RATE_LIMIT_MAX_HITS="${{ vars.OFFLINE_RATE_LIMIT_MAX_HITS }}"
-          OFFLINE_API_THROTTLE_RATE_LIMIT="${{ vars.OFFLINE_API_THROTTLE_RATE_LIMIT }}"
-          OFFLINE_API_THROTTLE_BURST_LIMIT="${{ vars.OFFLINE_API_THROTTLE_BURST_LIMIT }}"
-          OFFLINE_PRIMARY_HEALTH_PATH="${{ vars.OFFLINE_PRIMARY_HEALTH_PATH }}"
-          OFFLINE_PRIMARY_HEALTH_PORT="${{ vars.OFFLINE_PRIMARY_HEALTH_PORT }}"
           ISSUE_TLS="${{ inputs.issue_tls }}"
           TLS_DOMAIN="${{ vars.TLS_DOMAIN }}"
 
@@ -95,7 +82,6 @@ jobs:
             echo "TF_VAR_state_bucket_name=${STATE_BUCKET}"
             echo "TF_VAR_lock_table_name=${LOCK_TABLE}"
             echo "TF_VAR_region=${REGION}"
-            echo "TF_VAR_offline_site_enabled=${OFFLINE_SITE_ENABLED:-false}"
           } >> "${GITHUB_ENV}"
 
           if [[ -n "${BACKUP_BUCKET}" ]]; then
@@ -119,43 +105,6 @@ jobs:
             } >> "${GITHUB_ENV}"
           fi
 
-          if [[ -n "${OFFLINE_SITE_BUCKET_NAME}" ]]; then
-            echo "TF_VAR_offline_site_bucket_name=${OFFLINE_SITE_BUCKET_NAME}" >> "${GITHUB_ENV}"
-          fi
-          if [[ -n "${OFFLINE_SUBDOMAIN_LABEL}" ]]; then
-            echo "TF_VAR_offline_subdomain_label=${OFFLINE_SUBDOMAIN_LABEL}" >> "${GITHUB_ENV}"
-          fi
-          if [[ -n "${OFFLINE_PRIMARY_DOMAIN_LABEL}" ]]; then
-            echo "TF_VAR_offline_primary_domain_label=${OFFLINE_PRIMARY_DOMAIN_LABEL}" >> "${GITHUB_ENV}"
-          fi
-          if [[ -n "${OFFLINE_CONTACT_SENDER_LOCAL_PART}" ]]; then
-            echo "TF_VAR_offline_contact_sender_local_part=${OFFLINE_CONTACT_SENDER_LOCAL_PART}" >> "${GITHUB_ENV}"
-          fi
-          if [[ -n "${OFFLINE_CONTACT_RECIPIENT_EMAIL}" ]]; then
-            echo "TF_VAR_offline_contact_recipient_email=${OFFLINE_CONTACT_RECIPIENT_EMAIL}" >> "${GITHUB_ENV}"
-          fi
-          if [[ -n "${OFFLINE_LOGS_RETENTION_DAYS}" ]]; then
-            echo "TF_VAR_offline_logs_retention_days=${OFFLINE_LOGS_RETENTION_DAYS}" >> "${GITHUB_ENV}"
-          fi
-          if [[ -n "${OFFLINE_RATE_LIMIT_WINDOW_SECONDS}" ]]; then
-            echo "TF_VAR_offline_rate_limit_window_seconds=${OFFLINE_RATE_LIMIT_WINDOW_SECONDS}" >> "${GITHUB_ENV}"
-          fi
-          if [[ -n "${OFFLINE_RATE_LIMIT_MAX_HITS}" ]]; then
-            echo "TF_VAR_offline_rate_limit_max_hits=${OFFLINE_RATE_LIMIT_MAX_HITS}" >> "${GITHUB_ENV}"
-          fi
-          if [[ -n "${OFFLINE_API_THROTTLE_RATE_LIMIT}" ]]; then
-            echo "TF_VAR_offline_api_throttle_rate_limit=${OFFLINE_API_THROTTLE_RATE_LIMIT}" >> "${GITHUB_ENV}"
-          fi
-          if [[ -n "${OFFLINE_API_THROTTLE_BURST_LIMIT}" ]]; then
-            echo "TF_VAR_offline_api_throttle_burst_limit=${OFFLINE_API_THROTTLE_BURST_LIMIT}" >> "${GITHUB_ENV}"
-          fi
-          if [[ -n "${OFFLINE_PRIMARY_HEALTH_PATH}" ]]; then
-            echo "TF_VAR_offline_primary_health_path=${OFFLINE_PRIMARY_HEALTH_PATH}" >> "${GITHUB_ENV}"
-          fi
-          if [[ -n "${OFFLINE_PRIMARY_HEALTH_PORT}" ]]; then
-            echo "TF_VAR_offline_primary_health_port=${OFFLINE_PRIMARY_HEALTH_PORT}" >> "${GITHUB_ENV}"
-          fi
-
       - name: Import existing backend resources (idempotent)
         run: |
           set -euo pipefail
@@ -164,21 +113,7 @@ jobs:
           BACKUP_BUCKET="${BACKUP_BUCKET:-}"
           AIRCRAFT_REFERENCE_BUCKET="${AIRCRAFT_REFERENCE_BUCKET:-}"
           DNS_ZONE_NAME="${DNS_ZONE_NAME:-}"
-          OFFLINE_SITE_ENABLED="${TF_VAR_offline_site_enabled:-false}"
-          OFFLINE_SITE_BUCKET_NAME="${TF_VAR_offline_site_bucket_name:-}"
-          OFFLINE_SUBDOMAIN_LABEL="${TF_VAR_offline_subdomain_label:-offline}"
-          OFFLINE_PRIMARY_DOMAIN_LABEL="${TF_VAR_offline_primary_domain_label:-live}"
-          OFFLINE_PRIMARY_HEALTH_PATH="${TF_VAR_offline_primary_health_path:-/statusz}"
           ZONE_ID=""
-
-          tf_import() {
-            local address="$1"
-            local import_id="${2:-}"
-            if [[ -z "${import_id}" || "${import_id}" == "None" || "${import_id}" == "null" ]]; then
-              return 0
-            fi
-            terraform -chdir=infra/aws/bootstrap import "${address}" "${import_id}" || true
-          }
 
           if aws s3api head-bucket --bucket "${STATE_BUCKET}" >/dev/null 2>&1; then
             terraform -chdir=infra/aws/bootstrap import aws_s3_bucket.tf_state "${STATE_BUCKET}"
@@ -217,117 +152,6 @@ jobs:
             fi
           fi
 
-          if [[ "${OFFLINE_SITE_ENABLED}" == "true" && -n "${DNS_ZONE_NAME}" ]]; then
-            DNS_ZONE_NO_DOT="${DNS_ZONE_NAME%.}"
-            OFFLINE_DOMAIN="${OFFLINE_SUBDOMAIN_LABEL}.${DNS_ZONE_NO_DOT}"
-            LIVE_DOMAIN="${OFFLINE_PRIMARY_DOMAIN_LABEL}.${DNS_ZONE_NO_DOT}"
-            OFFLINE_BUCKET="${OFFLINE_SITE_BUCKET_NAME:-cloudradar-offline-${DNS_ZONE_NO_DOT//./-}}"
-            OFFLINE_RATE_LIMIT_TABLE="cloudradar-offline-contact-rate-limit"
-            OFFLINE_LAMBDA_NAME="cloudradar-offline-contact"
-            OFFLINE_LAMBDA_LOG_GROUP="/aws/lambda/cloudradar-offline-contact"
-
-            if aws s3api head-bucket --bucket "${OFFLINE_BUCKET}" >/dev/null 2>&1; then
-              tf_import aws_s3_bucket.offline_site[0] "${OFFLINE_BUCKET}"
-              tf_import aws_s3_bucket_versioning.offline_site[0] "${OFFLINE_BUCKET}"
-              tf_import aws_s3_bucket_server_side_encryption_configuration.offline_site[0] "${OFFLINE_BUCKET}"
-              tf_import aws_s3_bucket_public_access_block.offline_site[0] "${OFFLINE_BUCKET}"
-              tf_import aws_s3_bucket_ownership_controls.offline_site[0] "${OFFLINE_BUCKET}"
-              tf_import aws_s3_bucket_policy.offline_site[0] "${OFFLINE_BUCKET}"
-
-              for static_key in index.html styles.css app.js; do
-                if aws s3api head-object --bucket "${OFFLINE_BUCKET}" --key "${static_key}" >/dev/null 2>&1; then
-                  tf_import "aws_s3_object.offline_static[\"${static_key}\"]" "${OFFLINE_BUCKET}/${static_key}"
-                fi
-              done
-
-              for screenshot_key in screenshots/dashboard.png screenshots/grafana-app-telemetry.png screenshots/grafana-ops.png; do
-                if aws s3api head-object --bucket "${OFFLINE_BUCKET}" --key "${screenshot_key}" >/dev/null 2>&1; then
-                  tf_import "aws_s3_object.offline_screenshots[\"${screenshot_key}\"]" "${OFFLINE_BUCKET}/${screenshot_key}"
-                fi
-              done
-            fi
-
-            if aws dynamodb describe-table --table-name "${OFFLINE_RATE_LIMIT_TABLE}" >/dev/null 2>&1; then
-              tf_import aws_dynamodb_table.offline_rate_limit[0] "${OFFLINE_RATE_LIMIT_TABLE}"
-            fi
-
-            tf_import aws_ses_domain_identity.offline_sender_domain[0] "${DNS_ZONE_NO_DOT}"
-            tf_import aws_ses_domain_dkim.offline_sender_domain[0] "${DNS_ZONE_NO_DOT}"
-
-            if [[ -n "${ZONE_ID}" && "${ZONE_ID}" != "null" ]]; then
-              tf_import aws_route53_record.offline_sender_domain_verification[0] "${ZONE_ID}__amazonses.${DNS_ZONE_NO_DOT}._TXT"
-
-              mapfile -t DKIM_RECORD_NAMES < <(
-                aws route53 list-resource-record-sets --hosted-zone-id "${ZONE_ID}" --output json \
-                  | jq -r --arg suffix "._domainkey.${DNS_ZONE_NO_DOT}." \
-                    '.ResourceRecordSets[] | select(.Type=="CNAME" and (.Name | endswith($suffix))) | .Name' \
-                  | sort -u | head -n 3
-              )
-              for idx in "${!DKIM_RECORD_NAMES[@]}"; do
-                tf_import "aws_route53_record.offline_sender_domain_dkim[${idx}]" "${ZONE_ID}_${DKIM_RECORD_NAMES[${idx}]}_CNAME"
-              done
-            fi
-
-            LOG_GROUP_NAME="$(aws logs describe-log-groups \
-              --log-group-name-prefix "${OFFLINE_LAMBDA_LOG_GROUP}" \
-              --query "logGroups[?logGroupName=='${OFFLINE_LAMBDA_LOG_GROUP}'].logGroupName | [0]" \
-              --output text 2>/dev/null || true)"
-            tf_import aws_cloudwatch_log_group.offline_contact_lambda[0] "${LOG_GROUP_NAME}"
-
-            tf_import aws_lambda_function.offline_contact[0] "${OFFLINE_LAMBDA_NAME}"
-            tf_import aws_lambda_permission.offline_contact_apigw[0] "${OFFLINE_LAMBDA_NAME}/AllowApiGatewayInvoke"
-
-            ROLE_NAME="$(aws iam list-roles \
-              --query "Roles[?starts_with(RoleName, 'cloudradar-offline-contact-lambda-')].RoleName | [0]" \
-              --output text 2>/dev/null || true)"
-            tf_import aws_iam_role.offline_contact_lambda[0] "${ROLE_NAME}"
-
-            if [[ -n "${ROLE_NAME}" && "${ROLE_NAME}" != "None" && "${ROLE_NAME}" != "null" ]]; then
-              POLICY_NAME="$(aws iam list-role-policies --role-name "${ROLE_NAME}" --query "PolicyNames[0]" --output text 2>/dev/null || true)"
-              tf_import aws_iam_role_policy.offline_contact_lambda[0] "${ROLE_NAME}:${POLICY_NAME}"
-            fi
-
-            API_ID="$(aws apigatewayv2 get-apis --query "Items[?Name=='cloudradar-offline-contact'].ApiId | [0]" --output text 2>/dev/null || true)"
-            tf_import aws_apigatewayv2_api.offline_contact[0] "${API_ID}"
-            tf_import aws_apigatewayv2_stage.offline_contact[0] "${API_ID}/\$default"
-
-            if [[ -n "${API_ID}" && "${API_ID}" != "None" && "${API_ID}" != "null" ]]; then
-              ROUTE_ID="$(aws apigatewayv2 get-routes --api-id "${API_ID}" --query "Items[?RouteKey=='POST /api/contact-demo'].RouteId | [0]" --output text 2>/dev/null || true)"
-              INTEGRATION_ID="$(aws apigatewayv2 get-integrations --api-id "${API_ID}" --query "Items[?contains(IntegrationUri, 'cloudradar-offline-contact')].IntegrationId | [0]" --output text 2>/dev/null || true)"
-              tf_import aws_apigatewayv2_route.offline_contact[0] "${API_ID}/${ROUTE_ID}"
-              tf_import aws_apigatewayv2_integration.offline_contact[0] "${API_ID}/${INTEGRATION_ID}"
-            fi
-
-            CERT_ARN="$(aws acm list-certificates \
-              --certificate-statuses ISSUED PENDING_VALIDATION \
-              --query "CertificateSummaryList[?DomainName=='${DNS_ZONE_NO_DOT}'].CertificateArn | [0]" \
-              --output text 2>/dev/null || true)"
-            tf_import aws_acm_certificate.offline[0] "${CERT_ARN}"
-
-            if [[ -n "${CERT_ARN}" && "${CERT_ARN}" != "None" && "${CERT_ARN}" != "null" && -n "${ZONE_ID}" && "${ZONE_ID}" != "null" ]]; then
-              ROOT_VALIDATION_NAME="$(aws acm describe-certificate --certificate-arn "${CERT_ARN}" --query "Certificate.DomainValidationOptions[?DomainName=='${DNS_ZONE_NO_DOT}'].ResourceRecord.Name | [0]" --output text 2>/dev/null || true)"
-              OFFLINE_VALIDATION_NAME="$(aws acm describe-certificate --certificate-arn "${CERT_ARN}" --query "Certificate.DomainValidationOptions[?DomainName=='${OFFLINE_DOMAIN}'].ResourceRecord.Name | [0]" --output text 2>/dev/null || true)"
-              tf_import "aws_route53_record.offline_certificate_validation[\"${DNS_ZONE_NO_DOT}\"]" "${ZONE_ID}_${ROOT_VALIDATION_NAME}_CNAME"
-              tf_import "aws_route53_record.offline_certificate_validation[\"${OFFLINE_DOMAIN}\"]" "${ZONE_ID}_${OFFLINE_VALIDATION_NAME}_CNAME"
-            fi
-
-            OAC_ID="$(aws cloudfront list-origin-access-controls --query "OriginAccessControlList.Items[?Name=='cloudradar-offline-oac'].Id | [0]" --output text 2>/dev/null || true)"
-            tf_import aws_cloudfront_origin_access_control.offline_site[0] "${OAC_ID}"
-
-            OFFLINE_DIST_ID="$(aws cloudfront list-distributions --query "DistributionList.Items[?Aliases.Quantity > \`0\` && contains(Aliases.Items, '${DNS_ZONE_NO_DOT}')].Id | [0]" --output text 2>/dev/null || true)"
-            tf_import aws_cloudfront_distribution.offline[0] "${OFFLINE_DIST_ID}"
-
-            if [[ -n "${ZONE_ID}" && "${ZONE_ID}" != "null" ]]; then
-              tf_import aws_route53_record.offline_domain_alias[0] "${ZONE_ID}_${OFFLINE_DOMAIN}._A"
-              tf_import aws_route53_record.main_failover_primary[0] "${ZONE_ID}_${DNS_ZONE_NO_DOT}._A_primary-live"
-              tf_import aws_route53_record.main_failover_secondary[0] "${ZONE_ID}_${DNS_ZONE_NO_DOT}._A_secondary-offline"
-            fi
-
-            PRIMARY_HEALTH_CHECK_ID="$(aws route53 list-health-checks \
-              --query "HealthChecks[?FullyQualifiedDomainName=='${LIVE_DOMAIN}' && ResourcePath=='${OFFLINE_PRIMARY_HEALTH_PATH}'].Id | [0]" \
-              --output text 2>/dev/null || true)"
-            tf_import aws_route53_health_check.primary_live[0] "${PRIMARY_HEALTH_CHECK_ID}"
-          fi
 
       - name: Terraform apply (create backend)
         run: |
