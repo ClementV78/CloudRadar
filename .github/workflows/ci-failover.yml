@@ -52,6 +52,10 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform validate + plan (safe PR mode, local backend)
+        env:
+          AWS_ACCESS_KEY_ID: dummy
+          AWS_SECRET_ACCESS_KEY: dummy
+          AWS_EC2_METADATA_DISABLED: "true"
         run: |
           set -euo pipefail
           mv infra/aws/failover/backend.tf infra/aws/failover/backend.tf.disabled
