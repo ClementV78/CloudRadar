@@ -1,7 +1,7 @@
 # CloudRadar — Synthese Technique d'Architecture
 
 **Version**: v1-mvp  
-**Date**: 2026-03-10  
+**Date**: 2026-03-13  
 **Audience**: Ingenieurs DevOps, Architectes Cloud, Recruteurs Techniques  
 **Objectif**: Portfolio mettant en avant une architecture cloud de niveau production, des pratiques GitOps et l'automatisation de l'infrastructure
 
@@ -34,7 +34,7 @@ Les choix techniques suivent une strategie FinOps explicite: maximiser la valeur
 **Observabilite et Pratiques SRE**:
 - ✅ Metriques full-stack (app -> plateforme -> infra) avec Prometheus + Grafana
 - ✅ Instrumentation service-level (`/healthz` + endpoints de scrape Prometheus)
-- ✅ 21 Architecture Decision Records documentant les compromis
+- ✅ 22 Architecture Decision Records documentant les compromis
 
 **Securite et Conformite**:
 - ✅ Architecture zero-trust (acces IAM uniquement, pas de SSH)
@@ -54,20 +54,31 @@ Les choix techniques suivent une strategie FinOps explicite: maximiser la valeur
 
 ```mermaid
 graph TB
-    USER[👤 DevOps Engineer]
-    CORE[☁️ CloudRadar Platform<br/>Event-Driven Pipeline<br/>Ingester → Redis → Processor → Dashboard]
+    USER[DevOps Engineer]
+    R53[Route53 Failover<br/>cloudradar.domain.tld]
+    EDGE[Edge Nginx primaire<br/>Lets Encrypt via SSM]
+    OFFLINE[CloudFront offline secondaire<br/>S3 + API Gateway/Lambda]
+    CORE[CloudRadar Platform<br/>Ingester -> Redis -> Processor -> Dashboard]
     
-    OPENSKY[🌐 OpenSky API<br/>Flight telemetry source]
-    GITHUB[🌐 GitHub<br/>CI/CD & GitOps]
-    AWS[🏗️ AWS Infrastructure<br/>VPC · EC2 · S3 · SSM · IAM]
+    OPENSKY[OpenSky API<br/>Flight telemetry source]
+    GITHUB[GitHub<br/>CI/CD & GitOps]
+    AWS[AWS Infrastructure<br/>VPC, EC2, S3, SSM, IAM]
     
-    USER -->|Views dashboards<br/>HTTPS| CORE
+    USER -->|HTTPS| R53
+    R53 -->|PRIMARY healthy| EDGE
+    R53 -->|SECONDARY failover| OFFLINE
+    EDGE -->|Acces app online| CORE
     CORE -->|Polls states<br/>REST/OAuth2| OPENSKY
     GITHUB -->|Deploys<br/>Actions/OIDC| CORE
+    GITHUB -->|Deploy bootstrap/offline IaC| OFFLINE
     CORE -->|Runs on<br/>Terraform/k8s| AWS
+    OFFLINE -->|Runs on<br/>Terraform/bootstrap| AWS
     
     style USER fill:#1976d2,stroke:#0d47a1,stroke-width:2px,color:#fff
     style CORE fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style R53 fill:#1565c0,stroke:#0d47a1,stroke-width:2px,color:#fff
+    style EDGE fill:#00897b,stroke:#004d40,stroke-width:2px,color:#fff
+    style OFFLINE fill:#6a1b9a,stroke:#4a148c,stroke-width:2px,color:#fff
     style OPENSKY fill:#757575,stroke:#424242,stroke-width:2px,color:#fff
     style GITHUB fill:#757575,stroke:#424242,stroke-width:2px,color:#fff
     style AWS fill:#ff9800,stroke:#e65100,stroke-width:2px,color:#fff
@@ -95,8 +106,10 @@ graph TB
 ### 2.1 Topologie VPC et Reseau
 
 ```mermaid
-graph LR
+graph TB
     INTERNET((Internet))
+    R53[Route53 failover]
+    CF[CloudFront offline secondaire]
     
     subgraph VPC["VPC 10.0.0.0/16 (dev, us-east-1a)"]
         IGW[IGW]
@@ -113,7 +126,9 @@ graph LR
         end
     end
     
-    INTERNET -->|User requests<br/>HTTPS| IGW
+    INTERNET -->|User requests HTTPS| R53
+    R53 -->|PRIMARY healthy| IGW
+    R53 -->|SECONDARY failover| CF
     IGW -->|Routes to| EDGE
     EDGE -.->|Proxies to| K3S_S
     K3S_S -->|Manages| K3S_W
@@ -548,7 +563,7 @@ Note sizing EBS (defaults dev): 40GB (k3s server) + 40GB (k3s worker) + 40GB (ed
 
 **Pour des details techniques complets**:
 - [Full Technical Architecture Document](./technical-architecture-document.md) — Analyse complete avec 28 schemas (1000+ lignes)
-- [Architecture Decision Records](./decisions/) — 21 ADRs (contexte, alternatives, compromis)
+- [Architecture Decision Records](./decisions/) — 22 ADRs (contexte, alternatives, compromis)
 - [Infrastructure Documentation](./infrastructure.md) — Details architecture AWS/Terraform
 - [Application Architecture](./application-architecture.md) — Patterns de design microservices
 - [Runbooks](../runbooks/) — Bootstrap, operations, troubleshooting
@@ -556,4 +571,4 @@ Note sizing EBS (defaults dev): 40GB (k3s server) + 40GB (k3s worker) + 40GB (ed
 
 ---
 
-**Maintenance du Document**: a mettre a jour quand des changements d'architecture majeurs sont merges. Derniere mise a jour: 2026-03-10.
+**Maintenance du Document**: a mettre a jour quand des changements d'architecture majeurs sont merges. Derniere mise a jour: 2026-03-13.

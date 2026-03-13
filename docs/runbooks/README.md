@@ -155,6 +155,12 @@ Purpose: run and verify the React/Leaflet frontend that consumes dashboard API e
 
 - Runbook: `docs/runbooks/operations/frontend.md`
 
+## 3.6.2) Offline fallback landing page (optional)
+
+Purpose: keep a branded offline experience with demo contact form when live infra is down, using Route53 failover.
+
+- Runbook: `docs/runbooks/operations/offline-fallback.md`
+
 ## 3.7) Observability stack (Prometheus + Grafana)
 
 Purpose: deploy Prometheus (metrics collection) and Grafana (dashboards) for cluster and application health monitoring.

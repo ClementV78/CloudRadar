@@ -8,6 +8,7 @@ Optionally, it can also create:
 - an S3 bucket for SQLite backups
 - an S3 bucket for aircraft reference data artifacts
 - a Route53 hosted zone for DNS delegation
+- an offline fallback stack (S3 + CloudFront + API Gateway + Lambda + SES wiring + Route53 failover)
 
 When requested (`issue_tls=true`), it can also:
 - issue a public certificate with Let's Encrypt DNS-01
@@ -57,6 +58,9 @@ flowchart TB
   - `TF_AIRCRAFT_REFERENCE_BUCKET_NAME` (optional, aircraft reference bucket)
   - `DNS_ZONE_NAME` (optional unless `issue_tls=true`)
   - `TLS_DOMAIN` (required when `issue_tls=true`)
+  - `OFFLINE_SITE_ENABLED` (optional; set `true` to enable offline fallback stack)
+  - `OFFLINE_CONTACT_SENDER_EMAIL` (required when `OFFLINE_SITE_ENABLED=true`)
+  - `OFFLINE_CONTACT_RECIPIENT_EMAIL` (required when `OFFLINE_SITE_ENABLED=true`)
 
 ## Run
 1) In GitHub Actions, run **bootstrap-terraform-backend** workflow.
@@ -146,6 +150,7 @@ sequenceDiagram
 - SQLite backup bucket created (if `backup_bucket_name` provided).
 - Aircraft reference bucket created (if `aircraft_reference_bucket_name` provided).
 - Route53 hosted zone created (if `dns_zone_name` provided).
+- Offline fallback stack created (if `offline_site_enabled=true`): offline S3 assets, CloudFront distribution, contact API/Lambda, Route53 failover records.
 - TLS artifacts stored in SSM (if `issue_tls=true`):
   - `/cloudradar/edge/tls/fullchain_pem` (`SecureString`)
   - `/cloudradar/edge/tls/privkey_pem` (`SecureString`)
@@ -193,6 +198,9 @@ terraform -chdir=infra/aws/live/dev init -backend-config=backend.hcl
   - Forces RSA key generation (`--key-type rsa --rsa-key-size 2048`) for edge compatibility.
   - `TLS_DOMAIN` must be inside `DNS_ZONE_NAME`.
   - SSM writes use `SecureString` Standard tier first, then Advanced tier fallback only if value size exceeds Standard limits.
+- Offline fallback details:
+  - Route53 failover keeps the online path unchanged and switches to offline CloudFront only when the primary health check fails.
+  - Anti-spam baseline excludes WAF by design (FinOps): API throttling + honeypot + backend validation + DynamoDB rate limits.
 
 ## State Persistence (Recommended)
 This workflow intentionally uses a local Terraform backend on the GitHub Actions runner to avoid a chicken-and-egg dependency.
