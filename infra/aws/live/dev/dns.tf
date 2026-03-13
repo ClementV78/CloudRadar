@@ -14,7 +14,7 @@ locals {
   dns_zone_id = local.dns_enabled ? data.aws_route53_zone.cloudradar[0].zone_id : ""
 
   dns_a_records = {
-    (local.dns_zone_name)                 = module.edge.edge_public_ip
+    ("live.${local.dns_zone_name}")       = module.edge.edge_public_ip
     ("grafana.${local.dns_zone_name}")    = module.edge.edge_public_ip
     ("prometheus.${local.dns_zone_name}") = module.edge.edge_public_ip
     ("app.${local.dns_zone_name}")        = module.edge.edge_public_ip

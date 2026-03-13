@@ -185,7 +185,7 @@ Security is treated as a **first-class concern**, not an afterthought:
 | **Edge Access** | Nginx + Basic Auth (dev), TLS | ✅ Implemented |
 | **Least Privilege** | IAM roles scoped per service, OIDC for CI | ✅ Implemented |
 | **Secrets Rotation** | Automated rotation via ESO + SSM | 📝 Planned |
-| **WAF / CloudFront** | Edge security + caching | 📝 Planned |
+| **Route53 Failover + CloudFront (offline path)** | Automatic fallback to branded offline landing page + demo contact form | 🔧 In progress |
 
 ---
 
@@ -354,7 +354,7 @@ All services expose `/healthz` (liveness) and `/metrics` (Prometheus scrape).
 | **SSM Parameter Store** | Runtime secrets + config | ✅ |
 | **IAM OIDC** | GitHub Actions ↔ AWS trust (zero static keys) | ✅ |
 | **VPC Endpoints** | Private access to SSM, S3 | ✅ |
-| **CloudFront** | Edge CDN + WAF | 📝 Planned |
+| **CloudFront (offline fallback path)** | Serves persistent offline page and contact endpoint when primary live path is unhealthy | 🔧 In progress |
 
 > Full details: [Infrastructure Architecture](docs/architecture/infrastructure.md)
 
@@ -364,7 +364,7 @@ All services expose `/healthz` (liveness) and `/metrics` (Prometheus scrape).
 
 - Single AWS region (`us-east-1`) with a small cluster footprint (edge + control plane + one worker): no multi-region HA.
 - Data layer is still MVP-grade: Redis storage resilience hardening is in progress.
-- Edge security is pragmatic for MVP (Nginx + Basic Auth + Let's Encrypt/SSM); managed edge hardening (CloudFront/WAF path) is planned.
+- Edge security is pragmatic for MVP (Nginx + Basic Auth + Let's Encrypt/SSM). Route53 failover + CloudFront are introduced for the offline fallback path while keeping the online path unchanged.
 - Performance validation is baseline-level (nightly k6), not full-scale capacity modeling.
 - Some high-impact operations are intentionally manual-gated in CI/CD (apply/destroy) for safety and cost control.
 

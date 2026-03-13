@@ -1,6 +1,6 @@
 # CloudRadar Application Architecture
 
-**Last updated**: 2026-03-12
+**Last updated**: 2026-03-13
 
 This document describes the architecture and design of all microservices in the CloudRadar platform. Each service is containerized and deployed to k3s via ArgoCD.
 
@@ -17,6 +17,10 @@ CloudRadar consists of six implemented application services:
 
 ```mermaid
 graph TB
+    User["User Browser"]
+    Route53["Route53 Failover<br/>(cloudradar.<domain>)"]
+    CloudFrontOffline["CloudFront Offline<br/>(secondary path)"]
+    OfflineSite["Offline Landing + Contact API<br/>(S3 + API Gateway/Lambda)"]
     OpenSky["OpenSky API"]
     Ingester["Ingester<br/>(Java 17)"]
     Redis["Redis Buffer<br/>(cloudradar:ingest:queue)"]
@@ -30,6 +34,11 @@ graph TB
     Prometheus["Prometheus<br/>(metrics collection)"]
     Grafana["Grafana<br/>(dashboards)"]
 
+    User -->|HTTPS| Route53
+    Route53 -->|PRIMARY healthy| Edge
+    Route53 -->|SECONDARY on failover| CloudFrontOffline
+    CloudFrontOffline --> OfflineSite
+
     OpenSky -->|periodic fetch| Ingester
     Ingester -->|push events| Redis
     Redis -->|consume events| Processor
@@ -41,12 +50,16 @@ graph TB
     Prometheus -->|visualize| Grafana
     DashboardAPI -->|read aggregates| RedisAgg
     DashboardAPI -->|REST + SSE| Frontend
+    Edge -->|proxy /api| DashboardAPI
+    Edge -->|proxy /| Frontend
     Frontend -->|embed dashboards| Grafana
     Grafana -->|query| Prometheus
 ```
 
 ### Observability Access Path
-- **Edge Nginx (EC2)** is the only public entrypoint and applies Basic Auth. It forwards to K3s nodeports/Ingress.
+- **Primary online path**: Route53 failover record targets **Edge Nginx (EC2)** when healthy.
+- **Secondary offline path**: Route53 failover targets **CloudFront offline distribution** (S3 static page + `/api/contact-demo`).
+- **Edge Nginx (EC2)** remains the online public entrypoint and applies Basic Auth where configured. It forwards to K3s nodeports/Ingress.
 - **In-cluster**: Traefik (k3s default) routes HTTP to services (Grafana, Prometheus). No additional in-cluster proxy.
 - **Security**: Secrets for Basic Auth are stored in SSM (surfaced via ESO where needed). Remove duplicate proxies to reduce attack surface.
 

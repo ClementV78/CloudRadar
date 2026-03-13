@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CloudRadar - Currently Offline</title>
+    <meta
+      name="description"
+      content="CloudRadar demo is currently offline for cost-optimized infrastructure cycles. Request a live demo."
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-title">CloudRadar</div>
+          <div class="brand-subtitle">Live IDF Air Traffic Console</div>
+        </div>
+        <a class="readme-link" id="readme-link" href="https://github.com/ClementV78/CloudRadar" target="_blank" rel="noopener noreferrer">
+          View Project README
+        </a>
+      </header>
+
+      <main>
+        <section class="hero-card">
+          <div class="offline-badge">CURRENTLY OFFLINE</div>
+          <h1>Infrastructure paused to optimize cost</h1>
+          <p>
+            CloudRadar is temporarily offline during cost-saving windows. If you want to see the full live stack,
+            send a quick message and I will schedule a demo.
+          </p>
+        </section>
+
+        <section class="contact-card" aria-labelledby="demo-request-title">
+          <h2 id="demo-request-title">Request a live demo</h2>
+          <form id="demo-form" novalidate>
+            <div class="field-grid">
+              <label>
+                Name
+                <input id="name" name="name" type="text" autocomplete="name" minlength="2" maxlength="80" required />
+              </label>
+              <label>
+                Email
+                <input id="email" name="email" type="email" autocomplete="email" maxlength="254" required />
+              </label>
+            </div>
+            <label>
+              Message
+              <textarea id="message" name="message" rows="5" minlength="10" maxlength="2000" required></textarea>
+            </label>
+
+            <input id="website" name="website" type="text" class="hp-field" tabindex="-1" autocomplete="off" aria-hidden="true" />
+
+            <div class="form-actions">
+              <button id="submit-button" type="submit">Request a demo</button>
+              <p class="form-hint">Please include your preferred timezone and availability.</p>
+            </div>
+            <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <section class="preview-card" aria-labelledby="preview-title">
+          <h2 id="preview-title">Project preview</h2>
+          <p>Key screens from the live platform:</p>
+          <div class="preview-grid">
+            <figure>
+              <img src="/screenshots/dashboard.png" alt="CloudRadar map dashboard with live aircraft view" loading="lazy" />
+              <figcaption>Real-time map dashboard</figcaption>
+            </figure>
+            <figure>
+              <img src="/screenshots/grafana-app-telemetry.png" alt="Grafana application telemetry dashboard" loading="lazy" />
+              <figcaption>Application telemetry</figcaption>
+            </figure>
+            <figure>
+              <img src="/screenshots/grafana-ops.png" alt="Grafana infrastructure operations dashboard" loading="lazy" />
+              <figcaption>Operations monitoring</figcaption>
+            </figure>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

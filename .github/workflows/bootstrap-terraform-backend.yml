@@ -60,6 +60,19 @@ jobs:
           BACKUP_BUCKET="${{ vars.TF_BACKUP_BUCKET_NAME }}"
           AIRCRAFT_REFERENCE_BUCKET="${{ vars.TF_AIRCRAFT_REFERENCE_BUCKET_NAME }}"
           DNS_ZONE_NAME="${{ vars.DNS_ZONE_NAME }}"
+          OFFLINE_SITE_ENABLED="${{ vars.OFFLINE_SITE_ENABLED }}"
+          OFFLINE_SITE_BUCKET_NAME="${{ vars.OFFLINE_SITE_BUCKET_NAME }}"
+          OFFLINE_SUBDOMAIN_LABEL="${{ vars.OFFLINE_SUBDOMAIN_LABEL }}"
+          OFFLINE_PRIMARY_DOMAIN_LABEL="${{ vars.OFFLINE_PRIMARY_DOMAIN_LABEL }}"
+          OFFLINE_CONTACT_SENDER_EMAIL="${{ vars.OFFLINE_CONTACT_SENDER_EMAIL }}"
+          OFFLINE_CONTACT_RECIPIENT_EMAIL="${{ vars.OFFLINE_CONTACT_RECIPIENT_EMAIL }}"
+          OFFLINE_LOGS_RETENTION_DAYS="${{ vars.OFFLINE_LOGS_RETENTION_DAYS }}"
+          OFFLINE_RATE_LIMIT_WINDOW_SECONDS="${{ vars.OFFLINE_RATE_LIMIT_WINDOW_SECONDS }}"
+          OFFLINE_RATE_LIMIT_MAX_HITS="${{ vars.OFFLINE_RATE_LIMIT_MAX_HITS }}"
+          OFFLINE_API_THROTTLE_RATE_LIMIT="${{ vars.OFFLINE_API_THROTTLE_RATE_LIMIT }}"
+          OFFLINE_API_THROTTLE_BURST_LIMIT="${{ vars.OFFLINE_API_THROTTLE_BURST_LIMIT }}"
+          OFFLINE_PRIMARY_HEALTH_PATH="${{ vars.OFFLINE_PRIMARY_HEALTH_PATH }}"
+          OFFLINE_PRIMARY_HEALTH_PORT="${{ vars.OFFLINE_PRIMARY_HEALTH_PORT }}"
           ISSUE_TLS="${{ inputs.issue_tls }}"
           TLS_DOMAIN="${{ vars.TLS_DOMAIN }}"
 
@@ -82,6 +95,7 @@ jobs:
             echo "TF_VAR_state_bucket_name=${STATE_BUCKET}"
             echo "TF_VAR_lock_table_name=${LOCK_TABLE}"
             echo "TF_VAR_region=${REGION}"
+            echo "TF_VAR_offline_site_enabled=${OFFLINE_SITE_ENABLED:-false}"
           } >> "${GITHUB_ENV}"
 
           if [[ -n "${BACKUP_BUCKET}" ]]; then
@@ -103,6 +117,43 @@ jobs:
               echo "DNS_ZONE_NAME=${DNS_ZONE_NAME}"
               echo "TF_VAR_dns_zone_name=${DNS_ZONE_NAME}"
             } >> "${GITHUB_ENV}"
+          fi
+
+          if [[ -n "${OFFLINE_SITE_BUCKET_NAME}" ]]; then
+            echo "TF_VAR_offline_site_bucket_name=${OFFLINE_SITE_BUCKET_NAME}" >> "${GITHUB_ENV}"
+          fi
+          if [[ -n "${OFFLINE_SUBDOMAIN_LABEL}" ]]; then
+            echo "TF_VAR_offline_subdomain_label=${OFFLINE_SUBDOMAIN_LABEL}" >> "${GITHUB_ENV}"
+          fi
+          if [[ -n "${OFFLINE_PRIMARY_DOMAIN_LABEL}" ]]; then
+            echo "TF_VAR_offline_primary_domain_label=${OFFLINE_PRIMARY_DOMAIN_LABEL}" >> "${GITHUB_ENV}"
+          fi
+          if [[ -n "${OFFLINE_CONTACT_SENDER_EMAIL}" ]]; then
+            echo "TF_VAR_offline_contact_sender_email=${OFFLINE_CONTACT_SENDER_EMAIL}" >> "${GITHUB_ENV}"
+          fi
+          if [[ -n "${OFFLINE_CONTACT_RECIPIENT_EMAIL}" ]]; then
+            echo "TF_VAR_offline_contact_recipient_email=${OFFLINE_CONTACT_RECIPIENT_EMAIL}" >> "${GITHUB_ENV}"
+          fi
+          if [[ -n "${OFFLINE_LOGS_RETENTION_DAYS}" ]]; then
+            echo "TF_VAR_offline_logs_retention_days=${OFFLINE_LOGS_RETENTION_DAYS}" >> "${GITHUB_ENV}"
+          fi
+          if [[ -n "${OFFLINE_RATE_LIMIT_WINDOW_SECONDS}" ]]; then
+            echo "TF_VAR_offline_rate_limit_window_seconds=${OFFLINE_RATE_LIMIT_WINDOW_SECONDS}" >> "${GITHUB_ENV}"
+          fi
+          if [[ -n "${OFFLINE_RATE_LIMIT_MAX_HITS}" ]]; then
+            echo "TF_VAR_offline_rate_limit_max_hits=${OFFLINE_RATE_LIMIT_MAX_HITS}" >> "${GITHUB_ENV}"
+          fi
+          if [[ -n "${OFFLINE_API_THROTTLE_RATE_LIMIT}" ]]; then
+            echo "TF_VAR_offline_api_throttle_rate_limit=${OFFLINE_API_THROTTLE_RATE_LIMIT}" >> "${GITHUB_ENV}"
+          fi
+          if [[ -n "${OFFLINE_API_THROTTLE_BURST_LIMIT}" ]]; then
+            echo "TF_VAR_offline_api_throttle_burst_limit=${OFFLINE_API_THROTTLE_BURST_LIMIT}" >> "${GITHUB_ENV}"
+          fi
+          if [[ -n "${OFFLINE_PRIMARY_HEALTH_PATH}" ]]; then
+            echo "TF_VAR_offline_primary_health_path=${OFFLINE_PRIMARY_HEALTH_PATH}" >> "${GITHUB_ENV}"
+          fi
+          if [[ -n "${OFFLINE_PRIMARY_HEALTH_PORT}" ]]; then
+            echo "TF_VAR_offline_primary_health_port=${OFFLINE_PRIMARY_HEALTH_PORT}" >> "${GITHUB_ENV}"
           fi
 
       - name: Import existing backend resources (idempotent)

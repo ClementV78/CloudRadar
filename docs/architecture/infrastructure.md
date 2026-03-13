@@ -5,24 +5,30 @@ This document describes the Terraform layout and the baseline VPC network used p
 ## Terraform layout
 
 ### Terraform roots
-- `infra/aws/bootstrap`: creates the Terraform backend (state bucket, lock table) and the SQLite backup bucket.
+- `infra/aws/bootstrap`: creates the Terraform backend (state bucket, lock table), optional data buckets, optional DNS zone, and optional persistent offline fallback stack.
 - `infra/aws/live/dev`: deploys the full dev stack (VPC, NAT instance, k3s, edge) and wires the backup bucket name to k3s.
 - `infra/aws/live/prod`: deploys the prod VPC baseline only (future app/edge/k3s TBD).
 
 ```mermaid
 flowchart TB
   subgraph Bootstrap["infra/aws/bootstrap"]
+    direction LR
     backend["state S3 bucket"]
     lock["DynamoDB lock table"]
-    backups["SQLite backup bucket"]
+    backend --> lock
+    lock -. optional .-> dns_zone["Route53 hosted zone"]
+    lock -. optional .-> backups["SQLite backup bucket"]
+    lock -. optional .-> offline_stack["Offline fallback stack<br/>Route53 failover + CloudFront + S3 + API/Lambda + DynamoDB"]
   end
 
   subgraph Live["infra/aws/live"]
+    direction LR
     dev["dev root"]
     prod["prod root"]
   end
 
   subgraph Modules["infra/aws/modules"]
+    direction TB
     subgraph vpc["vpc module"]
       vpc_res["VPC"]
       subnets["Public/private subnets"]
@@ -54,6 +60,7 @@ flowchart TB
     end
   end
 
+  Bootstrap -->|backend for| Live
   dev --> vpc
   dev --> nat
   dev --> k3s
@@ -103,6 +110,23 @@ flowchart TB
 
   edge -. "SSM (optional)" .-> ssmEndpoints
   k3s -. "SSM (optional)" .-> ssmEndpoints
+```
+
+## Offline failover path (optional, bootstrap-persistent)
+
+When enabled, DNS failover keeps the online path unchanged and serves a branded offline page when the primary health check fails.
+Both failover records share the same public hostname (`cloudradar.<domain>`): Route53 returns PRIMARY (online) or SECONDARY (offline) target according to the health-check result.
+
+```mermaid
+flowchart LR
+  user["User browser"] --> r53["Route53 failover record (cloudradar.<domain>)"]
+  r53 -->|PRIMARY healthy| live["live.<domain> -> edge Nginx (existing online path)"]
+  r53 -->|PRIMARY unhealthy| cf["CloudFront offline distribution"]
+  cf --> s3["S3 offline static assets"]
+  cf --> api["API Gateway HTTP API (/api/contact-demo)"]
+  api --> lambda["Lambda contact handler"]
+  lambda --> ddb["DynamoDB rate-limit table"]
+  lambda --> ses["SES email notification"]
 ```
 
 ## Edge TLS Certificate Architecture (MVP)
@@ -224,6 +248,7 @@ Prod values are currently aligned with module defaults and may be overridden lat
 - EBS CSI driver deployed via ArgoCD (kube-system).
 - `ebs-gp3` StorageClass for stateful workloads.
 - S3 backup bucket for SQLite snapshots.
+- Optional bootstrap-persistent offline S3 bucket for static fallback assets.
 
 ### Security
 - Security group for k3s nodes (explicit ports).
@@ -289,6 +314,7 @@ See [docs/runbooks/observability.md](../runbooks/observability.md) for operation
 ## Status
 
 - Implemented (IaC): VPC, subnets, route tables, internet gateway, NAT instance, k3s nodes, edge EC2, S3 backup bucket for SQLite snapshots.
+- Implemented (optional): Route53 failover + CloudFront/S3 offline fallback + serverless contact path (API Gateway + Lambda + DynamoDB + SES), managed in `infra/aws/bootstrap`.
 - Implemented (Edge TLS MVP): Let's Encrypt DNS-01 issuance from bootstrap workflow and certificate storage in SSM (`/cloudradar/edge/tls/*`) consumed by edge at boot in strict mode.
 - Implemented (IaC, dev): SSM/KMS interface endpoints are temporarily disabled to reduce cost; edge uses HTTPS egress for SSM.
 - Implemented (Platform): ArgoCD bootstrap via SSM/CI for GitOps delivery, Redis buffer in the data namespace, EBS CSI driver + `ebs-gp3` StorageClass.

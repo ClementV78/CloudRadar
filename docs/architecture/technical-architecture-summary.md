@@ -1,7 +1,7 @@
 # CloudRadar — Technical Architecture Summary
 
 **Version**: v1-mvp  
-**Date**: 2026-03-10  
+**Date**: 2026-03-13  
 **Audience**: DevOps Engineers, Cloud Architects, Technical Recruiters  
 **Purpose**: Portfolio showcase demonstrating production-grade cloud architecture, GitOps practices, and infrastructure automation
 
@@ -34,7 +34,7 @@ Technical choices follow an explicit FinOps strategy: maximize demonstration val
 **Observability & SRE Practices**:
 - ✅ Full-stack metrics (app → platform → infra) with Prometheus + Grafana
 - ✅ Service-level instrumentation (`/healthz` + Prometheus scrape endpoints)
-- ✅ 21 Architecture Decision Records documenting trade-offs
+- ✅ 22 Architecture Decision Records documenting trade-offs
 
 **Security & Compliance**:
 - ✅ Zero-trust network architecture (IAM-only access, no SSH)
@@ -54,20 +54,31 @@ Technical choices follow an explicit FinOps strategy: maximize demonstration val
 
 ```mermaid
 graph TB
-    USER[👤 DevOps Engineer]
-    CORE[☁️ CloudRadar Platform<br/>Event-Driven Pipeline<br/>Ingester → Redis → Processor → Dashboard]
+    USER[DevOps Engineer]
+    R53[Route53 Failover<br/>cloudradar.domain.tld]
+    EDGE[Edge Nginx primary<br/>Lets Encrypt cert from SSM]
+    OFFLINE[CloudFront offline secondary<br/>S3 + API Gateway/Lambda]
+    CORE[CloudRadar Platform<br/>Ingester -> Redis -> Processor -> Dashboard]
     
-    OPENSKY[🌐 OpenSky API<br/>Flight telemetry source]
-    GITHUB[🌐 GitHub<br/>CI/CD & GitOps]
-    AWS[🏗️ AWS Infrastructure<br/>VPC · EC2 · S3 · SSM · IAM]
+    OPENSKY[OpenSky API<br/>Flight telemetry source]
+    GITHUB[GitHub<br/>CI/CD and GitOps]
+    AWS[AWS Infrastructure<br/>VPC, EC2, S3, SSM, IAM]
     
-    USER -->|Views dashboards<br/>HTTPS| CORE
+    USER -->|HTTPS| R53
+    R53 -->|PRIMARY healthy| EDGE
+    R53 -->|SECONDARY failover| OFFLINE
+    EDGE -->|Online app access| CORE
     CORE -->|Polls states<br/>REST/OAuth2| OPENSKY
     GITHUB -->|Deploys<br/>Actions/OIDC| CORE
+    GITHUB -->|Deploys bootstrap/offline IaC| OFFLINE
     CORE -->|Runs on<br/>Terraform/k8s| AWS
+    OFFLINE -->|Runs on<br/>Terraform/bootstrap| AWS
     
     style USER fill:#1976d2,stroke:#0d47a1,stroke-width:2px,color:#fff
     style CORE fill:#388e3c,stroke:#1b5e20,stroke-width:3px,color:#fff
+    style R53 fill:#1565c0,stroke:#0d47a1,stroke-width:2px,color:#fff
+    style EDGE fill:#00897b,stroke:#004d40,stroke-width:2px,color:#fff
+    style OFFLINE fill:#6a1b9a,stroke:#4a148c,stroke-width:2px,color:#fff
     style OPENSKY fill:#757575,stroke:#424242,stroke-width:2px,color:#fff
     style GITHUB fill:#757575,stroke:#424242,stroke-width:2px,color:#fff
     style AWS fill:#ff9800,stroke:#e65100,stroke-width:2px,color:#fff
@@ -95,8 +106,10 @@ graph TB
 ### 2.1 VPC & Network Topology
 
 ```mermaid
-graph LR
+graph TB
     INTERNET((Internet))
+    R53[Route53 failover]
+    CF[CloudFront offline secondary]
     
     subgraph VPC["VPC 10.0.0.0/16 (dev, us-east-1a)"]
         IGW[IGW]
@@ -113,7 +126,9 @@ graph LR
         end
     end
     
-    INTERNET -->|User requests<br/>HTTPS| IGW
+    INTERNET -->|User requests HTTPS| R53
+    R53 -->|PRIMARY healthy| IGW
+    R53 -->|SECONDARY failover| CF
     IGW -->|Routes to| EDGE
     EDGE -.->|Proxies to| K3S_S
     K3S_S -->|Manages| K3S_W
@@ -548,7 +563,7 @@ EBS sizing note (dev defaults): 40GB (k3s server) + 40GB (k3s worker) + 40GB (ed
 
 **For deeper technical details**:
 - [Full Technical Architecture Document](./technical-architecture-document.md) — Complete 28-diagram analysis (1000+ lines)
-- [Architecture Decision Records](./decisions/) — 21 ADRs (context, alternatives, trade-offs)
+- [Architecture Decision Records](./decisions/) — 22 ADRs (context, alternatives, trade-offs)
 - [Infrastructure Documentation](./infrastructure.md) — AWS/Terraform architecture details
 - [Application Architecture](./application-architecture.md) — Microservices design patterns
 - [Runbooks](../runbooks/) — Bootstrap, operations, troubleshooting
@@ -556,4 +571,4 @@ EBS sizing note (dev defaults): 40GB (k3s server) + 40GB (k3s worker) + 40GB (ed
 
 ---
 
-**Document Maintenance**: Update when major architectural changes are merged. Last updated: 2026-03-10.
+**Document Maintenance**: Update when major architectural changes are merged. Last updated: 2026-03-13.
