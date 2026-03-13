@@ -57,14 +57,14 @@ variable "offline_primary_domain_label" {
   default     = "live"
 }
 
-variable "offline_contact_sender_email" {
+variable "offline_contact_sender_local_part" {
   type        = string
-  description = "SES sender email used by offline contact form."
-  default     = ""
+  description = "Local-part for SES sender email used by offline contact form (<local-part>@<dns_zone_name>)."
+  default     = "noreply"
 
   validation {
-    condition     = !var.offline_site_enabled || length(trimspace(var.offline_contact_sender_email)) > 0
-    error_message = "offline_contact_sender_email must be set when offline_site_enabled is true."
+    condition     = length(trimspace(var.offline_contact_sender_local_part)) > 0
+    error_message = "offline_contact_sender_local_part must not be empty."
   }
 }
 

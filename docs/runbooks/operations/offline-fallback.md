@@ -13,12 +13,12 @@ Serve a branded CloudRadar offline landing page with demo-contact form when live
 ## Prerequisites
 - `DNS_ZONE_NAME` configured in bootstrap workflow vars.
 - Hosted zone managed by `infra/aws/bootstrap`.
-- Sender/recipient emails configured for SES and available for the selected region.
+- SES available in the selected region.
 
 ## Required GitHub Action variables
 Set in repository variables before running `bootstrap-terraform-backend`:
 - `OFFLINE_SITE_ENABLED=true`
-- `OFFLINE_CONTACT_SENDER_EMAIL=<verified-ses-sender>`
+- `OFFLINE_CONTACT_SENDER_LOCAL_PART=<sender-local-part>` (optional; default: `noreply`)
 - `OFFLINE_CONTACT_RECIPIENT_EMAIL=<your-mailbox>`
 
 Optional tuning:
@@ -46,15 +46,18 @@ In CI, use workflows:
 1. Validate offline DNS records:
 ```bash
 aws route53 list-resource-record-sets --hosted-zone-id <ZONE_ID> \
-  --query "ResourceRecordSets[?Name=='cloudradar.iotx.fr.' || Name=='offline.cloudradar.iotx.fr.' || Name=='live.cloudradar.iotx.fr.']"
+  --query "ResourceRecordSets[?Name=='cloudradar.<domain>.' || Name=='offline.cloudradar.<domain>.' || Name=='live.cloudradar.<domain>.']"
 ```
 2. Verify Route53 health check is healthy (primary):
 ```bash
 aws route53 list-health-checks --query "HealthChecks[?contains(FullyQualifiedDomainName, 'live.')].Id"
 ```
 3. Verify CloudFront distribution deployed and aliases include root + offline domains.
-4. Open `https://offline.<zone>` and submit a test contact request.
-5. Confirm SES email reception.
+4. Verify SES domain identity records are present in Route53:
+   - `_amazonses.<dns_zone_name>` TXT
+   - `*._domainkey.<dns_zone_name>` CNAME (DKIM)
+5. Open `https://offline.<zone>` and submit a test contact request.
+6. Confirm SES email reception.
 
 ## Spam-protection checks
 - Submit 1 valid request -> expected `200`.
