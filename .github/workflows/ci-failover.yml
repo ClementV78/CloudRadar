@@ -196,6 +196,11 @@ jobs:
               return 0
             fi
 
+            if grep -Eqi "could(n't| not) find resource" <<<"${output}"; then
+              echo "Skipping ${address}: provider could not find remote resource, it will be created by terraform apply if required."
+              return 0
+            fi
+
             if grep -q "Resource already managed by Terraform" <<<"${output}"; then
               echo "Skipping ${address}: already present in Terraform state."
               return 0
