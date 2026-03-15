@@ -174,11 +174,34 @@ jobs:
           tf_import() {
             local address="$1"
             local import_id="${2:-}"
+            local output=""
+            local status=0
             if [[ -z "${import_id}" || "${import_id}" == "None" || "${import_id}" == "null" ]]; then
               return 0
             fi
             echo "Importing ${address}..."
-            terraform -chdir=infra/aws/failover import -input=false -lock-timeout=300s "${address}" "${import_id}"
+            set +e
+            output="$(terraform -chdir=infra/aws/failover import -input=false -lock-timeout=300s "${address}" "${import_id}" 2>&1)"
+            status=$?
+            set -e
+
+            echo "${output}"
+
+            if [[ ${status} -eq 0 ]]; then
+              return 0
+            fi
+
+            if grep -q "Cannot import non-existent remote object" <<<"${output}"; then
+              echo "Skipping ${address}: remote object not found, it will be created by terraform apply if required."
+              return 0
+            fi
+
+            if grep -q "Resource already managed by Terraform" <<<"${output}"; then
+              echo "Skipping ${address}: already present in Terraform state."
+              return 0
+            fi
+
+            return ${status}
           }
 
           ZONE_ID="$(aws route53 list-hosted-zones-by-name \
