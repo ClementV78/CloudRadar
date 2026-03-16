@@ -1,6 +1,11 @@
 const form = document.getElementById("demo-form");
 const statusNode = document.getElementById("form-status");
 const submitButton = document.getElementById("submit-button");
+const lightbox = document.getElementById("preview-lightbox");
+const lightboxImage = document.getElementById("lightbox-image");
+const lightboxCaption = document.getElementById("lightbox-caption");
+const lightboxClose = document.getElementById("lightbox-close");
+const previewImages = document.querySelectorAll(".preview-grid img");
 
 function setStatus(message, type) {
   statusNode.textContent = message;
@@ -81,5 +86,49 @@ form?.addEventListener("submit", async (event) => {
     setStatus(error.message || "Request failed. Please try again.", "error");
   } finally {
     submitButton.disabled = false;
+  }
+});
+
+function openLightbox(imageNode) {
+  if (!lightbox || !lightboxImage || !lightboxCaption) {
+    return;
+  }
+
+  lightboxImage.src = imageNode.src;
+  lightboxImage.alt = imageNode.alt;
+  lightboxCaption.textContent = imageNode.dataset.caption || imageNode.alt || "";
+  lightbox.classList.add("open");
+  lightbox.setAttribute("aria-hidden", "false");
+  document.body.classList.add("lightbox-open");
+}
+
+function closeLightbox() {
+  if (!lightbox || !lightboxImage || !lightboxCaption) {
+    return;
+  }
+
+  lightbox.classList.remove("open");
+  lightbox.setAttribute("aria-hidden", "true");
+  lightboxImage.src = "";
+  lightboxImage.alt = "";
+  lightboxCaption.textContent = "";
+  document.body.classList.remove("lightbox-open");
+}
+
+previewImages.forEach((imageNode) => {
+  imageNode.addEventListener("click", () => openLightbox(imageNode));
+});
+
+lightboxClose?.addEventListener("click", closeLightbox);
+
+lightbox?.addEventListener("click", (event) => {
+  if (event.target === lightbox) {
+    closeLightbox();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && lightbox?.classList.contains("open")) {
+    closeLightbox();
   }
 });

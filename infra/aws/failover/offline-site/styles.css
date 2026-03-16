@@ -58,25 +58,44 @@ body {
   font-size: 1rem;
 }
 
-.readme-link {
+.readme-badge {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 10px 16px;
-  border: 1px solid var(--line-bright);
-  border-radius: 10px;
-  color: #001f2b;
-  background: linear-gradient(90deg, var(--line-bright), #00b4ff);
+  justify-content: flex-start;
+  border-radius: 999px;
+  border: 1px solid #4e5966;
+  background: #0f1722;
   text-decoration: none;
-  font-weight: 700;
-  font-size: 0.98rem;
+  overflow: hidden;
   transition: transform 140ms ease, filter 140ms ease;
 }
 
-.readme-link:hover,
-.readme-link:focus-visible {
+.readme-badge:hover,
+.readme-badge:focus-visible {
   transform: translateY(-1px);
-  filter: brightness(1.06);
+  filter: brightness(1.08);
+}
+
+.readme-badge-left,
+.readme-badge-right {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 13px;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.readme-badge-left {
+  background: #0f1722;
+  color: #f2f6fc;
+  border-right: 1px solid #4e5966;
+}
+
+.readme-badge-right {
+  background: linear-gradient(90deg, #1c9cff, #15d6ff);
+  color: #021723;
 }
 
 main {
@@ -225,7 +244,7 @@ button[disabled] {
 .preview-grid {
   margin-top: 14px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -235,19 +254,86 @@ figure {
   border-radius: 12px;
   background: rgba(6, 14, 28, 0.92);
   overflow: hidden;
+  transition: transform 140ms ease, border-color 140ms ease;
+}
+
+figure:hover {
+  transform: translateY(-2px);
+  border-color: #44d8ff;
 }
 
 figure img {
   display: block;
   width: 100%;
-  height: 196px;
+  height: 294px;
   object-fit: cover;
+  cursor: zoom-in;
 }
 
 figcaption {
   padding: 10px;
   color: var(--text-soft);
   font-size: 0.92rem;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(3, 10, 20, 0.85);
+  backdrop-filter: blur(3px);
+}
+
+.lightbox.open {
+  display: flex;
+}
+
+.lightbox-figure {
+  width: min(1200px, 96vw);
+  margin: 0;
+  border: 1px solid #3a5581;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #071225;
+}
+
+.lightbox-figure img {
+  width: 100%;
+  max-height: 82vh;
+  object-fit: contain;
+  background: #030a14;
+}
+
+.lightbox-figure figcaption {
+  padding: 12px 14px;
+  font-size: 0.96rem;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  border: 1px solid #4a6c9b;
+  border-radius: 10px;
+  background: #081325;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.lightbox-close:hover,
+.lightbox-close:focus-visible {
+  border-color: #71dbff;
+}
+
+body.lightbox-open {
+  overflow: hidden;
 }
 
 @media (max-width: 920px) {
@@ -262,6 +348,6 @@ figcaption {
   }
 
   figure img {
-    height: 210px;
+    height: 260px;
   }
 }

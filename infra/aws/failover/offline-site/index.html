@@ -17,8 +17,9 @@
           <div class="brand-title">CloudRadar</div>
           <div class="brand-subtitle">Live IDF Air Traffic Console</div>
         </div>
-        <a class="readme-link" id="readme-link" href="https://github.com/ClementV78/CloudRadar" target="_blank" rel="noopener noreferrer">
-          View Project README
+        <a class="readme-badge" id="readme-link" href="https://github.com/ClementV78/CloudRadar" target="_blank" rel="noopener noreferrer" aria-label="Open project README on GitHub">
+          <span class="readme-badge-left">GitHub</span>
+          <span class="readme-badge-right">README</span>
         </a>
       </header>
 
@@ -65,20 +66,43 @@
           <p>Key screens from the live platform:</p>
           <div class="preview-grid">
             <figure>
-              <img src="/screenshots/dashboard.png" alt="CloudRadar map dashboard with live aircraft view" loading="lazy" />
+              <img
+                src="/screenshots/dashboard.png"
+                alt="CloudRadar map dashboard with live aircraft view"
+                loading="lazy"
+                data-caption="Real-time map dashboard"
+              />
               <figcaption>Real-time map dashboard</figcaption>
             </figure>
             <figure>
-              <img src="/screenshots/grafana-app-telemetry.png" alt="Grafana application telemetry dashboard" loading="lazy" />
+              <img
+                src="/screenshots/grafana-app-telemetry.png"
+                alt="Grafana application telemetry dashboard"
+                loading="lazy"
+                data-caption="Application telemetry"
+              />
               <figcaption>Application telemetry</figcaption>
             </figure>
             <figure>
-              <img src="/screenshots/grafana-ops.png" alt="Grafana infrastructure operations dashboard" loading="lazy" />
+              <img
+                src="/screenshots/grafana-ops.png"
+                alt="Grafana infrastructure operations dashboard"
+                loading="lazy"
+                data-caption="Operations monitoring"
+              />
               <figcaption>Operations monitoring</figcaption>
             </figure>
           </div>
         </section>
       </main>
+    </div>
+
+    <div id="preview-lightbox" class="lightbox" aria-hidden="true" role="dialog" aria-label="Screenshot preview">
+      <button id="lightbox-close" class="lightbox-close" type="button" aria-label="Close preview">Close</button>
+      <figure class="lightbox-figure">
+        <img id="lightbox-image" src="" alt="" />
+        <figcaption id="lightbox-caption"></figcaption>
+      </figure>
     </div>
 
     <script src="/app.js" type="module"></script>

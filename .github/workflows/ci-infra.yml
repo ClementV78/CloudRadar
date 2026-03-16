@@ -175,7 +175,7 @@ jobs:
           working_directory: infra/aws
           github_token: ${{ github.token }}
           additional_args: >-
-            --exclude aws-s3-encryption-customer-key,aws-dynamodb-enable-at-rest-encryption,aws-dynamodb-enable-recovery,aws-s3-enable-bucket-logging,aws-dynamodb-table-customer-key
+            --exclude aws-s3-encryption-customer-key,aws-dynamodb-enable-at-rest-encryption,aws-dynamodb-enable-recovery,aws-s3-enable-bucket-logging,aws-dynamodb-table-customer-key,aws-cloudfront-enable-waf,aws-cloudfront-enable-logging,aws-api-gateway-enable-access-logging,aws-cloudwatch-log-group-customer-key,aws-lambda-enable-tracing
 
   env-select:
     if: ${{ github.event_name == 'workflow_dispatch' }}

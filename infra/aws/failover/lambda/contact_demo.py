@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import os
 import re
 import time
@@ -22,6 +23,9 @@ RECIPIENT_EMAIL = os.environ["RECIPIENT_EMAIL"]
 SENDER_EMAIL = os.environ["SENDER_EMAIL"]
 RATE_LIMIT_WINDOW_SECONDS = int(os.environ.get("RATE_LIMIT_WINDOW_SECONDS", "900"))
 RATE_LIMIT_MAX_HITS = int(os.environ.get("RATE_LIMIT_MAX_HITS", "3"))
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 _dynamodb = boto3.client("dynamodb") if boto3 else None
 _ses = boto3.client("ses") if boto3 else None
@@ -135,23 +139,67 @@ def _send_email(payload: dict[str, str], ip: str) -> None:
   )
 
 
-def handler(event: dict[str, Any], _context: Any) -> dict[str, Any]:
+def _client_error_code(exc: Exception) -> str:
+  response = getattr(exc, "response", {}) or {}
+  return str(response.get("Error", {}).get("Code", ""))
+
+
+def _client_error_response(exc: Exception) -> dict[str, Any]:
+  code = _client_error_code(exc)
+
+  if code == "MessageRejected":
+    return _json_response(503, {"error": "Email service is temporarily unavailable. Please retry later."})
+
+  if code in ("AccessDenied", "AccessDeniedException"):
+    return _json_response(503, {"error": "Contact service is temporarily unavailable. Please retry later."})
+
+  return _json_response(500, {"error": "Internal error"})
+
+
+def _log_context(event: dict[str, Any], context: Any) -> dict[str, str]:
+  request_id = getattr(context, "aws_request_id", "unknown")
+  method = event.get("requestContext", {}).get("http", {}).get("method", "unknown")
+  source_ip = _source_ip(event)
+  source_ip_hash = hashlib.sha256(source_ip.encode("utf-8")).hexdigest()[:12]
+  return {
+      "request_id": request_id,
+      "method": method,
+      "source_ip_hash": source_ip_hash
+  }
+
+
+def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
   method = event.get("requestContext", {}).get("http", {}).get("method", "")
   if method != "POST":
     return _json_response(405, {"error": "Method not allowed"})
 
+  log_ctx = _log_context(event, context)
   try:
     payload = _parse_body(event)
     _validate(payload)
     ip = _source_ip(event)
     _apply_rate_limit(ip)
     _send_email(payload, ip)
+    logger.info("contact request processed successfully request_id=%s source_ip_hash=%s",
+                log_ctx["request_id"], log_ctx["source_ip_hash"])
     return _json_response(200, {"ok": True})
-  except PermissionError:
+  except PermissionError as exc:
+    logger.warning("contact request rejected request_id=%s reason=%s source_ip_hash=%s",
+                   log_ctx["request_id"], str(exc), log_ctx["source_ip_hash"])
     return _json_response(400, {"error": "Invalid request"})
   except ValueError as exc:
+    logger.info("contact request validation failed request_id=%s reason=%s source_ip_hash=%s",
+                log_ctx["request_id"], str(exc), log_ctx["source_ip_hash"])
     return _json_response(400, {"error": str(exc)})
   except TimeoutError:
+    logger.warning("contact request rate limited request_id=%s source_ip_hash=%s",
+                   log_ctx["request_id"], log_ctx["source_ip_hash"])
     return _json_response(429, {"error": "Too many requests, please retry later"})
+  except ClientError as exc:
+    logger.exception("aws client error request_id=%s code=%s source_ip_hash=%s",
+                     log_ctx["request_id"], _client_error_code(exc), log_ctx["source_ip_hash"])
+    return _client_error_response(exc)
   except Exception:
+    logger.exception("unhandled error request_id=%s source_ip_hash=%s",
+                     log_ctx["request_id"], log_ctx["source_ip_hash"])
     return _json_response(500, {"error": "Internal error"})
