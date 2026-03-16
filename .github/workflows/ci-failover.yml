@@ -25,6 +25,11 @@ on:
         required: true
         type: boolean
         default: true
+      offline_mode:
+        description: "Allow apply/plan when live.<dns_zone_name> record is missing (online infra intentionally down)"
+        required: true
+        type: boolean
+        default: false
       confirm_destroy:
         description: "Type DESTROY to confirm"
         required: false
@@ -334,6 +339,7 @@ jobs:
           OFFLINE_PRIMARY_DOMAIN_LABEL="${{ vars.OFFLINE_PRIMARY_DOMAIN_LABEL || 'live' }}"
           DNS_ZONE_NAME="${{ vars.DNS_ZONE_NAME }}"
           DNS_ZONE_NO_DOT="${DNS_ZONE_NAME%.}"
+          OFFLINE_MODE="${{ inputs.offline_mode }}"
 
           if [[ "${OFFLINE_SITE_ENABLED}" == "true" && -z "${OFFLINE_CONTACT_RECIPIENT_EMAIL}" ]]; then
             echo "OFFLINE_CONTACT_RECIPIENT_EMAIL is required when OFFLINE_SITE_ENABLED=true" >&2
@@ -359,9 +365,13 @@ jobs:
               --output text)"
 
             if [[ "${LIVE_RECORD_COUNT}" == "0" ]]; then
-              echo "Missing Route53 record ${LIVE_RECORD_NAME} in zone ${DNS_ZONE_NO_DOT}." >&2
-              echo "Run ci-infra first or set OFFLINE_ROUTE53_FAILOVER_ENABLED=false." >&2
-              exit 1
+              if [[ "${OFFLINE_MODE}" == "true" ]]; then
+                echo "::warning title=ci-failover::Missing Route53 record ${LIVE_RECORD_NAME} in zone ${DNS_ZONE_NO_DOT}; continuing because offline_mode=true."
+              else
+                echo "Missing Route53 record ${LIVE_RECORD_NAME} in zone ${DNS_ZONE_NO_DOT}." >&2
+                echo "Run ci-infra first or run ci-failover with offline_mode=true when online infra is intentionally destroyed." >&2
+                exit 1
+              fi
             fi
           fi
 
