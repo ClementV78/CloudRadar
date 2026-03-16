@@ -123,6 +123,11 @@ resource "aws_s3_object" "offline_static" {
   source       = each.value.source_path
   etag         = filemd5(each.value.source_path)
   content_type = each.value.content_type
+  cache_control = (
+    each.key == "index.html"
+    ? "no-store, max-age=0, must-revalidate"
+    : null
+  )
 }
 
 resource "aws_s3_object" "offline_screenshots" {
@@ -406,6 +411,33 @@ data "aws_cloudfront_cache_policy" "caching_optimized" {
   name = "Managed-CachingOptimized"
 }
 
+resource "aws_cloudfront_cache_policy" "offline_static_default" {
+  count = local.offline_enabled ? 1 : 0
+
+  name        = "cloudradar-offline-static-default"
+  comment     = "Default static cache policy with min TTL 0 to honor no-store on index.html"
+  default_ttl = 86400
+  max_ttl     = 31536000
+  min_ttl     = 0
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    cookies_config {
+      cookie_behavior = "none"
+    }
+
+    headers_config {
+      header_behavior = "none"
+    }
+
+    query_strings_config {
+      query_string_behavior = "none"
+    }
+
+    enable_accept_encoding_brotli = true
+    enable_accept_encoding_gzip   = true
+  }
+}
+
 data "aws_cloudfront_cache_policy" "caching_disabled" {
   count = local.offline_enabled ? 1 : 0
 
@@ -454,7 +486,7 @@ resource "aws_cloudfront_distribution" "offline" {
     allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD"]
     compress               = true
-    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized[0].id
+    cache_policy_id        = aws_cloudfront_cache_policy.offline_static_default[0].id
   }
 
   ordered_cache_behavior {

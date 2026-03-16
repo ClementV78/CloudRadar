@@ -4,6 +4,7 @@ This runbook explains the `ci-failover` GitHub Actions workflow used to manage t
 
 ## Purpose
 Manage offline fallback infrastructure in a dedicated Terraform state (`cloudradar/failover/terraform.tfstate`) so it is not impacted by `ci-infra-destroy`.
+The workflow also keeps user-visible switch latency low by invalidating offline CloudFront HTML entrypoints (`/` and `/index.html`) after apply.
 
 ## Terraform root
 - `infra/aws/failover`
@@ -65,3 +66,6 @@ When online infrastructure is intentionally destroyed:
 - `ci-failover` uses a dedicated remote state key and lock table.
 - `ci-infra-destroy` does not remove failover resources.
 - Route53 failover remains active when live infra is down.
+- Cache guardrails:
+  - `index.html` is configured with `Cache-Control: no-store, max-age=0, must-revalidate`.
+  - `/api/contact-demo` uses a disabled CloudFront cache policy and response `Cache-Control: no-store`.
