@@ -293,7 +293,7 @@ figcaption {
 }
 
 .lightbox-figure {
-  width: min(1200px, 96vw);
+  width: min(1400px, 98vw);
   margin: 0;
   border: 1px solid #3a5581;
   border-radius: 14px;
@@ -302,8 +302,12 @@ figcaption {
 }
 
 .lightbox-figure img {
-  width: 100%;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
   max-height: 82vh;
+  margin: 0 auto;
   object-fit: contain;
   background: #030a14;
 }
