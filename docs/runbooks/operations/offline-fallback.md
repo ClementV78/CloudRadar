@@ -9,6 +9,10 @@ Serve a branded CloudRadar offline landing page with demo-contact form when live
 - Both failover records use the same public hostname (`cloudradar.<domain>`); Route53 returns PRIMARY or SECONDARY target depending on primary health-check status.
 - Contact form: `/api/contact-demo` -> CloudFront behavior -> API Gateway HTTP API -> Lambda -> SES.
 - Anti-spam baseline (no WAF): API throttling + honeypot + backend validation + DynamoDB IP/window rate limit.
+- Cache strategy for switch visibility:
+  - `index.html`: `Cache-Control: no-store, max-age=0, must-revalidate` (online and offline paths)
+  - `/api/contact-demo`: CloudFront `CachingDisabled` + runtime `Cache-Control: no-store`
+  - `ci-failover` triggers CloudFront invalidation for `/` and `/index.html` after apply
 
 ## Offline fallback diagram
 ```mermaid
@@ -91,6 +95,11 @@ aws route53 list-health-checks --query "HealthChecks[?contains(FullyQualifiedDom
    - `*._domainkey.<dns_zone_name>` CNAME (DKIM)
 5. Open `https://offline.<zone>` and submit a test contact request.
 6. Confirm SES email reception.
+7. Verify headers on public host:
+```bash
+curl -sSI https://cloudradar.<domain>/ | grep -i '^cache-control:'
+curl -sSI https://cloudradar.<domain>/index.html | grep -i '^cache-control:'
+```
 
 ### SES sandbox note
 If SES is still in sandbox mode (`ProductionAccessEnabled=false`), the recipient identity must be verified.

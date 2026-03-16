@@ -433,6 +433,34 @@ jobs:
         if: ${{ inputs.action == 'apply' && inputs.auto_approve }}
         run: terraform -chdir=infra/aws/failover apply -input=false -lock-timeout=300s -auto-approve tfplan
 
+      - name: Invalidate offline CloudFront HTML entrypoints
+        if: ${{ inputs.action == 'apply' && inputs.auto_approve }}
+        run: |
+          set -euo pipefail
+
+          OFFLINE_SITE_ENABLED="${{ vars.OFFLINE_SITE_ENABLED || 'true' }}"
+          if [[ "${OFFLINE_SITE_ENABLED}" != "true" ]]; then
+            echo "OFFLINE_SITE_ENABLED=${OFFLINE_SITE_ENABLED}; skipping CloudFront invalidation."
+            exit 0
+          fi
+
+          DNS_ZONE_NO_DOT="${{ vars.DNS_ZONE_NAME }}"
+          DNS_ZONE_NO_DOT="${DNS_ZONE_NO_DOT%.}"
+          DIST_ID="$(aws cloudfront list-distributions \
+            --query "DistributionList.Items[?Aliases.Quantity > \`0\` && contains(Aliases.Items, '${DNS_ZONE_NO_DOT}')].Id | [0]" \
+            --output text 2>/dev/null || true)"
+
+          if [[ -z "${DIST_ID}" || "${DIST_ID}" == "None" || "${DIST_ID}" == "null" ]]; then
+            echo "::warning title=ci-failover::Offline CloudFront distribution not found; skipping invalidation."
+            exit 0
+          fi
+
+          aws cloudfront create-invalidation \
+            --distribution-id "${DIST_ID}" \
+            --paths "/" "/index.html" \
+            >/dev/null
+          echo "CloudFront invalidation submitted for distribution ${DIST_ID}: / and /index.html"
+
       - name: Guard destroy confirmation
         if: ${{ inputs.action == 'destroy' && inputs.confirm_destroy != 'DESTROY' }}
         run: |
