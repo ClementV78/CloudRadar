@@ -67,6 +67,9 @@ Recommended sequence for this project:
 2. Run `ci-infra` for live env (creates/updates `live.<zone>` record used by failover health checks).
 3. Run `ci-failover` (`action=apply`, `auto_approve=true`).
 
+If online infra is intentionally destroyed and `live.<zone>` is absent:
+- run `ci-failover` with `offline_mode=true` to keep failover stack deployable/manageable.
+
 In CI, use workflows:
 1. `bootstrap-terraform-backend` for backend + optional DNS/TLS bootstrap.
 2. `ci-infra` for live env.
@@ -88,6 +91,13 @@ aws route53 list-health-checks --query "HealthChecks[?contains(FullyQualifiedDom
    - `*._domainkey.<dns_zone_name>` CNAME (DKIM)
 5. Open `https://offline.<zone>` and submit a test contact request.
 6. Confirm SES email reception.
+
+### SES sandbox note
+If SES is still in sandbox mode (`ProductionAccessEnabled=false`), the recipient identity must be verified.
+The Terraform Lambda IAM policy authorizes:
+- domain identity (`identity/<dns_zone_name>`)
+- recipient identity (`identity/<offline_contact_recipient_email>`)
+to prevent `AccessDenied` at `ses:SendEmail`.
 
 ## Spam-protection checks
 - Submit 1 valid request -> expected `200`.
