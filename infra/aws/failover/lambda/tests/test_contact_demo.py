@@ -96,6 +96,52 @@ class ContactDemoLambdaTest(unittest.TestCase):
     self.mock_ddb.update_item.assert_not_called()
     self.mock_ses.send_email.assert_not_called()
 
+  def test_handles_ses_message_rejected(self):
+    class FakeClientError(Exception):
+      def __init__(self, code):
+        super().__init__(code)
+        self.response = {"Error": {"Code": code}}
+
+    self.module.ClientError = FakeClientError
+    self.mock_ses.send_email.side_effect = FakeClientError("MessageRejected")
+
+    event = self._event(
+      {
+        "name": "Jane Doe",
+        "email": "jane@example.com",
+        "message": "I would like a live demo next week.",
+        "honeypot": ""
+      }
+    )
+
+    response = self.module.handler(event, None)
+
+    self.assertEqual(503, response["statusCode"])
+    self.assertIn("temporarily unavailable", response["body"])
+
+  def test_handles_ses_access_denied(self):
+    class FakeClientError(Exception):
+      def __init__(self, code):
+        super().__init__(code)
+        self.response = {"Error": {"Code": code}}
+
+    self.module.ClientError = FakeClientError
+    self.mock_ses.send_email.side_effect = FakeClientError("AccessDeniedException")
+
+    event = self._event(
+      {
+        "name": "Jane Doe",
+        "email": "jane@example.com",
+        "message": "I would like a live demo next week.",
+        "honeypot": ""
+      }
+    )
+
+    response = self.module.handler(event, None)
+
+    self.assertEqual(503, response["statusCode"])
+    self.assertIn("temporarily unavailable", response["body"])
+
 
 if __name__ == "__main__":
   unittest.main()
