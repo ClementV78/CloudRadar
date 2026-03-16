@@ -248,7 +248,10 @@ resource "aws_iam_role_policy" "offline_contact_lambda" {
           "ses:SendEmail",
           "ses:SendRawEmail"
         ]
-        Resource = "arn:aws:ses:${var.region}:*:identity/${local.dns_zone_name}"
+        Resource = [
+          "arn:aws:ses:${var.region}:*:identity/${local.dns_zone_name}",
+          "arn:aws:ses:${var.region}:*:identity/${var.offline_contact_recipient_email}"
+        ]
       }
     ]
   })

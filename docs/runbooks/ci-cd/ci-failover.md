@@ -23,6 +23,7 @@ Set these GitHub Actions variables:
 Runtime prerequisites:
 - `live.<dns_zone_name>` record must already exist (created by `ci-infra`), because Route53 PRIMARY failover aliases that record.
 - The role behind `AWS_FAILOVER_TERRAFORM_ROLE_ARN` must include CloudFront/Route53/ACM/SES/API Gateway/Lambda/IAM/Logs permissions required by `infra/aws/failover`.
+- For intentional offline-only operation (live infra destroyed), enable `offline_mode=true` at workflow dispatch.
 
 Optional tuning:
 - `OFFLINE_SITE_ENABLED` (default: `true`)
@@ -44,7 +45,16 @@ Optional tuning:
 - `action`: `plan` | `apply` | `destroy`
 - `auto_approve`: required `true` for `apply`
 - `import_existing`: best-effort migration import before plan/apply
+- `offline_mode`: allow run when `live.<dns_zone_name>` A record is missing
 - `confirm_destroy`: must be `DESTROY` for `destroy`
+
+## Offline-only usage
+When online infrastructure is intentionally destroyed:
+1. Run `ci-failover` with:
+   - `action=apply`
+   - `auto_approve=true`
+   - `offline_mode=true`
+2. The workflow keeps Route53 failover resources manageable even if `live.<dns_zone_name>` does not exist.
 
 ## Recommended order
 1. `bootstrap-terraform-backend`

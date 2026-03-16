@@ -2,6 +2,23 @@
 
 This log tracks incidents and fixes in reverse chronological order. Use it for debugging patterns and onboarding.
 
+## 2026-03-16
+
+### [failover/contact] Offline form returned generic `Internal error` after deployment
+- **Severity:** Medium
+- **Impact:** Offline contact form submissions failed while fallback page remained available.
+- **Signal:** API returned `500 {"error":"Internal error"}` and Lambda logs initially showed only START/END without useful diagnostics.
+- **Analysis:** Two combined factors:
+  1. Lambda runtime was still on an older handler version that swallowed exceptions in generic `except Exception`.
+  2. After deploying improved diagnostics, CloudWatch showed `AccessDenied` on `ses:SendEmail` for recipient identity ARN (`identity/<recipient_email>`). Lambda IAM policy only authorized SES domain identity.
+- **Resolution:**
+  1. Deploy handler with structured error logging (`logger.exception`, request context hash, client error code mapping).
+  2. Extend Terraform Lambda IAM SES policy to authorize both:
+     - `identity/<dns_zone_name>`
+     - `identity/<offline_contact_recipient_email>`
+  3. Add `offline_mode` workflow checkbox in `ci-failover` to allow apply/plan when `live.<zone>` is absent by design.
+- **Guardrail:** For SES sandbox-compatible automation, always include recipient identity ARN in IAM policy when using verified-recipient flow.
+
 ## 2026-03-12
 
 ### [app/ingester] Startup crash after refactor (`FlightIngestJob` bean instantiation)
