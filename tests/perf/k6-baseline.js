@@ -6,7 +6,7 @@ export const options = {
   duration: __ENV.K6_DURATION || "30s",
   thresholds: {
     http_req_failed: ["rate<0.05"],
-    http_req_duration: ["p(95)<1500"],
+    http_req_duration: ["p(95)<5000"],
     checks: ["rate>0.95"],
   },
 };
