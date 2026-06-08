@@ -1,0 +1,203 @@
+name: TLS Renew
+description: >
+  Issues or renews a Let's Encrypt certificate via DNS-01 (Route53) and stores
+  the result in SSM Parameter Store. Skips renewal when the certificate in SSM
+  has more than renew_threshold_days remaining, unless force=true.
+
+inputs:
+  tls_domain:
+    description: "Domain to issue/renew the certificate for."
+    required: true
+  aws_region:
+    description: "AWS region for SSM and Route53 operations."
+    required: false
+    default: "us-east-1"
+  force:
+    description: "Skip expiry check and always issue a new certificate."
+    required: false
+    default: "false"
+  renew_threshold_days:
+    description: "Renew if fewer than this many days remain on the SSM certificate."
+    required: false
+    default: "7"
+  fullchain_param:
+    description: "SSM parameter name for the fullchain PEM."
+    required: false
+    default: "/cloudradar/edge/tls/fullchain_pem"
+  privkey_param:
+    description: "SSM parameter name for the private key PEM."
+    required: false
+    default: "/cloudradar/edge/tls/privkey_pem"
+  metadata_param:
+    description: "SSM parameter name for the certificate metadata JSON."
+    required: false
+    default: "/cloudradar/edge/tls/metadata"
+
+outputs:
+  renewed:
+    description: "true if a new certificate was issued, false if skipped."
+    value: ${{ steps.issue.outputs.renewed }}
+  not_after:
+    description: "Certificate expiry date (empty when skipped)."
+    value: ${{ steps.issue.outputs.not_after }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check certificate expiry in SSM
+      id: check
+      shell: bash
+      env:
+        AWS_REGION: ${{ inputs.aws_region }}
+        FULLCHAIN_PARAM: ${{ inputs.fullchain_param }}
+        THRESHOLD_DAYS: ${{ inputs.renew_threshold_days }}
+        FORCE: ${{ inputs.force }}
+      run: |
+        set -euo pipefail
+
+        if [[ "${FORCE}" == "true" ]]; then
+          echo "force=true — skipping expiry check."
+          echo "needs_renewal=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        CERT_PATH="$(mktemp)"
+        trap 'rm -f "${CERT_PATH}"' EXIT
+
+        if ! aws ssm get-parameter \
+          --name "${FULLCHAIN_PARAM}" \
+          --with-decryption \
+          --region "${AWS_REGION}" \
+          --query "Parameter.Value" \
+          --output text > "${CERT_PATH}" 2>/dev/null; then
+          echo "::notice title=tls-renew::No certificate found in SSM — will issue a new one."
+          echo "needs_renewal=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        THRESHOLD_SECONDS=$(( THRESHOLD_DAYS * 86400 ))
+        if openssl x509 -in "${CERT_PATH}" -noout -checkend "${THRESHOLD_SECONDS}" >/dev/null 2>&1; then
+          NOT_AFTER="$(openssl x509 -in "${CERT_PATH}" -noout -enddate | cut -d= -f2-)"
+          echo "::notice title=tls-renew::Certificate valid for more than ${THRESHOLD_DAYS} days (not_after=${NOT_AFTER}) — skipping renewal."
+          echo "needs_renewal=false" >> "$GITHUB_OUTPUT"
+        else
+          NOT_AFTER="$(openssl x509 -in "${CERT_PATH}" -noout -enddate | cut -d= -f2-)" || NOT_AFTER="expired/unreadable"
+          echo "::notice title=tls-renew::Certificate expires within ${THRESHOLD_DAYS} days (not_after=${NOT_AFTER}) — renewing."
+          echo "needs_renewal=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Install certbot DNS Route53 plugin
+      if: steps.check.outputs.needs_renewal == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update -qq
+        sudo apt-get install -y certbot python3-certbot-dns-route53
+
+    - name: Issue certificate and store in SSM
+      id: issue
+      if: steps.check.outputs.needs_renewal == 'true'
+      shell: bash
+      env:
+        AWS_REGION: ${{ inputs.aws_region }}
+        TLS_DOMAIN: ${{ inputs.tls_domain }}
+        FULLCHAIN_PARAM: ${{ inputs.fullchain_param }}
+        PRIVKEY_PARAM: ${{ inputs.privkey_param }}
+        METADATA_PARAM: ${{ inputs.metadata_param }}
+      run: |
+        set -euo pipefail
+
+        CERTBOT_DIR="$(mktemp -d)"
+        trap 'rm -rf "${CERTBOT_DIR}"' EXIT
+
+        certbot certonly \
+          --non-interactive \
+          --agree-tos \
+          --register-unsafely-without-email \
+          --dns-route53 \
+          --key-type rsa \
+          --rsa-key-size 2048 \
+          --config-dir "${CERTBOT_DIR}/config" \
+          --work-dir   "${CERTBOT_DIR}/work" \
+          --logs-dir   "${CERTBOT_DIR}/logs" \
+          -d "${TLS_DOMAIN}"
+
+        FULLCHAIN_PATH="${CERTBOT_DIR}/config/live/${TLS_DOMAIN}/fullchain.pem"
+        PRIVKEY_PATH="${CERTBOT_DIR}/config/live/${TLS_DOMAIN}/privkey.pem"
+
+        if [[ ! -s "${FULLCHAIN_PATH}" || ! -s "${PRIVKEY_PATH}" ]]; then
+          echo "Certificate issuance succeeded but expected files are missing." >&2
+          exit 1
+        fi
+
+        put_secure_parameter_with_tier_fallback() {
+          local param_name="$1"
+          local source_file="$2"
+          local stderr_file
+          stderr_file="$(mktemp)"
+
+          if aws ssm put-parameter \
+            --name "${param_name}" \
+            --type SecureString \
+            --tier Standard \
+            --overwrite \
+            --region "${AWS_REGION}" \
+            --value "$(cat "${source_file}")" \
+            >/dev/null 2>"${stderr_file}"; then
+            echo "Stored ${param_name} (Standard tier)."
+            rm -f "${stderr_file}"
+            return 0
+          fi
+
+          if grep -Eiq "Standard parameters may have values with a maximum size of 4096|ValidationException|size" "${stderr_file}"; then
+            aws ssm put-parameter \
+              --name "${param_name}" \
+              --type SecureString \
+              --tier Advanced \
+              --overwrite \
+              --region "${AWS_REGION}" \
+              --value "$(cat "${source_file}")" \
+              >/dev/null
+            echo "Stored ${param_name} (Advanced tier fallback)."
+            rm -f "${stderr_file}"
+            return 0
+          fi
+
+          echo "Failed storing ${param_name}." >&2
+          cat "${stderr_file}" >&2
+          rm -f "${stderr_file}"
+          return 1
+        }
+
+        put_secure_parameter_with_tier_fallback "${FULLCHAIN_PARAM}" "${FULLCHAIN_PATH}"
+        put_secure_parameter_with_tier_fallback "${PRIVKEY_PARAM}"   "${PRIVKEY_PATH}"
+
+        NOT_AFTER="$(openssl x509 -in "${FULLCHAIN_PATH}" -noout -enddate | cut -d= -f2-)"
+        FINGERPRINT_SHA256="$(openssl x509 -in "${FULLCHAIN_PATH}" -noout -fingerprint -sha256 | cut -d= -f2)"
+        ISSUED_AT_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+        METADATA_JSON="$(jq -cn \
+          --arg domain            "${TLS_DOMAIN}" \
+          --arg not_after         "${NOT_AFTER}" \
+          --arg fingerprint_sha256 "${FINGERPRINT_SHA256}" \
+          --arg issued_at         "${ISSUED_AT_UTC}" \
+          '{domain:$domain, not_after:$not_after, fingerprint_sha256:$fingerprint_sha256, issued_at:$issued_at, source:"letsencrypt-dns-01"}')"
+
+        aws ssm put-parameter \
+          --name "${METADATA_PARAM}" \
+          --type String \
+          --overwrite \
+          --region "${AWS_REGION}" \
+          --value "${METADATA_JSON}" \
+          >/dev/null
+
+        echo "::notice title=tls-renew::Certificate issued for ${TLS_DOMAIN} (not_after=${NOT_AFTER})."
+        echo "renewed=true"    >> "$GITHUB_OUTPUT"
+        echo "not_after=${NOT_AFTER}" >> "$GITHUB_OUTPUT"
+
+    - name: Set skipped outputs
+      if: steps.check.outputs.needs_renewal == 'false'
+      shell: bash
+      run: |
+        echo "renewed=false" >> "$GITHUB_OUTPUT"
+        echo "not_after="   >> "$GITHUB_OUTPUT"
