@@ -478,6 +478,15 @@ jobs:
             terraform -chdir="${TF_DIR}" state rm aws_route53_zone.cloudradar[0]
           fi
 
+      - name: Renew TLS certificate if expiring within 7 days
+        if: ${{ vars.DNS_ZONE_NAME != '' }}
+        uses: ./.github/actions/tls-renew
+        with:
+          tls_domain: ${{ vars.DNS_ZONE_NAME }}
+          aws_region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          force: "false"
+          renew_threshold_days: "7"
+
       - name: Terraform apply
         run: |
           set -euo pipefail
